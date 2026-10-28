@@ -274,7 +274,10 @@ export function startWave(s: GameState) {
 }
 
 function applyFreeze(e: Enemy, duration: number) {
-  if (e.alive && duration > 0) e.frozenTimer = Math.max(e.frozenTimer, duration)
+  if (e.alive && duration > 0) {
+    e.frozenTimer = Math.max(e.frozenTimer, duration)
+    if (e.type === 'healer') e.healCooldown = 1.5
+  }
 }
 
 function applySlow(e: Enemy, duration: number, factor: number) {
@@ -565,12 +568,15 @@ export function update(s: GameState, dt: number) {
       // The vessel cannot move while sealed, but towers can still damage it.
       continue
     }
-    if (e.type === 'healer' && e.healCooldown <= 0) {
+    if (e.type === 'healer' && e.frozenTimer > 0) {
+      // Freezing interrupts healing and keeps the cooldown reset until thawed.
+      e.healCooldown = 1.5
+    } else if (e.type === 'healer' && e.healCooldown <= 0) {
       for (const ally of s.enemies) {
         if (!ally.alive || ally.id === e.id || ally.type === 'bugPrince') continue
         if (Math.hypot(ally.x-e.x,ally.y-e.y)<=92 && ally.hp<ally.maxHp) ally.hp=Math.min(ally.maxHp,ally.hp+Math.max(1,ally.hp*.15))
       }
-      s.explosions.push({x:e.x,y:e.y,r:92,t:0,dur:.25,color:'#4ade80'});e.healCooldown=2
+      s.explosions.push({x:e.x,y:e.y,r:92,t:0,dur:.25,color:'#4ade80'});e.healCooldown=1.5
     }
     if(e.type==='bugPrince'&&e.spawnCooldown<=0){
       const picks:EnemyType[]=['grunt','runner','tank','vessel','jumper','healer']
