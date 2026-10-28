@@ -13,7 +13,7 @@ export type TowerType =
   | 'snowballer'
   | 'thunderstorm'
   | 'ice'
-export type EnemyType = 'grunt' | 'tank' | 'runner' | 'vessel'
+export type EnemyType = 'grunt' | 'tank' | 'runner' | 'vessel' | 'jumper' | 'healer' | 'bugPrince'
 
 export type TargetMode = 'first' | 'last' | 'strongest' | 'weakest' | 'closest'
 export const TARGET_MODES: { value: TargetMode; label: string }[] = [
@@ -334,16 +334,12 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
     description: 'Inseto amarelo muito rápido.',
   },
   vessel: {
-    name: 'Vessel',
-    hp: 230,
-    speed: 23,
-    reward: 18,
-    radius: 14,
-    damage: 4,
-    color: '#92400e',
-    dark: '#451a03',
+    name: 'Vessel', hp: 230, speed: 23, reward: 18, radius: 14, damage: 4, color: '#92400e', dark: '#451a03',
     description: 'Inseto marrom cascudo. Ao ser derrotado, entra em um casulo por 5 segundos e revive com 75% da vida anterior; cada regeneração seguinte é 75% da anterior.',
   },
+  jumper: { name: 'Jumper', hp: 95, speed: 70, reward: 10, radius: 10, damage: 2, color: '#c084fc', dark: '#581c87', description: 'Salta para a frente a cada 1,25 segundos. No ar, é imune a Shooter, Cannon e Retarder.' },
+  healer: { name: 'Healer', hp: 115, speed: 30, reward: 14, radius: 11, damage: 2, color: '#4ade80', dark: '#166534', description: 'A cada 2 segundos, cura inimigos próximos em 5% da vida atual. Não se cura nem cura o Bug Prince.' },
+  bugPrince: { name: 'Bug Prince', hp: 18000, speed: 13, reward: 500, radius: 25, damage: 20, color: '#fbbf24', dark: '#78350f', description: 'Primeiro chefe: vida enorme, invoca reforços e chama um enxame a cada terço da vida perdida. Ao morrer, dá capacetes e +25% de vida aos tipos de insetos encontrados.' },
 }
 
 export const CELL = 48
@@ -383,25 +379,30 @@ export const PATH_CELLS = (() => {
   return set
 })()
 
-export function buildWave(n: number): { type: EnemyType; delay: number }[] {
-  const queue: { type: EnemyType; delay: number }[] = []
-  const pace = Math.max(0.55, 1 - n * 0.03)
-  const grunts = 5 + n * 2
-  const runners = n >= 2 ? 1 + n : 0
-  const tanks = n >= 3 ? Math.floor((n - 1) / 2) : 0
-  const vessels = n >= 5 ? 1 + Math.floor((n - 5) / 4) : 0
-  for (let i = 0; i < grunts; i++) {
-    queue.push({ type: 'grunt', delay: 0.75 * pace })
-    if (runners && i % 2 === 1 && queue.filter((q) => q.type === 'runner').length < runners) {
-      queue.push({ type: 'runner', delay: 0.4 * pace })
-    }
-  }
-  while (queue.filter((q) => q.type === 'runner').length < runners) {
-    queue.push({ type: 'runner', delay: 0.4 * pace })
-  }
-  for (let i = 0; i < tanks; i++) queue.push({ type: 'tank', delay: 1.4 * pace })
-  for (let i = 0; i < vessels; i++) queue.push({ type: 'vessel', delay: 1.8 * pace })
+const WAVE_BLUEPRINTS: Record<number, { type: EnemyType; count: number; delay: number }[]> = {
+  1:[{type:'grunt',count:12,delay:.75}],2:[{type:'grunt',count:14,delay:.7},{type:'runner',count:3,delay:.45}],
+  3:[{type:'grunt',count:12,delay:.65},{type:'runner',count:6,delay:.4}],4:[{type:'grunt',count:16,delay:.62},{type:'tank',count:2,delay:1.3}],
+  5:[{type:'grunt',count:14,delay:.6},{type:'runner',count:8,delay:.38},{type:'vessel',count:1,delay:1.7}],6:[{type:'runner',count:12,delay:.35},{type:'tank',count:3,delay:1.1}],
+  7:[{type:'grunt',count:18,delay:.55},{type:'vessel',count:2,delay:1.5}],8:[{type:'jumper',count:5,delay:1},{type:'grunt',count:12,delay:.55}],
+  9:[{type:'runner',count:14,delay:.32},{type:'tank',count:4,delay:1}],10:[{type:'jumper',count:7,delay:.85},{type:'vessel',count:2,delay:1.35}],
+  11:[{type:'grunt',count:20,delay:.5},{type:'healer',count:2,delay:1.25}],12:[{type:'runner',count:14,delay:.3},{type:'healer',count:3,delay:1}],
+  13:[{type:'jumper',count:8,delay:.8},{type:'tank',count:5,delay:.9}],14:[{type:'vessel',count:4,delay:1.25},{type:'healer',count:3,delay:.9}],
+  15:[{type:'runner',count:18,delay:.28},{type:'jumper',count:8,delay:.75}],16:[{type:'grunt',count:22,delay:.42},{type:'healer',count:4,delay:.8}],
+  17:[{type:'tank',count:8,delay:.75},{type:'jumper',count:10,delay:.7}],18:[{type:'vessel',count:5,delay:1},{type:'healer',count:4,delay:.8}],
+  19:[{type:'runner',count:22,delay:.25},{type:'tank',count:6,delay:.7}],20:[{type:'jumper',count:12,delay:.65},{type:'healer',count:5,delay:.75},{type:'vessel',count:4,delay:.95}],
+  21:[{type:'grunt',count:24,delay:.36},{type:'healer',count:6,delay:.7}],22:[{type:'runner',count:24,delay:.23},{type:'jumper',count:12,delay:.6}],
+  23:[{type:'tank',count:10,delay:.6},{type:'healer',count:6,delay:.65}],24:[{type:'vessel',count:8,delay:.8},{type:'jumper',count:14,delay:.55}],
+  25:[{type:'runner',count:28,delay:.2},{type:'healer',count:7,delay:.6}],26:[{type:'tank',count:12,delay:.52},{type:'vessel',count:8,delay:.7},{type:'healer',count:6,delay:.55}],
+  27:[{type:'jumper',count:18,delay:.45},{type:'runner',count:18,delay:.2}],28:[{type:'vessel',count:10,delay:.62},{type:'healer',count:8,delay:.5},{type:'jumper',count:12,delay:.45}],
+  29:[{type:'tank',count:16,delay:.45},{type:'vessel',count:10,delay:.55},{type:'healer',count:10,delay:.45}],
+}
+export function buildWave(n:number):{type:EnemyType;delay:number}[] {
+  if(n===30)return [{type:'bugPrince',delay:0}]
+  const blueprint=WAVE_BLUEPRINTS[Math.min(29,Math.max(1,n))]
+  const queue:{type:EnemyType;delay:number}[]=[]
+  const pace=Math.max(.68,1-n*.012)
+  for(const group of blueprint)for(let i=0;i<group.count;i++)queue.push({type:group.type,delay:group.delay*pace})
   return queue
 }
 
-export const hpScale = (wave: number) => 1 + 0.18 * (wave - 1) + 0.01 * (wave - 1) ** 2
+export const hpScale = (wave: number) => wave >= 30 ? 1 : 1 + 0.18 * (wave - 1) + 0.01 * (wave - 1) ** 2

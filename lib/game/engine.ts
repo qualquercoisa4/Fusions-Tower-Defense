@@ -27,6 +27,12 @@ export interface Enemy {
   frozenTimer: number
   slowTimer: number
   slowFactor: number
+  jumpCooldown: number
+  airborneTimer: number
+  healCooldown: number
+  bossThreshold: number
+  spawnCooldown: number
+  helmet: boolean
   wp: number
   dist: number
   angle: number
@@ -66,6 +72,7 @@ type Projectile =
       splash: number
       color: string
       size: number
+      sourceType?: TowerType
     }
   | {
       kind: 'energy'
@@ -103,6 +110,7 @@ type Projectile =
       explodeAtLimit: boolean
       splash: number
       splashFreezeDuration: number
+      sourceType?: TowerType
     }
   | {
       kind: 'arc'
@@ -164,6 +172,9 @@ export interface GameState {
   fuseMode: boolean
   hover: { col: number; row: number } | null
   time: number
+  seenEnemyTypes: EnemyType[]
+  bugPrinceDefeated: boolean
+  swarmCounter: number
 }
 
 export function createGame(): GameState {
@@ -187,6 +198,9 @@ export function createGame(): GameState {
     fuseMode: false,
     hover: null,
     time: 0,
+    seenEnemyTypes: [],
+    bugPrinceDefeated: false,
+    swarmCounter: 0,
   }
 }
 
@@ -275,10 +289,25 @@ function freezeInRadius(s: GameState, x: number, y: number, radius: number, dura
   }
 }
 
-function damageEnemy(s: GameState, e: Enemy, dmg: number) {
+function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType) {
   if (!e.alive) return
-  e.hp -= dmg
+  if(e.type==='jumper'&&e.airborneTimer>0&&sourceType&&['shooter','cannon','retarder'].includes(sourceType))return
+  const previousHp=e.hp;e.hp-=dmg
+  if(e.type==='bugPrince'){
+    const lostThirds=Math.floor((e.maxHp-e.hp)/(e.maxHp/3))
+    while(e.bossThreshold>0&&lostThirds>=3-e.bossThreshold){
+      const count=8+s.swarmCounter*2, types:EnemyType[]=['grunt','runner','jumper']
+      for(let i=0;i<count;i++)s.spawnQueue.push({type:types[i%types.length],delay:.06})
+      s.swarmCounter++;e.bossThreshold--
+    }
+    if(e.hp>0&&previousHp>e.hp)s.explosions.push({x:e.x,y:e.y,r:18,t:0,dur:.15,color:'#fbbf24'})
+  }
   if (e.hp <= 0) {
+    if(e.type==='bugPrince'){
+      s.bugPrinceDefeated=true
+      for(const ally of s.enemies){if(!ally.alive||!s.seenEnemyTypes.includes(ally.type)||ally.helmet)continue;ally.maxHp=Math.ceil(ally.maxHp*1.25);ally.hp=Math.ceil(Math.max(1,ally.hp)*1.25);ally.helmet=true}
+      s.explosions.push({x:e.x,y:e.y,r:100,t:0,dur:1.2,color:'#fbbf24'})
+    }
     if (e.type === 'vessel' && !e.cocooning) {
       const nextReviveHp = e.reviveHp * 0.75
       // Regrowth compounds: 75% of the previous regenerated amount each time.
@@ -298,9 +327,9 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number) {
   }
 }
 
-function explode(s: GameState, x: number, y: number, radius: number, dmg: number, color: string) {
+function explode(s: GameState, x: number, y: number, radius: number, dmg: number, color: string, sourceType?: TowerType) {
   for (const e of s.enemies) {
-    if (e.alive && Math.hypot(e.x - x, e.y - y) <= radius + ENEMIES[e.type].radius) damageEnemy(s, e, dmg)
+    if (e.alive && Math.hypot(e.x - x, e.y - y) <= radius + ENEMIES[e.type].radius) damageEnemy(s, e, dmg, sourceType)
   }
   s.explosions.push({ x, y, r: radius, t: 0, dur: 0.4, color })
 }
@@ -383,6 +412,7 @@ function fire(s: GameState, t: Tower, target: Enemy) {
       explodeAtLimit: t.type === 'snowballer',
       splash: def.splash,
       splashFreezeDuration: t.type === 'snowballer' ? 2 : 0,
+      sourceType: t.type,
     })
     return
   }
@@ -445,6 +475,7 @@ function fire(s: GameState, t: Tower, target: Enemy) {
       splash: def.splash,
       color: def.color,
       size: def.style === 'shell' ? 5 : 3,
+      sourceType: t.type,
     })
     return
   }
@@ -480,7 +511,10 @@ export function update(s: GameState, dt: number) {
     if (s.spawnTimer <= 0) {
       const next = s.spawnQueue.shift()!
       const def = ENEMIES[next.type]
-      const hp = Math.round(def.hp * hpScale(s.wave))
+      const boss = next.type === 'bugPrince'
+      const helmet = s.bugPrinceDefeated && s.seenEnemyTypes.includes(next.type)
+      const hp = Math.round(def.hp * (boss ? 1 : hpScale(s.wave)) * (helmet ? 1.25 : 1))
+      if (!boss && !s.seenEnemyTypes.includes(next.type)) s.seenEnemyTypes.push(next.type)
       s.enemies.push({
         id: s.nextId++,
         type: next.type,
@@ -492,6 +526,12 @@ export function update(s: GameState, dt: number) {
         frozenTimer: 0,
         slowTimer: 0,
         slowFactor: 1,
+        jumpCooldown: 1.25,
+        airborneTimer: 0,
+        healCooldown: 2,
+        bossThreshold: 2,
+        spawnCooldown: 3.5,
+        helmet,
         wp: 1,
         dist: 0,
         angle: 0,
@@ -509,6 +549,10 @@ export function update(s: GameState, dt: number) {
     const def = ENEMIES[e.type]
     e.anim += dt
     e.frozenTimer = Math.max(0, e.frozenTimer - dt)
+    e.airborneTimer = Math.max(0, e.airborneTimer - dt)
+    e.jumpCooldown -= dt
+    e.healCooldown -= dt
+    e.spawnCooldown -= dt
     e.slowTimer = Math.max(0, e.slowTimer - dt)
     if (e.slowTimer <= 0) e.slowFactor = 1
     if (e.cocooning) {
@@ -521,7 +565,25 @@ export function update(s: GameState, dt: number) {
       // The vessel cannot move while sealed, but towers can still damage it.
       continue
     }
+    if (e.type === 'healer' && e.healCooldown <= 0) {
+      for (const ally of s.enemies) {
+        if (!ally.alive || ally.id === e.id || ally.type === 'bugPrince') continue
+        if (Math.hypot(ally.x-e.x,ally.y-e.y)<=92 && ally.hp<ally.maxHp) ally.hp=Math.min(ally.maxHp,ally.hp+Math.max(1,ally.hp*.05))
+      }
+      s.explosions.push({x:e.x,y:e.y,r:92,t:0,dur:.25,color:'#4ade80'});e.healCooldown=2
+    }
+    if(e.type==='bugPrince'&&e.spawnCooldown<=0){
+      const picks:EnemyType[]=['grunt','runner','tank','vessel','jumper','healer']
+      const type=picks[Math.floor(Math.random()*picks.length)]
+      s.spawnQueue.push({type,delay:.05},{type:Math.random()<.5?'grunt':'runner',delay:.05});e.spawnCooldown=3.5
+    }
+    if(e.type==='jumper'&&e.jumpCooldown<=0&&e.frozenTimer<=0&&!e.cocooning){
+      e.airborneTimer=.52;e.jumpCooldown=1.25;e.anim=0
+      const target=PATH[e.wp]
+      if(target){const dx=target.x-e.x,dy=target.y-e.y,d=Math.hypot(dx,dy);if(d>.001){const jumpDistance=Math.min(d,70);e.x+=(dx/d)*jumpDistance;e.y+=(dy/d)*jumpDistance;e.dist+=jumpDistance;e.angle=Math.atan2(dy,dx);if(jumpDistance>=d-.001)e.wp++}}
+    }
     if (e.frozenTimer > 0) continue
+    if (e.type === 'jumper') continue
     let step = def.speed * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
     while (step > 0 && e.alive) {
       const target = PATH[e.wp]
@@ -683,8 +745,8 @@ export function update(s: GameState, dt: number) {
       const d = Math.hypot(dx, dy)
       const step = p.speed * dt
       if (d <= step + 4) {
-        if (p.splash > 0) explode(s, p.tx, p.ty, p.splash, p.damage, p.color)
-        else if (target) damageEnemy(s, target, p.damage)
+        if (p.splash > 0) explode(s, p.tx, p.ty, p.splash, p.damage, p.color, p.sourceType)
+        else if (target) damageEnemy(s, target, p.damage, p.sourceType)
         return false
       }
       p.x += (dx / d) * step
@@ -731,7 +793,7 @@ export function update(s: GameState, dt: number) {
         p.hitIds.push(hit.id)
         if (p.freezeDuration > 0) applyFreeze(hit, p.freezeDuration)
         if (p.slowDuration > 0) applySlow(hit, p.slowDuration, p.slowFactor)
-        damageEnemy(s, hit, p.damage)
+        damageEnemy(s, hit, p.damage, p.sourceType)
 
         if (p.splitOnHit) {
           for (let i = 0; i < 3; i++) {
@@ -837,11 +899,12 @@ export function update(s: GameState, dt: number) {
 
 /* ---------- Rendering ---------- */
 
-export function drawBug(ctx: CanvasRenderingContext2D, type: EnemyType, x: number, y: number, angle: number, anim: number, cocooning = false) {
+export function drawBug(ctx: CanvasRenderingContext2D, type: EnemyType, x: number, y: number, angle: number, anim: number, cocooning = false, airborne = false, helmet = false) {
   const def = ENEMIES[type]
   const r = def.radius
   ctx.save()
   ctx.translate(x, y)
+  if(airborne){ctx.scale(1.3,1.3);ctx.shadowColor='#c084fc';ctx.shadowBlur=12}
   ctx.rotate(angle)
   if (type === 'vessel' && cocooning) {
     const pulse = 1 + Math.sin(anim * 5) * 0.035
@@ -941,6 +1004,9 @@ export function drawBug(ctx: CanvasRenderingContext2D, type: EnemyType, x: numbe
   ctx.arc(r * 0.9, -r * 0.14, 1.2, 0, Math.PI * 2)
   ctx.arc(r * 0.9, r * 0.14, 1.2, 0, Math.PI * 2)
   ctx.fill()
+  if(type==='healer'){ctx.strokeStyle='#dcfce7';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(-r*.35,-r*.3);ctx.lineTo(-r*.35,r*.3);ctx.moveTo(-r*.65,0);ctx.lineTo(-r*.05,0);ctx.stroke()}
+  if(type==='bugPrince'){ctx.fillStyle='#fef3c7';ctx.strokeStyle='#92400e';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-r*.5,-r*.45);ctx.lineTo(-r*.6,-r*1.05);ctx.lineTo(-r*.15,-r*.78);ctx.lineTo(0,-r*1.25);ctx.lineTo(r*.2,-r*.78);ctx.lineTo(r*.6,-r*1.05);ctx.lineTo(r*.48,-r*.42);ctx.closePath();ctx.fill();ctx.stroke()}
+  if(helmet){ctx.fillStyle='#cbd5e1';ctx.strokeStyle='#475569';ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(r*.25,-r*.35,r*.42,Math.PI,Math.PI*2);ctx.lineTo(r*.67,-r*.1);ctx.lineTo(-r*.17,-r*.1);ctx.closePath();ctx.fill();ctx.stroke()}
   ctx.restore()
 }
 
@@ -1231,7 +1297,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 
   for (const e of s.enemies) {
-    drawBug(ctx, e.type, e.x, e.y, e.angle, e.anim, e.cocooning)
+    drawBug(ctx, e.type, e.x, e.y-(e.airborneTimer>0?14:0), e.angle, e.anim, e.cocooning, e.airborneTimer>0, e.helmet)
     if (e.frozenTimer > 0 || e.slowTimer > 0) {
       ctx.save()
       ctx.strokeStyle = e.frozenTimer > 0 ? '#7dd3fc' : '#a5f3fc'
