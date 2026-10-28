@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Coins, FastForward, Heart, Merge, Play, RotateCcw, Trash2, Waves } from 'lucide-react'
-import { BUILDABLE, CELL, HEIGHT, TOWERS, WIDTH, fusionResult, type TowerType } from '@/lib/game/data'
+import { BUILDABLE, CELL, HEIGHT, TARGET_MODES, TOWERS, WIDTH, fusionResult, type TargetMode, type TowerType } from '@/lib/game/data'
 import {
   createGame,
   fuseTowers,
@@ -63,6 +63,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
       } else if (e.key === '1') selectBuild('shooter')
       else if (e.key === '2') selectBuild('cannon')
       else if (e.key === '3') selectBuild('lightning')
+      else if (e.key === '4') selectBuild('retarder')
       else if (e.key === ' ') {
         e.preventDefault()
         startWave(s)
@@ -261,6 +262,24 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
                   <dt className="text-slate-400">{selected.type === 'raygun' ? 'Aura' : 'Área'}</dt>
                   <dd>{selDef.splash || '—'}</dd>
                 </dl>
+                <div>
+                  <label htmlFor={`target-mode-${selected.id}`} className="mb-1 block text-xs text-slate-400">
+                    ALVO ESPECIAL
+                  </label>
+                  <select
+                    id={`target-mode-${selected.id}`}
+                    value={selected.targetMode}
+                    onChange={(event) => {
+                      selected.targetMode = event.target.value as TargetMode
+                      refresh()
+                    }}
+                    className="w-full rounded-md border border-sky-500/30 bg-[#071020] px-2 py-2 text-sm text-slate-100 outline-none focus:border-sky-300"
+                  >
+                    {TARGET_MODES.map((mode) => (
+                      <option key={mode.value} value={mode.value}>{mode.label}</option>
+                    ))}
+                  </select>
+                </div>
                 {possibleFusions.length > 0 ? (
                   <div className="text-xs text-slate-300">
                     <p className="mb-1 text-slate-400">Fusões possíveis:</p>

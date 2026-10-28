@@ -8,7 +8,21 @@ export type TowerType =
   | 'raygun'
   | 'bolt'
   | 'tesla'
+  | 'retarder'
+  | 'icicles'
+  | 'snowballer'
+  | 'thunderstorm'
+  | 'ice'
 export type EnemyType = 'grunt' | 'tank' | 'runner' | 'vessel'
+
+export type TargetMode = 'first' | 'last' | 'strongest' | 'weakest' | 'closest'
+export const TARGET_MODES: { value: TargetMode; label: string }[] = [
+  { value: 'first', label: 'Primeiro na rota' },
+  { value: 'last', label: 'Último na rota' },
+  { value: 'strongest', label: 'Mais vida' },
+  { value: 'weakest', label: 'Menos vida' },
+  { value: 'closest', label: 'Mais próximo' },
+]
 export type ProjectileStyle = 'bullet' | 'shell' | 'mortar' | 'cluster' | 'beam' | 'energy' | 'lightning' | 'tesla'
 
 export interface TowerDef {
@@ -126,7 +140,7 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     fireRate: 0.48,
     splash: 34,
     style: 'energy',
-    projectileSpeed: 155,
+    projectileSpeed: 75,
     inaccuracy: 0,
     cost: 0,
     color: '#c084fc',
@@ -163,9 +177,84 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     accent: '#1d4ed8',
     description: 'Feixe concentrado em um único inimigo. Cada pulso causa mais dano quanto mais tempo mantém o mesmo alvo.',
   },
+  retarder: {
+    name: 'Retarder',
+    tier: 0,
+    damage: 8,
+    range: 128,
+    fireRate: 0.95,
+    splash: 0,
+    style: 'bullet',
+    projectileSpeed: 280,
+    inaccuracy: 0,
+    cost: 65,
+    color: '#7dd3fc',
+    accent: '#075985',
+    description: 'Dispara um projétil perfurante que congela até 3 inimigos por 2 segundos. Prioriza inimigos ainda não congelados.',
+  },
+  icicles: {
+    name: 'Icicles',
+    tier: 1,
+    damage: 15,
+    range: 142,
+    fireRate: 0.72,
+    splash: 0,
+    style: 'bullet',
+    projectileSpeed: 260,
+    inaccuracy: 0,
+    cost: 0,
+    color: '#a5f3fc',
+    accent: '#0e7490',
+    description: 'Ao acertar, divide-se em 3 estilhaços aleatórios. Cada projétil causa dano médio e reduz a velocidade em 50% por 2 segundos.',
+  },
+  snowballer: {
+    name: 'Snowballer',
+    tier: 1,
+    damage: 26,
+    range: 155,
+    fireRate: 0.26,
+    splash: 54,
+    style: 'shell',
+    projectileSpeed: 92,
+    inaccuracy: 0,
+    cost: 0,
+    color: '#e0f2fe',
+    accent: '#0369a1',
+    description: 'Arremessa uma bola de neve lenta que atravessa até 5 inimigos antes de explodir, causando dano e congelando a área por 2 segundos.',
+  },
+  thunderstorm: {
+    name: 'Thunderstorm',
+    tier: 1,
+    damage: 27,
+    range: 166,
+    fireRate: 0.34,
+    splash: 0,
+    style: 'beam',
+    projectileSpeed: 0,
+    inaccuracy: 0,
+    cost: 0,
+    color: '#c4b5fd',
+    accent: '#5b21b6',
+    description: 'Invoca trovões em uma linha de inimigos, causando dano e congelando cada alvo por 1 segundo. Disparo lento.',
+  },
+  ice: {
+    name: 'Ice Tower',
+    tier: 1,
+    damage: 0,
+    range: 108,
+    fireRate: 0.85,
+    splash: 0,
+    style: 'beam',
+    projectileSpeed: 0,
+    inaccuracy: 0,
+    cost: 0,
+    color: '#67e8f9',
+    accent: '#155e75',
+    description: 'Em vez de disparar projéteis, congela todos os inimigos dentro do alcance por 1 segundo em pulsos de frequência média.',
+  },
 }
 
-export const BUILDABLE: TowerType[] = ['shooter', 'cannon', 'lightning']
+export const BUILDABLE: TowerType[] = ['shooter', 'cannon', 'lightning', 'retarder']
 
 const FUSIONS: Record<string, TowerType> = {
   'cannon+shooter': 'mortar',
@@ -174,6 +263,10 @@ const FUSIONS: Record<string, TowerType> = {
   'lightning+shooter': 'raygun',
   'lightning+lightning': 'tesla',
   'cannon+lightning': 'bolt',
+  'retarder+shooter': 'icicles',
+  'cannon+retarder': 'snowballer',
+  'lightning+retarder': 'thunderstorm',
+  'retarder+retarder': 'ice',
 }
 
 export function fusionResult(a: TowerType, b: TowerType): TowerType | undefined {
@@ -188,6 +281,10 @@ export const FUSION_LIST: { a: TowerType; b: TowerType; result: TowerType }[] = 
   { a: 'lightning', b: 'shooter', result: 'raygun' },
   { a: 'lightning', b: 'cannon', result: 'bolt' },
   { a: 'lightning', b: 'lightning', result: 'tesla' },
+  { a: 'shooter', b: 'retarder', result: 'icicles' },
+  { a: 'cannon', b: 'retarder', result: 'snowballer' },
+  { a: 'lightning', b: 'retarder', result: 'thunderstorm' },
+  { a: 'retarder', b: 'retarder', result: 'ice' },
 ]
 
 export interface EnemyDef {
@@ -245,7 +342,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
     damage: 4,
     color: '#92400e',
     dark: '#451a03',
-    description: 'Inseto marrom cascudo. Ao ser derrotado, entra em um casulo por 5 segundos e revive com 75% da vida se sobreviver.',
+    description: 'Inseto marrom cascudo. Ao ser derrotado, entra em um casulo por 5 segundos e revive com 75% da vida anterior; cada regeneração seguinte é 75% da anterior.',
   },
 }
 

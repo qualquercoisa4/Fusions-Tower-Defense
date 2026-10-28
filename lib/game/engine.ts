@@ -13,6 +13,7 @@ import {
   hpScale,
   type EnemyType,
   type TowerType,
+  type TargetMode,
 } from './data'
 
 export interface Enemy {
@@ -22,6 +23,10 @@ export interface Enemy {
   y: number
   hp: number
   maxHp: number
+  reviveHp: number
+  frozenTimer: number
+  slowTimer: number
+  slowFactor: number
   wp: number
   dist: number
   angle: number
@@ -43,6 +48,7 @@ export interface Tower {
   invested: number
   recoil: number
   beamTargets: number[]
+  targetMode: TargetMode
   chargeTargetId: number | null
   chargeTime: number
 }
@@ -75,6 +81,28 @@ type Projectile =
       damage: number
       color: string
       size: number
+    }
+  | {
+      kind: 'ice'
+      x: number
+      y: number
+      dirX: number
+      dirY: number
+      traveled: number
+      maxDistance: number
+      speed: number
+      damage: number
+      color: string
+      size: number
+      freezeDuration: number
+      slowDuration: number
+      slowFactor: number
+      hitLimit: number
+      hitIds: number[]
+      splitOnHit: boolean
+      explodeAtLimit: boolean
+      splash: number
+      splashFreezeDuration: number
     }
   | {
       kind: 'arc'
@@ -189,6 +217,7 @@ export function placeTower(s: GameState, type: TowerType, col: number, row: numb
     invested: cost,
     recoil: 0,
     beamTargets: [],
+    targetMode: 'first',
     chargeTargetId: null,
     chargeTime: 0,
   })
@@ -230,18 +259,38 @@ export function startWave(s: GameState) {
   s.spawnTimer = 0
 }
 
+function applyFreeze(e: Enemy, duration: number) {
+  if (e.alive && duration > 0) e.frozenTimer = Math.max(e.frozenTimer, duration)
+}
+
+function applySlow(e: Enemy, duration: number, factor: number) {
+  if (!e.alive || duration <= 0) return
+  e.slowTimer = Math.max(e.slowTimer, duration)
+  e.slowFactor = Math.min(e.slowFactor, factor)
+}
+
+function freezeInRadius(s: GameState, x: number, y: number, radius: number, duration: number) {
+  for (const e of s.enemies) {
+    if (e.alive && Math.hypot(e.x - x, e.y - y) <= radius + ENEMIES[e.type].radius) applyFreeze(e, duration)
+  }
+}
+
 function damageEnemy(s: GameState, e: Enemy, dmg: number) {
   if (!e.alive) return
   e.hp -= dmg
   if (e.hp <= 0) {
     if (e.type === 'vessel' && !e.cocooning) {
-      // The first lethal hit starts a five-second cocoon phase instead of killing it.
-      e.cocooning = true
-      e.cocoonTimer = 5
-      e.hp = e.maxHp
-      e.anim = 0
-      s.explosions.push({ x: e.x, y: e.y, r: ENEMIES[e.type].radius * 1.8, t: 0, dur: 0.45, color: '#d97706' })
-      return
+      const nextReviveHp = e.reviveHp * 0.75
+      // Regrowth compounds: 75% of the previous regenerated amount each time.
+      if (nextReviveHp >= 1) {
+        e.reviveHp = nextReviveHp
+        e.cocooning = true
+        e.cocoonTimer = 5
+        e.hp = e.reviveHp
+        e.anim = 0
+        s.explosions.push({ x: e.x, y: e.y, r: ENEMIES[e.type].radius * 1.8, t: 0, dur: 0.45, color: '#d97706' })
+        return
+      }
     }
     e.alive = false
     s.money += ENEMIES[e.type].reward
@@ -256,12 +305,30 @@ function explode(s: GameState, x: number, y: number, radius: number, dmg: number
   s.explosions.push({ x, y, r: radius, t: 0, dur: 0.4, color })
 }
 
-function findTarget(s: GameState, t: Tower, range: number) {
+function findTarget(
+  s: GameState,
+  t: Tower,
+  range: number,
+  mode: TargetMode = 'first',
+  filter: (enemy: Enemy) => boolean = () => true,
+) {
   let best: Enemy | null = null
   for (const e of s.enemies) {
-    if (!e.alive) continue
-    if (Math.hypot(e.x - t.x, e.y - t.y) > range) continue
-    if (!best || e.dist > best.dist) best = e
+    if (!e.alive || !filter(e)) continue
+    const distance = Math.hypot(e.x - t.x, e.y - t.y)
+    if (distance > range) continue
+    if (!best) {
+      best = e
+      continue
+    }
+    const bestDistance = Math.hypot(best.x - t.x, best.y - t.y)
+    const preferred =
+      mode === 'first' ? e.dist > best.dist
+      : mode === 'last' ? e.dist < best.dist
+      : mode === 'strongest' ? e.hp > best.hp
+      : mode === 'weakest' ? e.hp < best.hp
+      : distance < bestDistance
+    if (preferred) best = e
   }
   return best
 }
@@ -291,6 +358,34 @@ function findChainTargets(s: GameState, first: Enemy, linkRange = 76) {
 function fire(s: GameState, t: Tower, target: Enemy) {
   const def = TOWERS[t.type]
   t.recoil = 1
+
+  if (t.type === 'retarder' || t.type === 'icicles' || t.type === 'snowballer') {
+    const dirX = Math.cos(t.angle)
+    const dirY = Math.sin(t.angle)
+    s.projectiles.push({
+      kind: 'ice',
+      x: t.x + dirX * 16,
+      y: t.y + dirY * 16,
+      dirX,
+      dirY,
+      traveled: 0,
+      maxDistance: def.range + 24,
+      speed: def.projectileSpeed,
+      damage: def.damage,
+      color: def.color,
+      size: t.type === 'snowballer' ? 7 : t.type === 'icicles' ? 4 : 4.5,
+      freezeDuration: t.type === 'retarder' ? 2 : 0,
+      slowDuration: t.type === 'icicles' ? 2 : 0,
+      slowFactor: 0.5,
+      hitLimit: t.type === 'retarder' ? 3 : t.type === 'snowballer' ? 5 : 1,
+      hitIds: [],
+      splitOnHit: t.type === 'icicles',
+      explodeAtLimit: t.type === 'snowballer',
+      splash: def.splash,
+      splashFreezeDuration: t.type === 'snowballer' ? 2 : 0,
+    })
+    return
+  }
 
   if (def.style === 'lightning') {
     const enemiesInRange = s.enemies.filter(
@@ -393,6 +488,10 @@ export function update(s: GameState, dt: number) {
         y: PATH[0].y,
         hp,
         maxHp: hp,
+        reviveHp: hp,
+        frozenTimer: 0,
+        slowTimer: 0,
+        slowFactor: 1,
         wp: 1,
         dist: 0,
         angle: 0,
@@ -409,17 +508,21 @@ export function update(s: GameState, dt: number) {
     if (!e.alive) continue
     const def = ENEMIES[e.type]
     e.anim += dt
+    e.frozenTimer = Math.max(0, e.frozenTimer - dt)
+    e.slowTimer = Math.max(0, e.slowTimer - dt)
+    if (e.slowTimer <= 0) e.slowFactor = 1
     if (e.cocooning) {
       e.cocoonTimer -= dt
       if (e.cocoonTimer <= 0) {
         e.cocooning = false
-        e.hp = Math.max(1, Math.ceil(e.maxHp * 0.75))
+        e.hp = Math.max(1, e.reviveHp)
         e.anim = 0
       }
       // The vessel cannot move while sealed, but towers can still damage it.
       continue
     }
-    let step = def.speed * dt
+    if (e.frozenTimer > 0) continue
+    let step = def.speed * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
     while (step > 0 && e.alive) {
       const target = PATH[e.wp]
       const dx = target.x - e.x
@@ -449,7 +552,13 @@ export function update(s: GameState, dt: number) {
     const def = TOWERS[t.type]
     t.cooldown -= dt
     t.recoil = Math.max(0, t.recoil - dt * 5)
-    const foundTarget = findTarget(s, t, def.range)
+    const foundTarget = findTarget(
+      s,
+      t,
+      def.range,
+      t.targetMode,
+      (enemy) => t.type !== 'retarder' || enemy.frozenTimer <= 0,
+    )
     const lockedTeslaTarget =
       t.type === 'tesla' && t.chargeTargetId !== null
         ? s.enemies.find(
@@ -460,6 +569,50 @@ export function update(s: GameState, dt: number) {
           ) ?? null
         : null
     const target = lockedTeslaTarget ?? foundTarget
+
+    if (t.type === 'ice') {
+      t.beamTargets = []
+      if (target && t.cooldown <= 0) {
+        freezeInRadius(s, t.x, t.y, def.range, 1)
+        t.cooldown = 1 / def.fireRate
+        t.recoil = 0.35
+        s.explosions.push({ x: t.x, y: t.y, r: 24, t: 0, dur: 0.18, color: def.color })
+      }
+      continue
+    }
+
+    if (t.type === 'thunderstorm') {
+      t.beamTargets = []
+      if (!target) continue
+      t.angle = Math.atan2(target.y - t.y, target.x - t.x)
+      if (t.cooldown <= 0) {
+        const dirX = Math.cos(t.angle)
+        const dirY = Math.sin(t.angle)
+        const lineTargets = s.enemies
+          .filter((enemy) => {
+            if (!enemy.alive) return false
+            const dx = enemy.x - t.x
+            const dy = enemy.y - t.y
+            const along = dx * dirX + dy * dirY
+            const across = Math.abs(dx * dirY - dy * dirX)
+            return along > 0 && along <= def.range && across <= 22
+          })
+          .sort((a, b) => Math.hypot(a.x - t.x, a.y - t.y) - Math.hypot(b.x - t.x, b.y - t.y))
+        for (const enemy of lineTargets) {
+          damageEnemy(s, enemy, def.damage)
+          applyFreeze(enemy, 1)
+          s.lightningFlashes.push({
+            points: [{ x: enemy.x, y: Math.max(0, enemy.y - 96) }, { x: enemy.x, y: enemy.y }],
+            t: 0,
+            dur: 0.26,
+            color: def.color,
+          })
+        }
+        t.cooldown = 1 / def.fireRate
+        t.recoil = 0.35
+      }
+      continue
+    }
 
     if (t.type === 'lightning') {
       t.beamTargets = []
@@ -561,6 +714,72 @@ export function update(s: GameState, dt: number) {
         }
       }
       return p.traveled < p.maxDistance && p.x >= -20 && p.x <= WIDTH + 20 && p.y >= -20 && p.y <= HEIGHT + 20
+    }
+    if (p.kind === 'ice') {
+      const step = p.speed * dt
+      p.x += p.dirX * step
+      p.y += p.dirY * step
+      p.traveled += step
+
+      const hit = s.enemies.find(
+        (enemy) =>
+          enemy.alive &&
+          !p.hitIds.includes(enemy.id) &&
+          Math.hypot(enemy.x - p.x, enemy.y - p.y) <= ENEMIES[enemy.type].radius + p.size + 2,
+      )
+      if (hit) {
+        p.hitIds.push(hit.id)
+        if (p.freezeDuration > 0) applyFreeze(hit, p.freezeDuration)
+        if (p.slowDuration > 0) applySlow(hit, p.slowDuration, p.slowFactor)
+        damageEnemy(s, hit, p.damage)
+
+        if (p.splitOnHit) {
+          for (let i = 0; i < 3; i++) {
+            const angle = Math.random() * Math.PI * 2
+            const dirX = Math.cos(angle)
+            const dirY = Math.sin(angle)
+            spawned.push({
+              kind: 'ice',
+              x: p.x,
+              y: p.y,
+              dirX,
+              dirY,
+              traveled: 0,
+              maxDistance: 100,
+              speed: 235,
+              damage: p.damage * 0.72,
+              color: '#a5f3fc',
+              size: 3.5,
+              freezeDuration: 0,
+              slowDuration: 2,
+              slowFactor: 0.5,
+              hitLimit: 1,
+              hitIds: [hit.id],
+              splitOnHit: false,
+              explodeAtLimit: false,
+              splash: 0,
+              splashFreezeDuration: 0,
+            })
+          }
+          return false
+        }
+
+        if (p.hitIds.length >= p.hitLimit) {
+          if (p.explodeAtLimit) {
+            explode(s, p.x, p.y, p.splash, p.damage, p.color)
+            freezeInRadius(s, p.x, p.y, p.splash, p.splashFreezeDuration)
+          }
+          return false
+        }
+      }
+
+      const stillInBounds =
+        p.traveled < p.maxDistance && p.x >= -20 && p.x <= WIDTH + 20 && p.y >= -20 && p.y <= HEIGHT + 20
+      if (!stillInBounds && p.explodeAtLimit) {
+        explode(s, p.x, p.y, p.splash, p.damage, p.color)
+        freezeInRadius(s, p.x, p.y, p.splash, p.splashFreezeDuration)
+      }
+      return stillInBounds
     }
     p.t += dt
     if (p.t >= p.duration) {
@@ -767,13 +986,70 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
     return
   }
 
-  if (type === 'lightning' || type === 'tesla') {
+  if (type === 'ice') {
+    ctx.strokeStyle = def.color
+    ctx.lineWidth = 3
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    for (const a of [0, Math.PI / 3, (Math.PI * 2) / 3]) {
+      ctx.moveTo(Math.cos(a) * -10, Math.sin(a) * -10)
+      ctx.lineTo(Math.cos(a) * 10, Math.sin(a) * 10)
+    }
+    ctx.stroke()
+    ctx.fillStyle = '#ecfeff'
+    ctx.beginPath()
+    ctx.arc(0, 0, 4, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+    return
+  }
+
+  if (type === 'retarder' || type === 'icicles' || type === 'snowballer') {
+    ctx.rotate(angle)
+    const back = recoil * 4
+    if (type === 'retarder') {
+      ctx.fillStyle = def.accent
+      ctx.fillRect(-2, -6, 18 - back, 12)
+      ctx.fillStyle = def.color
+      ctx.beginPath()
+      ctx.moveTo(16 - back, -5)
+      ctx.lineTo(22 - back, 0)
+      ctx.lineTo(16 - back, 5)
+      ctx.closePath()
+      ctx.fill()
+    } else if (type === 'icicles') {
+      ctx.fillStyle = def.color
+      for (const offset of [-6, 0, 6]) {
+        ctx.beginPath()
+        ctx.moveTo(1 - back, offset)
+        ctx.lineTo(18 - back, offset - 2)
+        ctx.lineTo(14 - back, offset + 2)
+        ctx.closePath()
+        ctx.fill()
+      }
+    } else {
+      ctx.fillStyle = def.accent
+      ctx.fillRect(-1 - back, -5, 14, 10)
+      ctx.fillStyle = def.color
+      ctx.beginPath()
+      ctx.arc(15 - back, 0, 7, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.strokeStyle = '#ecfeff'
+      ctx.beginPath()
+      ctx.arc(15 - back, 0, 4, 0, Math.PI * 2)
+      ctx.stroke()
+    }
+    ctx.restore()
+    return
+  }
+
+  if (type === 'lightning' || type === 'tesla' || type === 'thunderstorm') {
     ctx.fillStyle = def.accent
     ctx.beginPath()
     ctx.arc(0, 0, 12, 0, Math.PI * 2)
     ctx.fill()
     ctx.strokeStyle = def.color
-    ctx.lineWidth = type === 'tesla' ? 3.5 : 2.5
+    ctx.lineWidth = type === 'tesla' || type === 'thunderstorm' ? 3.5 : 2.5
     ctx.lineCap = 'round'
     ctx.beginPath()
     ctx.moveTo(-7, -10)
@@ -956,6 +1232,16 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
 
   for (const e of s.enemies) {
     drawBug(ctx, e.type, e.x, e.y, e.angle, e.anim, e.cocooning)
+    if (e.frozenTimer > 0 || e.slowTimer > 0) {
+      ctx.save()
+      ctx.strokeStyle = e.frozenTimer > 0 ? '#7dd3fc' : '#a5f3fc'
+      ctx.lineWidth = e.frozenTimer > 0 ? 2.5 : 1.5
+      ctx.globalAlpha = e.frozenTimer > 0 ? 0.9 : 0.6
+      ctx.beginPath()
+      ctx.arc(e.x, e.y, ENEMIES[e.type].radius + (e.frozenTimer > 0 ? 5 : 3), 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.restore()
+    }
     if (e.hp < e.maxHp || e.cocooning) {
       const r = ENEMIES[e.type].radius
       ctx.fillStyle = '#111827'
@@ -996,6 +1282,25 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
       ctx.fill()
       ctx.shadowBlur = 0
+    } else if (p.kind === 'ice') {
+      ctx.save()
+      ctx.translate(p.x, p.y)
+      ctx.rotate(Math.atan2(p.dirY, p.dirX))
+      ctx.fillStyle = p.color
+      ctx.strokeStyle = '#ecfeff'
+      ctx.lineWidth = 1
+      ctx.shadowColor = p.color
+      ctx.shadowBlur = 7
+      ctx.beginPath()
+      ctx.moveTo(p.size * 1.8, 0)
+      ctx.lineTo(0, -p.size)
+      ctx.lineTo(-p.size * 1.4, 0)
+      ctx.lineTo(0, p.size)
+      ctx.closePath()
+      ctx.fill()
+      ctx.stroke()
+      ctx.shadowBlur = 0
+      ctx.restore()
     } else {
       const k = p.t / p.duration
       const gx = p.sx + (p.tx - p.sx) * k
