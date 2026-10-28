@@ -100,6 +100,13 @@ interface LightningStrike {
   color: string
 }
 
+interface LightningFlash {
+  points: { x: number; y: number }[]
+  t: number
+  dur: number
+  color: string
+}
+
 interface Explosion {
   x: number
   y: number
@@ -115,6 +122,7 @@ export interface GameState {
   projectiles: Projectile[]
   explosions: Explosion[]
   strikes: LightningStrike[]
+  lightningFlashes: LightningFlash[]
   money: number
   lives: number
   wave: number
@@ -137,6 +145,7 @@ export function createGame(): GameState {
     projectiles: [],
     explosions: [],
     strikes: [],
+    lightningFlashes: [],
     money: 180,
     lives: 20,
     wave: 0,
@@ -226,9 +235,9 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number) {
   e.hp -= dmg
   if (e.hp <= 0) {
     if (e.type === 'vessel' && !e.cocooning) {
-      // The first lethal hit starts a two-second cocoon phase instead of killing it.
+      // The first lethal hit starts a five-second cocoon phase instead of killing it.
       e.cocooning = true
-      e.cocoonTimer = 2
+      e.cocoonTimer = 5
       e.hp = e.maxHp
       e.anim = 0
       s.explosions.push({ x: e.x, y: e.y, r: ENEMIES[e.type].radius * 1.8, t: 0, dur: 0.45, color: '#d97706' })
@@ -440,17 +449,30 @@ export function update(s: GameState, dt: number) {
     const def = TOWERS[t.type]
     t.cooldown -= dt
     t.recoil = Math.max(0, t.recoil - dt * 5)
-    const target = findTarget(s, t, def.range)
+    const foundTarget = findTarget(s, t, def.range)
+    const lockedTeslaTarget =
+      t.type === 'tesla' && t.chargeTargetId !== null
+        ? s.enemies.find(
+            (e) =>
+              e.id === t.chargeTargetId &&
+              e.alive &&
+              Math.hypot(e.x - t.x, e.y - t.y) <= def.range,
+          ) ?? null
+        : null
+    const target = lockedTeslaTarget ?? foundTarget
 
     if (t.type === 'lightning') {
-      if (!target) {
-        t.beamTargets = []
-        continue
-      }
+      t.beamTargets = []
+      if (!target) continue
       t.angle = Math.atan2(target.y - t.y, target.x - t.x)
-      const chain = findChainTargets(s, target)
-      t.beamTargets = chain.map((e) => e.id)
       if (t.cooldown <= 0) {
+        const chain = findChainTargets(s, target)
+        s.lightningFlashes.push({
+          points: [{ x: t.x, y: t.y }, ...chain.map((enemy) => ({ x: enemy.x, y: enemy.y }))],
+          t: 0,
+          dur: 0.18,
+          color: def.color,
+        })
         const splitDamage = def.damage / chain.length
         for (const enemy of chain) damageEnemy(s, enemy, splitDamage)
         t.cooldown = 1 / def.fireRate
@@ -475,10 +497,10 @@ export function update(s: GameState, dt: number) {
       }
       t.chargeTime += dt
       t.beamTargets = [target.id]
-      const pulseInterval = Math.max(0.12, 0.62 - t.chargeTime * 0.25)
       if (t.cooldown <= 0) {
-        damageEnemy(s, target, def.damage)
-        t.cooldown = pulseInterval
+        const chargeMultiplier = 1 + Math.min(11, t.chargeTime * 2.2)
+        damageEnemy(s, target, def.damage * chargeMultiplier)
+        t.cooldown = 1 / def.fireRate
         t.recoil = 0.3
       }
       continue
@@ -577,6 +599,10 @@ export function update(s: GameState, dt: number) {
   s.strikes = s.strikes.filter((strike) => {
     strike.t += dt
     return strike.t < strike.dur
+  })
+  s.lightningFlashes = s.lightningFlashes.filter((flash) => {
+    flash.t += dt
+    return flash.t < flash.dur
   })
   s.enemies = s.enemies.filter((e) => e.alive)
 
@@ -906,21 +932,26 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
     }
   }
 
-  // Electrical beams are drawn over the battlefield but underneath enemy sprites.
+  // Tesla keeps a focused beam; Lightning Rod fires brief flashes instead.
   for (const t of s.towers) {
-    if (t.type !== 'lightning' && t.type !== 'tesla') continue
-    const color = TOWERS[t.type].color
-    const beamTargets = t.beamTargets
+    if (t.type !== 'tesla') continue
+    const target = t.beamTargets
       .map((id) => s.enemies.find((e) => e.id === id && e.alive))
-      .filter((e): e is Enemy => !!e)
-    let fromX = t.x
-    let fromY = t.y
-    for (let i = 0; i < beamTargets.length; i++) {
-      const target = beamTargets[i]
-      drawElectricBeam(ctx, fromX, fromY, target.x, target.y, color, s.time, t.type === 'tesla' ? 2.7 : 1.7)
-      fromX = target.x
-      fromY = target.y
+      .find((e): e is Enemy => !!e)
+    if (target) drawElectricBeam(ctx, t.x, t.y, target.x, target.y, TOWERS.tesla.color, s.time, 2.7)
+  }
+
+  for (const flash of s.lightningFlashes) {
+    const progress = flash.t / flash.dur
+    const alpha = progress < 0.18 ? progress / 0.18 : Math.max(0, 1 - (progress - 0.18) / 0.82)
+    ctx.save()
+    ctx.globalAlpha = alpha
+    for (let i = 0; i < flash.points.length - 1; i++) {
+      const from = flash.points[i]
+      const to = flash.points[i + 1]
+      drawElectricBeam(ctx, from.x, from.y, to.x, to.y, flash.color, s.time + flash.t * 24, 4)
     }
+    ctx.restore()
   }
 
   for (const e of s.enemies) {
@@ -930,7 +961,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
       ctx.fillStyle = '#111827'
       ctx.fillRect(e.x - r, e.y - r - 8, r * 2, 3)
       ctx.fillStyle = e.cocooning ? '#f59e0b' : '#4ade80'
-      const ratio = e.cocooning ? Math.max(0, e.cocoonTimer / 2) : e.hp / e.maxHp
+      const ratio = e.cocooning ? Math.max(0, e.cocoonTimer / 5) : e.hp / e.maxHp
       ctx.fillRect(e.x - r, e.y - r - 8, r * 2 * ratio, 3)
     }
   }
