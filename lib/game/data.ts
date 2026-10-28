@@ -338,7 +338,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
     description: 'Inseto marrom cascudo. Ao ser derrotado, entra em um casulo por 5 segundos e revive com 75% da vida anterior; cada regeneração seguinte é 75% da anterior.',
   },
   jumper: { name: 'Jumper', hp: 95, speed: 70, reward: 10, radius: 10, damage: 2, color: '#c084fc', dark: '#581c87', description: 'Salta para a frente a cada 1,25 segundos. No ar, é imune a Shooter, Cannon e Retarder.' },
-  healer: { name: 'Healer', hp: 115, speed: 30, reward: 14, radius: 11, damage: 2, color: '#4ade80', dark: '#166534', description: 'A cada 2 segundos, cura inimigos próximos em 5% da vida atual. Não se cura nem cura o Bug Prince.' },
+  healer: { name: 'Healer', hp: 115, speed: 30, reward: 14, radius: 11, damage: 2, color: '#4ade80', dark: '#166534', description: 'A cada 2 segundos, cura inimigos próximos em 15% da vida atual. Não se cura nem cura o Bug Prince.' },
   bugPrince: { name: 'Bug Prince', hp: 18000, speed: 13, reward: 500, radius: 25, damage: 20, color: '#fbbf24', dark: '#78350f', description: 'Primeiro chefe: vida enorme, invoca reforços e chama um enxame a cada terço da vida perdida. Ao morrer, dá capacetes e +25% de vida aos tipos de insetos encontrados.' },
 }
 

@@ -568,7 +568,7 @@ export function update(s: GameState, dt: number) {
     if (e.type === 'healer' && e.healCooldown <= 0) {
       for (const ally of s.enemies) {
         if (!ally.alive || ally.id === e.id || ally.type === 'bugPrince') continue
-        if (Math.hypot(ally.x-e.x,ally.y-e.y)<=92 && ally.hp<ally.maxHp) ally.hp=Math.min(ally.maxHp,ally.hp+Math.max(1,ally.hp*.05))
+        if (Math.hypot(ally.x-e.x,ally.y-e.y)<=92 && ally.hp<ally.maxHp) ally.hp=Math.min(ally.maxHp,ally.hp+Math.max(1,ally.hp*.15))
       }
       s.explosions.push({x:e.x,y:e.y,r:92,t:0,dur:.25,color:'#4ade80'});e.healCooldown=2
     }
@@ -579,11 +579,28 @@ export function update(s: GameState, dt: number) {
     }
     if(e.type==='jumper'&&e.jumpCooldown<=0&&e.frozenTimer<=0&&!e.cocooning){
       e.airborneTimer=.52;e.jumpCooldown=1.25;e.anim=0
-      const target=PATH[e.wp]
-      if(target){const dx=target.x-e.x,dy=target.y-e.y,d=Math.hypot(dx,dy);if(d>.001){const jumpDistance=Math.min(d,70);e.x+=(dx/d)*jumpDistance;e.y+=(dy/d)*jumpDistance;e.dist+=jumpDistance;e.angle=Math.atan2(dy,dx);if(jumpDistance>=d-.001)e.wp++}}
     }
     if (e.frozenTimer > 0) continue
-    if (e.type === 'jumper') continue
+    if (e.type === 'jumper') {
+      // Each jump covers up to 70 world units over 0.52s, smoothly following
+      // the waypoint path instead of teleporting. Crossing a waypoint never stalls it.
+      if(e.airborneTimer>0){
+        let step=70*dt/.52
+        while(step>0&&e.alive&&e.wp<PATH.length){
+          const target=PATH[e.wp]
+          const dx=target.x-e.x,dy=target.y-e.y,distance=Math.hypot(dx,dy)
+          if(distance<=.001){e.x=target.x;e.y=target.y;e.wp++;continue}
+          e.angle=Math.atan2(dy,dx)
+          if(step>=distance){
+            e.x=target.x;e.y=target.y;e.dist+=distance;step-=distance;e.wp++
+          }else{
+            e.x+=(dx/distance)*step;e.y+=(dy/distance)*step;e.dist+=step;step=0
+          }
+        }
+        if(e.wp>=PATH.length&&e.alive){e.alive=false;s.lives-=def.damage}
+      }
+      continue
+    }
     let step = def.speed * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
     while (step > 0 && e.alive) {
       const target = PATH[e.wp]
