@@ -64,6 +64,8 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
       else if (e.key === '2') selectBuild('cannon')
       else if (e.key === '3') selectBuild('lightning')
       else if (e.key === '4') selectBuild('retarder')
+      else if (e.key === '5') selectBuild('incomeFarm')
+      else if (e.key === '6') selectBuild('buffer')
       else if (e.key === ' ') {
         e.preventDefault()
         startWave(s)
@@ -237,7 +239,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
                       <Coins className="size-3" aria-hidden />
                       {def.cost}
                     </span>
-                    <kbd className="text-[10px] text-slate-500">[{i + 1}]</kbd>
+                    <kbd className="text-[10px] text-slate-500">{i < 4 ? `[${i + 1}]` : i === 4 ? '[5]' : '[6]'}</kbd>
                   </button>
                 )
               })}

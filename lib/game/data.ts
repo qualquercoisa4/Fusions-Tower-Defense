@@ -13,7 +13,12 @@ export type TowerType =
   | 'snowballer'
   | 'thunderstorm'
   | 'ice'
-export type EnemyType = 'grunt' | 'tank' | 'runner' | 'vessel' | 'jumper' | 'healer' | 'bugPrince'
+  | 'incomeFarm'
+  | 'buffer'
+  | 'commsLanHouse'
+  | 'incomeTax'
+  | 'electricalStation'
+export type EnemyType = 'grunt' | 'tank' | 'runner' | 'vessel' | 'jumper' | 'healer' | 'bugPrince' | 'swarmBug'
 
 export type TargetMode = 'first' | 'last' | 'strongest' | 'weakest' | 'closest'
 export const TARGET_MODES: { value: TargetMode; label: string }[] = [
@@ -23,7 +28,7 @@ export const TARGET_MODES: { value: TargetMode; label: string }[] = [
   { value: 'weakest', label: 'Menos vida' },
   { value: 'closest', label: 'Mais próximo' },
 ]
-export type ProjectileStyle = 'bullet' | 'shell' | 'mortar' | 'cluster' | 'beam' | 'energy' | 'lightning' | 'tesla'
+export type ProjectileStyle = 'bullet' | 'shell' | 'mortar' | 'cluster' | 'beam' | 'energy' | 'lightning' | 'tesla' | 'support'
 
 export interface TowerDef {
   name: string
@@ -238,23 +243,38 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     description: 'Invoca trovões em uma linha de inimigos, causando dano e congelando cada alvo por 1 segundo. Disparo lento.',
   },
   ice: {
-    name: 'Ice Tower',
-    tier: 1,
-    damage: 0,
-    range: 108,
-    fireRate: 0.85,
-    splash: 0,
-    style: 'beam',
-    projectileSpeed: 0,
-    inaccuracy: 0,
-    cost: 0,
-    color: '#67e8f9',
-    accent: '#155e75',
+    name: 'Ice Tower', tier: 1, damage: 0, range: 108, fireRate: 0.85, splash: 0,
+    style: 'beam', projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#67e8f9', accent: '#155e75',
     description: 'Em vez de disparar projéteis, congela todos os inimigos dentro do alcance por 1 segundo em pulsos de frequência média.',
+  },
+  incomeFarm: {
+    name: 'Income Farm', tier: 0, damage: 0, range: 105, fireRate: 1, splash: 0, style: 'support',
+    projectileSpeed: 0, inaccuracy: 0, cost: 300, color: '#facc15', accent: '#854d0e',
+    description: 'Gera 30 créditos por sinal, 5 sinais por onda.',
+  },
+  buffer: {
+    name: 'Buffer', tier: 0, damage: 0, range: 112, fireRate: 1, splash: 0, style: 'support',
+    projectileSpeed: 0, inaccuracy: 0, cost: 340, color: '#34d399', accent: '#065f46',
+    description: 'Concede um pequeno aumento de dano, alcance e velocidade de ataque às torres próximas. Buffs iguais não acumulam.',
+  },
+  commsLanHouse: {
+    name: 'Comms Lan House', tier: 1, damage: 0, range: 125, fireRate: 1, splash: 0, style: 'support',
+    projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#2dd4bf', accent: '#134e4a',
+    description: 'Concede buffs fortes de dano, alcance e velocidade de ataque às torres próximas. Buffs iguais não acumulam.',
+  },
+  incomeTax: {
+    name: 'Income Tax', tier: 1, damage: 0, range: 105, fireRate: 1, splash: 0, style: 'support',
+    projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#f97316', accent: '#7c2d12',
+    description: 'Gera 70 créditos por sinal, 7 sinais por onda.',
+  },
+  electricalStation: {
+    name: 'Electrical Station', tier: 1, damage: 0, range: 112, fireRate: 1, splash: 0, style: 'support',
+    projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#a78bfa', accent: '#4c1d95',
+    description: 'Aumenta em 50% a renda das torres de renda próximas e concede um pequeno bônus de combate. Buffs não acumulam.',
   },
 }
 
-export const BUILDABLE: TowerType[] = ['shooter', 'cannon', 'lightning', 'retarder']
+export const BUILDABLE: TowerType[] = ['shooter', 'cannon', 'lightning', 'retarder', 'incomeFarm', 'buffer']
 
 const FUSIONS: Record<string, TowerType> = {
   'cannon+shooter': 'mortar',
@@ -267,6 +287,9 @@ const FUSIONS: Record<string, TowerType> = {
   'cannon+retarder': 'snowballer',
   'lightning+retarder': 'thunderstorm',
   'retarder+retarder': 'ice',
+  'buffer+buffer': 'commsLanHouse',
+  'incomeFarm+incomeFarm': 'incomeTax',
+  'buffer+incomeFarm': 'electricalStation',
 }
 
 export function fusionResult(a: TowerType, b: TowerType): TowerType | undefined {
@@ -285,6 +308,9 @@ export const FUSION_LIST: { a: TowerType; b: TowerType; result: TowerType }[] = 
   { a: 'cannon', b: 'retarder', result: 'snowballer' },
   { a: 'lightning', b: 'retarder', result: 'thunderstorm' },
   { a: 'retarder', b: 'retarder', result: 'ice' },
+  { a: 'buffer', b: 'buffer', result: 'commsLanHouse' },
+  { a: 'incomeFarm', b: 'incomeFarm', result: 'incomeTax' },
+  { a: 'incomeFarm', b: 'buffer', result: 'electricalStation' },
 ]
 
 export interface EnemyDef {
@@ -339,7 +365,8 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   jumper: { name: 'Jumper', hp: 95, speed: 70, reward: 10, radius: 10, damage: 2, color: '#c084fc', dark: '#581c87', description: 'Salta para a frente a cada 1,25 segundos. No ar, é imune a Shooter, Cannon e Retarder.' },
   healer: { name: 'Healer', hp: 115, speed: 30, reward: 14, radius: 11, damage: 2, color: '#4ade80', dark: '#166534', description: 'A cada 1,5 segundo, cura inimigos próximos em 15% da vida atual, ou apenas 3,75% quando congelado. Congelá-lo reinicia o cooldown. Não se cura nem cura o Bug Prince.' },
-  bugPrince: { name: 'Bug Prince', hp: 18000, speed: 13, reward: 500, radius: 25, damage: 20, color: '#fbbf24', dark: '#78350f', description: 'Primeiro chefe: vida enorme, invoca reforços e chama um enxame a cada terço da vida perdida. Ao morrer, dá capacetes e +25% de vida aos tipos de insetos encontrados.' },
+  bugPrince: { name: 'Bug Prince', hp: 18000, speed: 13, reward: 500, radius: 25, damage: 20, color: '#fbbf24', dark: '#78350f', description: 'Chefe: invoca reforços e chama enxames. Ao morrer, dá capacetes e +25% de vida aos tipos de insetos encontrados.' },
+  swarmBug: { name: 'Swarm Bug', hp: 8, speed: 180, reward: 1, radius: 4.5, damage: 1, color: '#fb7185', dark: '#881337', description: 'Inseto extremamente frágil e veloz. Só aparece em enxames enormes a partir da onda 30.' },
 }
 
 export const CELL = 48
@@ -398,6 +425,7 @@ const WAVE_BLUEPRINTS: Record<number, { type: EnemyType; count: number; delay: n
 }
 export function buildWave(n:number):{type:EnemyType;delay:number}[] {
   if(n===25)return [{type:'bugPrince',delay:0}]
+  if(n>=30){const count=Math.min(120,60+(n-30)*5);return Array.from({length:count},(_,i)=>({type:'swarmBug',delay:i===0?0:.075}))}
   const blueprint=WAVE_BLUEPRINTS[Math.min(29,Math.max(1,n))]
   const queue:{type:EnemyType;delay:number}[]=[]
   const pace=Math.max(.68,1-n*.012)
