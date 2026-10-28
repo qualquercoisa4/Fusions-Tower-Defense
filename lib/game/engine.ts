@@ -295,10 +295,10 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType
   const previousHp=e.hp;e.hp-=dmg
   if(e.type==='bugPrince'){
     const lostThirds=Math.floor((e.maxHp-e.hp)/(e.maxHp/3))
-    while(e.bossThreshold>0&&lostThirds>=3-e.bossThreshold){
+    while(e.bossThreshold<=3&&lostThirds>=e.bossThreshold){
       const count=8+s.swarmCounter*2, types:EnemyType[]=['grunt','runner','jumper']
       for(let i=0;i<count;i++)s.spawnQueue.push({type:types[i%types.length],delay:.06})
-      s.swarmCounter++;e.bossThreshold--
+      s.swarmCounter++;e.bossThreshold++
     }
     if(e.hp>0&&previousHp>e.hp)s.explosions.push({x:e.x,y:e.y,r:18,t:0,dur:.15,color:'#fbbf24'})
   }
@@ -529,7 +529,7 @@ export function update(s: GameState, dt: number) {
         jumpCooldown: 1.25,
         airborneTimer: 0,
         healCooldown: 2,
-        bossThreshold: 2,
+        bossThreshold: 1,
         spawnCooldown: 3.5,
         helmet,
         wp: 1,
