@@ -99,7 +99,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
       if (clicked && clicked.id !== s.selectedId) {
         const source = s.towers.find((t) => t.id === s.selectedId)!
         const result = fusionResult(source.type, clicked.type)
-        const fusionCost = Math.ceil((TOWERS[source.type].cost + TOWERS[clicked.type].cost) * 1.1)
+        const fusionCost = Math.ceil((source.invested + clicked.invested) * 1.1)
         if (result && s.money < fusionCost) {
           flash(`Fusão custa ${fusionCost} créditos; saldo insuficiente`)
         } else if (result && fuseTowers(s, source.id, clicked.id)) {

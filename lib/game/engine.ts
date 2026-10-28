@@ -248,7 +248,7 @@ export function fuseTowers(s: GameState, sourceId: number, targetId: number) {
   if (!a || !b || a === b) return false
   const result = fusionResult(a.type, b.type)
   if (!result) return false
-  const fusionCost = Math.ceil((TOWERS[a.type].cost + TOWERS[b.type].cost) * 1.1)
+  const fusionCost = Math.ceil((a.invested + b.invested) * 1.1)
   if (s.money < fusionCost) return false
   s.money -= fusionCost
   s.towers = s.towers.filter((t) => t !== a)
@@ -652,7 +652,7 @@ export function update(s: GameState, dt: number) {
         const stationNearby = s.towers.some(other => other.type === 'electricalStation' && Math.hypot(other.x-t.x,other.y-t.y) <= TOWERS.electricalStation.range)
         s.money += Math.round(baseIncome * (stationNearby ? 1.5 : 1))
         t.incomeSignalsLeft--
-        t.cooldown = 1.25
+        t.cooldown = 0.75
         s.explosions.push({x:t.x,y:t.y,r:22,t:0,dur:.3,color:baseDef.color})
       }
       continue
@@ -667,7 +667,7 @@ export function update(s: GameState, dt: number) {
     const hasBuffer = buffSources.some(other => other.type === 'buffer')
     const hasStation = buffSources.some(other => other.type === 'electricalStation')
     const buff = hasComms ? 1.2 : hasBuffer ? 1.1 : hasStation ? 1.05 : 1
-    const def = {...baseDef, damage:baseDef.damage*buff, range:baseDef.range*(1+(hasComms?.1:hasBuffer?.06:hasStation?.03:0)), fireRate:baseDef.fireRate*buff, projectileSpeed:baseDef.projectileSpeed*buff, splash:baseDef.splash*(1+(hasComms?.1:hasBuffer?.06:hasStation?.03:0))}
+    const def = {...baseDef, damage:baseDef.damage*buff, range:baseDef.range*(1+(hasComms ? 0.1 : hasBuffer ? 0.06 : hasStation ? 0.03 : 0)), fireRate:baseDef.fireRate*buff, projectileSpeed:baseDef.projectileSpeed*buff, splash:baseDef.splash*(1+(hasComms?.1:hasBuffer?.06:hasStation?.03:0))}
     const foundTarget = findTarget(
       s,
       t,
