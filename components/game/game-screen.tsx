@@ -97,8 +97,11 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
       if (clicked && clicked.id !== s.selectedId) {
         const source = s.towers.find((t) => t.id === s.selectedId)!
         const result = fusionResult(source.type, clicked.type)
-        if (result && fuseTowers(s, source.id, clicked.id)) {
-          flash(`Fusão: ${TOWERS[result].name}!`)
+        const fusionCost = Math.ceil((TOWERS[source.type].cost + TOWERS[clicked.type].cost) * 1.1)
+        if (result && s.money < fusionCost) {
+          flash(`Fusão custa ${fusionCost} créditos; saldo insuficiente`)
+        } else if (result && fuseTowers(s, source.id, clicked.id)) {
+          flash(`Fusão: ${TOWERS[result].name} (-${fusionCost})!`)
         } else {
           flash(
             TOWERS[source.type].tier !== TOWERS[clicked.type].tier

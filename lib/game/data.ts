@@ -52,7 +52,7 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     style: 'bullet',
     projectileSpeed: 420,
     inaccuracy: 0,
-    cost: 50,
+    cost: 210,
     color: '#38bdf8',
     accent: '#0c4a6e',
     description: 'Equilibrada. Todos os atributos medianos.',
@@ -67,7 +67,7 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     style: 'shell',
     projectileSpeed: 300,
     inaccuracy: 0,
-    cost: 80,
+    cost: 320,
     color: '#f97316',
     accent: '#7c2d12',
     description: 'Dano alto em área, alcance médio, disparo lento.',
@@ -82,7 +82,7 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     style: 'beam',
     projectileSpeed: 0,
     inaccuracy: 0,
-    cost: 70,
+    cost: 270,
     color: '#67e8f9',
     accent: '#155e75',
     description: 'Dispara relâmpagos em flashes rápidos, atingindo até 3 inimigos próximos. O dano é dividido entre eles.',
@@ -187,7 +187,7 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     style: 'bullet',
     projectileSpeed: 280,
     inaccuracy: 0,
-    cost: 65,
+    cost: 360,
     color: '#7dd3fc',
     accent: '#075985',
     description: 'Dispara um projétil perfurante que congela até 3 inimigos por 2 segundos. Prioriza inimigos ainda não congelados.',
@@ -338,7 +338,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
     description: 'Inseto marrom cascudo. Ao ser derrotado, entra em um casulo por 5 segundos e revive com 75% da vida anterior; cada regeneração seguinte é 75% da anterior.',
   },
   jumper: { name: 'Jumper', hp: 95, speed: 70, reward: 10, radius: 10, damage: 2, color: '#c084fc', dark: '#581c87', description: 'Salta para a frente a cada 1,25 segundos. No ar, é imune a Shooter, Cannon e Retarder.' },
-  healer: { name: 'Healer', hp: 115, speed: 30, reward: 14, radius: 11, damage: 2, color: '#4ade80', dark: '#166534', description: 'A cada 1,5 segundo, cura inimigos próximos em 15% da vida atual; congelá-lo interrompe a cura e reinicia seu cooldown. Não se cura nem cura o Bug Prince.' },
+  healer: { name: 'Healer', hp: 115, speed: 30, reward: 14, radius: 11, damage: 2, color: '#4ade80', dark: '#166534', description: 'A cada 1,5 segundo, cura inimigos próximos em 15% da vida atual, ou apenas 3,75% quando congelado. Congelá-lo reinicia o cooldown. Não se cura nem cura o Bug Prince.' },
   bugPrince: { name: 'Bug Prince', hp: 18000, speed: 13, reward: 500, radius: 25, damage: 20, color: '#fbbf24', dark: '#78350f', description: 'Primeiro chefe: vida enorme, invoca reforços e chama um enxame a cada terço da vida perdida. Ao morrer, dá capacetes e +25% de vida aos tipos de insetos encontrados.' },
 }
 
@@ -397,7 +397,7 @@ const WAVE_BLUEPRINTS: Record<number, { type: EnemyType; count: number; delay: n
   29:[{type:'tank',count:16,delay:.45},{type:'vessel',count:10,delay:.55},{type:'healer',count:10,delay:.45}],
 }
 export function buildWave(n:number):{type:EnemyType;delay:number}[] {
-  if(n===30)return [{type:'bugPrince',delay:0}]
+  if(n===25)return [{type:'bugPrince',delay:0}]
   const blueprint=WAVE_BLUEPRINTS[Math.min(29,Math.max(1,n))]
   const queue:{type:EnemyType;delay:number}[]=[]
   const pace=Math.max(.68,1-n*.012)
@@ -405,4 +405,4 @@ export function buildWave(n:number):{type:EnemyType;delay:number}[] {
   return queue
 }
 
-export const hpScale = (wave: number) => wave >= 30 ? 1 : 1 + 0.18 * (wave - 1) + 0.01 * (wave - 1) ** 2
+export const hpScale = (wave: number) => wave >= 25 ? 1 : 1 + 0.18 * (wave - 1) + 0.01 * (wave - 1) ** 2

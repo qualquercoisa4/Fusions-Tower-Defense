@@ -185,7 +185,7 @@ export function createGame(): GameState {
     explosions: [],
     strikes: [],
     lightningFlashes: [],
-    money: 180,
+    money: 500,
     lives: 20,
     wave: 0,
     waveActive: false,
@@ -244,9 +244,12 @@ export function fuseTowers(s: GameState, sourceId: number, targetId: number) {
   if (!a || !b || a === b) return false
   const result = fusionResult(a.type, b.type)
   if (!result) return false
+  const fusionCost = Math.ceil((TOWERS[a.type].cost + TOWERS[b.type].cost) * 1.1)
+  if (s.money < fusionCost) return false
+  s.money -= fusionCost
   s.towers = s.towers.filter((t) => t !== a)
   b.type = result
-  b.invested += a.invested
+  b.invested += a.invested + fusionCost
   b.cooldown = 0.3
   b.beamTargets = []
   b.chargeTargetId = null
@@ -274,14 +277,14 @@ export function startWave(s: GameState) {
 }
 
 function applyFreeze(e: Enemy, duration: number) {
-  if (e.alive && duration > 0) {
-    e.frozenTimer = Math.max(e.frozenTimer, duration)
-    if (e.type === 'healer') e.healCooldown = 1.5
-  }
+  if (!e.alive || duration <= 0 || e.type === 'bugPrince') return
+  const wasFrozen = e.frozenTimer > 0
+  e.frozenTimer = Math.max(e.frozenTimer, duration)
+  if (e.type === 'healer' && !wasFrozen) e.healCooldown = 1.5
 }
 
 function applySlow(e: Enemy, duration: number, factor: number) {
-  if (!e.alive || duration <= 0) return
+  if (!e.alive || duration <= 0 || e.type === 'bugPrince') return
   e.slowTimer = Math.max(e.slowTimer, duration)
   e.slowFactor = Math.min(e.slowFactor, factor)
 }
@@ -568,15 +571,14 @@ export function update(s: GameState, dt: number) {
       // The vessel cannot move while sealed, but towers can still damage it.
       continue
     }
-    if (e.type === 'healer' && e.frozenTimer > 0) {
-      // Freezing interrupts healing and keeps the cooldown reset until thawed.
-      e.healCooldown = 1.5
-    } else if (e.type === 'healer' && e.healCooldown <= 0) {
+    if (e.type === 'healer' && e.healCooldown <= 0) {
+      // Frozen healers still heal, but at only 25% of their normal strength.
+      const healRatio = e.frozenTimer > 0 ? 0.0375 : 0.15
       for (const ally of s.enemies) {
         if (!ally.alive || ally.id === e.id || ally.type === 'bugPrince') continue
-        if (Math.hypot(ally.x-e.x,ally.y-e.y)<=92 && ally.hp<ally.maxHp) ally.hp=Math.min(ally.maxHp,ally.hp+Math.max(1,ally.hp*.15))
+        if (Math.hypot(ally.x-e.x,ally.y-e.y)<=92 && ally.hp<ally.maxHp) ally.hp=Math.min(ally.maxHp,ally.hp+Math.max(1,ally.hp*healRatio))
       }
-      s.explosions.push({x:e.x,y:e.y,r:92,t:0,dur:.25,color:'#4ade80'});e.healCooldown=1.5
+      s.explosions.push({x:e.x,y:e.y,r:92,t:0,dur:.25,color:e.frozenTimer>0?'#7dd3fc':'#4ade80'});e.healCooldown=1.5
     }
     if(e.type==='bugPrince'&&e.spawnCooldown<=0){
       const picks:EnemyType[]=['grunt','runner','tank','vessel','jumper','healer']
