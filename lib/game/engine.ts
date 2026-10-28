@@ -1077,12 +1077,32 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
   ctx.stroke()
   if (['incomeFarm','incomeTax'].includes(type)) {
     ctx.fillStyle = def.color
-    ctx.fillRect(-11,-11,22,22)
+    ctx.fillRect(-11, -11, 22, 22)
     ctx.fillStyle = '#111827'
     ctx.font = 'bold 14px sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText(type === 'incomeTax' ? '$' : '
+    ctx.fillText(type === 'incomeTax' ? '$$' : '$', 0, 0)
+    ctx.restore()
+    return
+  }
+  if (['buffer','commsLanHouse','electricalStation'].includes(type)) {
+    ctx.strokeStyle = def.color
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.arc(0, 0, type === 'commsLanHouse' ? 13 : 10, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(-7, 0)
+    ctx.lineTo(7, 0)
+    ctx.moveTo(0, -7)
+    ctx.lineTo(0, 7)
+    ctx.stroke()
+    ctx.restore()
+    return
+  }
+  if (def.tier >= 1) {
+    ctx.fillStyle = def.color
     for (const [cx, cy] of [
       [-14, -14],
       [14, -14],
