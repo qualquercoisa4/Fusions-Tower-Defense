@@ -71,7 +71,7 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     cost: 70,
     color: '#67e8f9',
     accent: '#155e75',
-    description: 'Feixe contínuo que encadeia até 3 inimigos. O dano total é dividido entre os alvos.',
+    description: 'Dispara relâmpagos em flashes rápidos, atingindo até 3 inimigos próximos. O dano é dividido entre eles.',
   },
   dual: {
     name: 'Dual Shooter',
@@ -151,9 +151,9 @@ export const TOWERS: Record<TowerType, TowerDef> = {
   tesla: {
     name: 'Tesla Rod',
     tier: 1,
-    damage: 5,
+    damage: 8,
     range: 130,
-    fireRate: 1.6,
+    fireRate: 0.9,
     splash: 0,
     style: 'tesla',
     projectileSpeed: 0,
@@ -161,7 +161,7 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     cost: 0,
     color: '#38bdf8',
     accent: '#1d4ed8',
-    description: 'Feixe concentrado sem encadeamento. Quanto mais mantém o alvo, mais rápido pulsa o dano.',
+    description: 'Feixe concentrado em um único inimigo. Cada pulso causa mais dano quanto mais tempo mantém o mesmo alvo.',
   },
 }
 
@@ -245,7 +245,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
     damage: 4,
     color: '#92400e',
     dark: '#451a03',
-    description: 'Inseto marrom cascudo. Ao ser derrotado, entra em um casulo por 2 segundos e revive com 75% da vida se sobreviver.',
+    description: 'Inseto marrom cascudo. Ao ser derrotado, entra em um casulo por 5 segundos e revive com 75% da vida se sobreviver.',
   },
 }
 
