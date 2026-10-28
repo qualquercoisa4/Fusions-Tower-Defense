@@ -667,7 +667,7 @@ export function update(s: GameState, dt: number) {
     const hasBuffer = buffSources.some(other => other.type === 'buffer')
     const hasStation = buffSources.some(other => other.type === 'electricalStation')
     const buff = hasComms ? 1.2 : hasBuffer ? 1.1 : hasStation ? 1.05 : 1
-    const def = {...baseDef, damage:baseDef.damage*buff, range:baseDef.range*(1+(hasComms ? 0.1 : hasBuffer ? 0.06 : hasStation ? 0.03 : 0)), fireRate:baseDef.fireRate*buff, projectileSpeed:baseDef.projectileSpeed*buff, splash:baseDef.splash*(1+(hasComms?.1:hasBuffer?.06:hasStation?.03:0))}
+    const def = {...baseDef, damage:baseDef.damage*buff, range:baseDef.range*(1+(hasComms ? 0.1 : hasBuffer ? 0.06 : hasStation ? 0.03 : 0)), fireRate:baseDef.fireRate*buff, projectileSpeed:baseDef.projectileSpeed*buff, splash:baseDef.splash*(1+(hasComms ? 0.1 : hasBuffer ? 0.06 : hasStation ? 0.03 : 0))}
     const foundTarget = findTarget(
       s,
       t,
@@ -781,7 +781,7 @@ export function update(s: GameState, dt: number) {
     if (!target) continue
     t.angle = Math.atan2(target.y - t.y, target.x - t.x)
     if (t.cooldown <= 0) {
-      fire(s, t, target)
+      fire(s, t, target, def)
       t.cooldown = 1 / def.fireRate
     }
   }
