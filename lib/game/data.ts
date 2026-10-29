@@ -18,6 +18,9 @@ export type TowerType =
   | 'commsLanHouse'
   | 'incomeTax'
   | 'electricalStation'
+  | 'cryoMortar'
+  | 'tripleShooter'
+  | 'economyHouse'
 export type EnemyType = 'grunt' | 'tank' | 'runner' | 'vessel' | 'jumper' | 'healer' | 'bugPrince' | 'swarmBug' | 'splitter' | 'shadowBug' | 'spitter' | 'bulb' | 'bugQueen'
 
 export type TargetMode = 'first' | 'last' | 'strongest' | 'weakest' | 'closest'
@@ -195,7 +198,7 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     cost: 360,
     color: '#7dd3fc',
     accent: '#075985',
-    description: 'Dispara um projétil perfurante que congela até 3 inimigos por 2 segundos. Prioriza inimigos ainda não congelados.',
+    description: 'Dispara um projétil perfurante que congela até 3 inimigos por 1 segundo. Prioriza inimigos ainda não congelados.',
   },
   icicles: {
     name: 'Icicles',
@@ -225,7 +228,7 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     cost: 0,
     color: '#e0f2fe',
     accent: '#0369a1',
-    description: 'Arremessa uma bola de neve lenta que atravessa até 5 inimigos antes de explodir, causando dano e congelando a área por 2 segundos.',
+    description: 'Arremessa uma bola de neve lenta que atravessa até 5 inimigos antes de explodir, causando dano e congelando a área por 1 segundo.',
   },
   thunderstorm: {
     name: 'Thunderstorm',
@@ -240,12 +243,12 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     cost: 0,
     color: '#c4b5fd',
     accent: '#5b21b6',
-    description: 'Invoca trovões em uma linha de inimigos, causando dano e congelando cada alvo por 1 segundo. Disparo lento.',
+    description: 'Invoca trovões em uma linha de inimigos, causando dano e congelando cada alvo por 0,5 segundo. Disparo lento.',
   },
   ice: {
-    name: 'Ice Tower', tier: 1, damage: 0, range: 108, fireRate: 0.85, splash: 0,
-    style: 'beam', projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#67e8f9', accent: '#155e75',
-    description: 'Em vez de disparar projéteis, congela todos os inimigos dentro do alcance por 1 segundo em pulsos de frequência média.',
+    name: 'Ice Tower', tier: 1, damage: 9, range: 108, fireRate: 0.85, splash: 0,
+    style: 'bullet', projectileSpeed: 260, inaccuracy: 0, cost: 0, color: '#67e8f9', accent: '#155e75',
+    description: 'Retarda inimigos em área e dispara bolas de gelo que congelam por 0,5 s e atravessam até 8 inimigos.',
   },
   incomeFarm: {
     name: 'Income Farm', tier: 0, damage: 0, range: 105, fireRate: 1, splash: 0, style: 'support',
@@ -267,6 +270,9 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#f97316', accent: '#7c2d12',
     description: 'Gera 70 créditos por sinal, 7 sinais por onda.',
   },
+  cryoMortar: { name: 'Cryogenic Mortar', tier: 2, damage: 38, range: 190, fireRate: 0.32, splash: 58, style: 'mortar', projectileSpeed: 0, inaccuracy: 22, cost: 0, color: '#67e8f9', accent: '#164e63', description: 'Lança uma bomba de gelo que congela por 0,5 s e se divide em 8 estilhaços perfurantes em todas as direções.' },
+  tripleShooter: { name: 'Triple Shooter', tier: 2, damage: 10, range: 130, fireRate: 3.45, splash: 0, style: 'bullet', projectileSpeed: 480, inaccuracy: 0, cost: 0, color: '#38bdf8', accent: '#075985', description: 'Dispara 3 balas por salva, 2,3 vezes mais rápido que o Shooter.' },
+  economyHouse: { name: 'Economy House', tier: 2, damage: 0, range: 118, fireRate: 1, splash: 0, style: 'support', projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#fbbf24', accent: '#78350f', description: 'Gera 80 créditos por sinal, 8 sinais por onda, e aumenta em 10% o dinheiro recebido por inimigos derrotados.' },
   electricalStation: {
     name: 'Electrical Station', tier: 1, damage: 0, range: 112, fireRate: 1, splash: 0, style: 'support',
     projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#a78bfa', accent: '#4c1d95',
@@ -290,6 +296,9 @@ const FUSIONS: Record<string, TowerType> = {
   'buffer+buffer': 'commsLanHouse',
   'incomeFarm+incomeFarm': 'incomeTax',
   'buffer+incomeFarm': 'electricalStation',
+  'icicles+mortar': 'cryoMortar',
+  'dual+dual': 'tripleShooter',
+  'incomeTax+incomeTax': 'economyHouse',
 }
 
 export function fusionResult(a: TowerType, b: TowerType): TowerType | undefined {
@@ -311,6 +320,9 @@ export const FUSION_LIST: { a: TowerType; b: TowerType; result: TowerType }[] = 
   { a: 'buffer', b: 'buffer', result: 'commsLanHouse' },
   { a: 'incomeFarm', b: 'incomeFarm', result: 'incomeTax' },
   { a: 'incomeFarm', b: 'buffer', result: 'electricalStation' },
+  { a: 'mortar', b: 'icicles', result: 'cryoMortar' },
+  { a: 'dual', b: 'dual', result: 'tripleShooter' },
+  { a: 'incomeTax', b: 'incomeTax', result: 'economyHouse' },
 ]
 
 export interface EnemyDef {

@@ -132,6 +132,7 @@ type Projectile =
       damage: number
       splash: number
       cluster: boolean
+      cryo?: boolean
       color: string
       size: number
     }
@@ -195,7 +196,7 @@ export function createGame(): GameState {
     strikes: [],
     lightningFlashes: [],
     money: 500,
-    lives: 20,
+    lives: 100,
     wave: 0,
     waveActive: false,
     spawnQueue: [],
@@ -288,6 +289,7 @@ export function startWave(s: GameState) {
   for (const tower of s.towers) {
     if (tower.type === 'incomeFarm') { tower.incomeSignalsLeft = 5; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
     else if (tower.type === 'incomeTax') { tower.incomeSignalsLeft = 7; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
+    else if (tower.type === 'economyHouse') { tower.incomeSignalsLeft = 8; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
   }
   s.spawnQueue = buildWave(s.wave)
   s.spawnTimer = 0
@@ -369,7 +371,7 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType
       }
     }
     e.alive = false
-    s.money += ENEMIES[e.type].reward
+    s.money += Math.floor(ENEMIES[e.type].reward * (s.towers.some(tower => tower.type === 'economyHouse') ? 1.1 : 1))
     s.explosions.push({ x: e.x, y: e.y, r: ENEMIES[e.type].radius * 1.6, t: 0, dur: 0.35, color: ENEMIES[e.type].color })
   }
 }
@@ -434,7 +436,7 @@ function findChainTargets(s: GameState, first: Enemy, linkRange = 76) {
 function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
   t.recoil = 1
 
-  if (t.type === 'retarder' || t.type === 'icicles' || t.type === 'snowballer') {
+  if (t.type === 'retarder' || t.type === 'icicles' || t.type === 'snowballer' || t.type === 'ice') {
     const dirX = Math.cos(t.angle)
     const dirY = Math.sin(t.angle)
     s.projectiles.push({
@@ -448,16 +450,16 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
       speed: def.projectileSpeed,
       damage: def.damage,
       color: def.color,
-      size: t.type === 'snowballer' ? 7 : t.type === 'icicles' ? 4 : 4.5,
-      freezeDuration: t.type === 'retarder' ? 2 : 0,
+      size: t.type === 'snowballer' ? 7 : t.type === 'icicles' ? 4 : t.type === 'ice' ? 6 : 4.5,
+      freezeDuration: t.type === 'retarder' ? 1 : t.type === 'ice' ? 0.5 : 0,
       slowDuration: t.type === 'icicles' ? 2 : 0,
       slowFactor: 0.5,
-      hitLimit: t.type === 'retarder' ? 3 : t.type === 'snowballer' ? 5 : 1,
+      hitLimit: t.type === 'retarder' ? 3 : t.type === 'snowballer' ? 5 : t.type === 'ice' ? 8 : 1,
       hitIds: [],
       splitOnHit: t.type === 'icicles',
       explodeAtLimit: t.type === 'snowballer',
       splash: def.splash,
-      splashFreezeDuration: t.type === 'snowballer' ? 2 : 0,
+      splashFreezeDuration: t.type === 'snowballer' ? 1 : 0,
       sourceType: t.type,
     })
     return
@@ -505,24 +507,11 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
   }
 
   if (def.style === 'bullet' || def.style === 'shell') {
-    const barrels = t.type === 'dual' ? [-4, 4] : [0]
-    const side = t.type === 'dual' ? barrels[Math.floor(s.time * 100) % 2] : 0
-    const px = Math.cos(t.angle + Math.PI / 2) * side
-    const py = Math.sin(t.angle + Math.PI / 2) * side
-    s.projectiles.push({
-      kind: 'direct',
-      x: t.x + Math.cos(t.angle) * 18 + px,
-      y: t.y + Math.sin(t.angle) * 18 + py,
-      tx: target.x,
-      ty: target.y,
-      targetId: target.id,
-      speed: def.projectileSpeed,
-      damage: def.damage,
-      splash: def.splash,
-      color: def.color,
-      size: def.style === 'shell' ? 5 : 3,
-      sourceType: t.type,
-    })
+    const offsets = t.type === 'tripleShooter' ? [-7, 0, 7] : t.type === 'dual' ? [-4, 4] : [0]
+    for (const side of offsets) {
+      const px = Math.cos(t.angle + Math.PI / 2) * side, py = Math.sin(t.angle + Math.PI / 2) * side
+      s.projectiles.push({kind:'direct',x:t.x+Math.cos(t.angle)*18+px,y:t.y+Math.sin(t.angle)*18+py,tx:target.x,ty:target.y,targetId:target.id,speed:def.projectileSpeed,damage:def.damage,splash:def.splash,color:def.color,size:def.style==='shell'?5:3,sourceType:t.type})
+    }
     return
   }
   const duration = def.style === 'mortar' ? 1.1 : 1.3
@@ -543,6 +532,7 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
     damage: def.damage,
     splash: def.splash,
     cluster: def.style === 'cluster',
+    cryo: t.type === 'cryoMortar',
     color: def.color,
     size: def.style === 'mortar' ? 6 : 7,
   })
@@ -698,9 +688,9 @@ export function update(s: GameState, dt: number) {
     if(t.disabledTimer>0){t.beamTargets=[];continue}
     t.cooldown -= dt
     t.recoil = Math.max(0, t.recoil - dt * 5)
-    if (t.type === 'incomeFarm' || t.type === 'incomeTax') {
+    if (t.type === 'incomeFarm' || t.type === 'incomeTax' || t.type === 'economyHouse') {
       if (s.waveActive && t.incomeWave === s.wave && t.incomeSignalsLeft > 0 && t.cooldown <= 0) {
-        const baseIncome = t.type === 'incomeFarm' ? 30 : 70
+        const baseIncome = t.type === 'incomeFarm' ? 30 : t.type === 'incomeTax' ? 70 : 80
         const stationNearby = s.towers.some(other => other.type === 'electricalStation' && Math.hypot(other.x-t.x,other.y-t.y) <= TOWERS.electricalStation.range)
         s.money += Math.round(baseIncome * (stationNearby ? 1.5 : 1))
         t.incomeSignalsLeft--
@@ -709,7 +699,7 @@ export function update(s: GameState, dt: number) {
       }
       continue
     }
-    if (t.type === 'buffer' || t.type === 'commsLanHouse' || t.type === 'electricalStation') continue
+    if (t.type === 'buffer' || t.type === 'commsLanHouse' || t.type === 'electricalStation' || t.type === 'economyHouse') continue
     const buffSources = s.towers.filter(other => {
       const dist = Math.hypot(other.x-t.x,other.y-t.y)
       return dist <= TOWERS[other.type].range &&
@@ -739,13 +729,11 @@ export function update(s: GameState, dt: number) {
     const target = lockedTeslaTarget ?? foundTarget
 
     if (t.type === 'ice') {
-      t.beamTargets = []
-      if (target && t.cooldown <= 0) {
-        freezeInRadius(s, t.x, t.y, def.range, 1)
-        t.cooldown = 1 / def.fireRate
-        t.recoil = 0.35
-        s.explosions.push({ x: t.x, y: t.y, r: 24, t: 0, dur: 0.18, color: def.color })
-      }
+      for (const enemy of s.enemies) if (enemy.alive && Math.hypot(enemy.x-t.x,enemy.y-t.y)<=def.range) applySlow(enemy,0.45,0.65)
+      if (!target || t.cooldown > 0) continue
+      t.angle = Math.atan2(target.y-t.y,target.x-t.x)
+      fire(s,t,target,def)
+      t.cooldown = 1 / def.fireRate
       continue
     }
 
@@ -768,7 +756,7 @@ export function update(s: GameState, dt: number) {
           .sort((a, b) => Math.hypot(a.x - t.x, a.y - t.y) - Math.hypot(b.x - t.x, b.y - t.y))
         for (const enemy of lineTargets) {
           damageEnemy(s, enemy, def.damage)
-          applyFreeze(enemy, 1)
+          applyFreeze(enemy, 0.5)
           s.lightningFlashes.push({
             points: [{ x: enemy.x, y: Math.max(0, enemy.y - 96) }, { x: enemy.x, y: enemy.y }],
             t: 0,
@@ -952,6 +940,10 @@ export function update(s: GameState, dt: number) {
     p.t += dt
     if (p.t >= p.duration) {
       explode(s, p.tx, p.ty, p.splash, p.damage, p.color)
+      if (p.cryo) {
+        freezeInRadius(s,p.tx,p.ty,p.splash,0.5)
+        for(let i=0;i<8;i++) { const a=i*Math.PI/4; spawned.push({kind:'ice',x:p.tx,y:p.ty,dirX:Math.cos(a),dirY:Math.sin(a),traveled:0,maxDistance:125,speed:290,damage:p.damage*.45,color:'#a5f3fc',size:4,freezeDuration:0,slowDuration:0,slowFactor:1,hitLimit:4,hitIds:[],splitOnHit:false,explodeAtLimit:false,splash:0,splashFreezeDuration:0,sourceType:'cryoMortar'}) }
+      }
       if (p.cluster) {
         for (let i = 0; i < 3; i++) {
           const a = Math.random() * Math.PI * 2
@@ -1131,14 +1123,980 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
   ctx.roundRect(-19, -19, 38, 38, 7)
   ctx.fill()
   ctx.stroke()
-  if (['incomeFarm','incomeTax'].includes(type)) {
+  if (['incomeFarm','incomeTax','economyHouse'].includes(type)) {
     ctx.fillStyle = def.color
     ctx.fillRect(-11, -11, 22, 22)
     ctx.fillStyle = '#111827'
     ctx.font = 'bold 14px sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText(type === 'incomeTax' ? '$$' : '$', 0, 0)
+    ctx.fillText(type === 'economyHouse' ? '$
+    ctx.restore()
+    return
+  }
+  if (['buffer','commsLanHouse','electricalStation'].includes(type)) {
+    ctx.strokeStyle = def.color
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.arc(0, 0, type === 'commsLanHouse' ? 13 : 10, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(-7, 0)
+    ctx.lineTo(7, 0)
+    ctx.moveTo(0, -7)
+    ctx.lineTo(0, 7)
+    ctx.stroke()
+    ctx.restore()
+    return
+  }
+  if (def.tier >= 1) {
+    ctx.fillStyle = def.color
+    for (const [cx, cy] of [
+      [-14, -14],
+      [14, -14],
+      [-14, 14],
+      [14, 14],
+    ]) {
+      ctx.beginPath()
+      ctx.arc(cx, cy, 2, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+
+  if (type === 'mortar' || type === 'cryoMortar') {
+    ctx.fillStyle = def.accent
+    ctx.beginPath()
+    ctx.arc(0, 0, 13, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = def.color
+    ctx.beginPath()
+    ctx.arc(0, 0, 10 + recoil * 1.5, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#0f172a'
+    ctx.beginPath()
+    ctx.arc(0, 0, 6, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+    return
+  }
+
+  if (type === 'ice') {
+    ctx.strokeStyle = def.color
+    ctx.lineWidth = 3
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    for (const a of [0, Math.PI / 3, (Math.PI * 2) / 3]) {
+      ctx.moveTo(Math.cos(a) * -10, Math.sin(a) * -10)
+      ctx.lineTo(Math.cos(a) * 10, Math.sin(a) * 10)
+    }
+    ctx.stroke()
+    ctx.fillStyle = '#ecfeff'
+    ctx.beginPath()
+    ctx.arc(0, 0, 4, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+    return
+  }
+
+  if (type === 'retarder' || type === 'icicles' || type === 'snowballer') {
+    ctx.rotate(angle)
+    const back = recoil * 4
+    if (type === 'retarder') {
+      ctx.fillStyle = def.accent
+      ctx.fillRect(-2, -6, 18 - back, 12)
+      ctx.fillStyle = def.color
+      ctx.beginPath()
+      ctx.moveTo(16 - back, -5)
+      ctx.lineTo(22 - back, 0)
+      ctx.lineTo(16 - back, 5)
+      ctx.closePath()
+      ctx.fill()
+    } else if (type === 'icicles') {
+      ctx.fillStyle = def.color
+      for (const offset of [-6, 0, 6]) {
+        ctx.beginPath()
+        ctx.moveTo(1 - back, offset)
+        ctx.lineTo(18 - back, offset - 2)
+        ctx.lineTo(14 - back, offset + 2)
+        ctx.closePath()
+        ctx.fill()
+      }
+    } else {
+      ctx.fillStyle = def.accent
+      ctx.fillRect(-1 - back, -5, 14, 10)
+      ctx.fillStyle = def.color
+      ctx.beginPath()
+      ctx.arc(15 - back, 0, 7, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.strokeStyle = '#ecfeff'
+      ctx.beginPath()
+      ctx.arc(15 - back, 0, 4, 0, Math.PI * 2)
+      ctx.stroke()
+    }
+    ctx.restore()
+    return
+  }
+
+  if (type === 'lightning' || type === 'tesla' || type === 'thunderstorm') {
+    ctx.fillStyle = def.accent
+    ctx.beginPath()
+    ctx.arc(0, 0, 12, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = def.color
+    ctx.lineWidth = type === 'tesla' || type === 'thunderstorm' ? 3.5 : 2.5
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.moveTo(-7, -10)
+    ctx.lineTo(-4, -3)
+    ctx.lineTo(0, -7)
+    ctx.lineTo(4, 2)
+    ctx.lineTo(7, -4)
+    ctx.moveTo(0, -15)
+    ctx.lineTo(0, -7)
+    ctx.moveTo(-5, 6)
+    ctx.lineTo(0, 10)
+    ctx.lineTo(5, 6)
+    ctx.stroke()
+    ctx.fillStyle = '#e0f2fe'
+    ctx.beginPath()
+    ctx.arc(0, 0, type === 'tesla' ? 5 : 3.5, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+    return
+  }
+
+  ctx.rotate(angle)
+  const back = recoil * 4
+  ctx.fillStyle = def.accent
+  ctx.beginPath()
+  ctx.arc(0, 0, type === 'cluster' || type === 'raygun' || type === 'bolt' ? 13 : 11, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = def.color
+  if (type === 'shooter') {
+    ctx.fillRect(2 - back, -3, 18, 6)
+  } else if (type === 'dual') {
+    ctx.fillRect(2 - back, -7, 18, 5)
+    ctx.fillRect(2 - back, 2, 18, 5)
+  } else if (type === 'tripleShooter') {
+    ctx.fillRect(2 - back, -9, 18, 4)
+    ctx.fillRect(2 - back, -2, 18, 4)
+    ctx.fillRect(2 - back, 5, 18, 4)
+  } else if (type === 'cannon') {
+    ctx.fillRect(2 - back, -5.5, 17, 11)
+    ctx.fillRect(15 - back, -7, 5, 14)
+  } else if (type === 'cluster') {
+    ctx.fillRect(2 - back, -7, 17, 14)
+    ctx.fillStyle = def.accent
+    for (const oy of [-3.5, 3.5]) {
+      ctx.beginPath()
+      ctx.arc(17 - back, oy, 2.2, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  } else if (type === 'raygun') {
+    ctx.fillRect(1 - back, -6, 10, 12)
+    ctx.fillStyle = def.accent
+    ctx.beginPath()
+    ctx.arc(14 - back, 0, 7 + recoil, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = def.color
+    ctx.beginPath()
+    ctx.arc(14 - back, 0, 4.2 + recoil * 0.5, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = '#f3e8ff'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.arc(14 - back, 0, 6, -1.1, 1.1)
+    ctx.stroke()
+  } else if (type === 'bolt') {
+    ctx.fillRect(1 - back, -5, 11, 10)
+    ctx.strokeStyle = def.color
+    ctx.lineWidth = 3
+    ctx.lineJoin = 'round'
+    ctx.beginPath()
+    ctx.moveTo(7 - back, -8)
+    ctx.lineTo(12 - back, -2)
+    ctx.lineTo(9 - back, 1)
+    ctx.lineTo(16 - back, 7)
+    ctx.stroke()
+  }
+  ctx.fillStyle = def.color
+  ctx.beginPath()
+  ctx.arc(0, 0, 6, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.restore()
+}
+
+export function render(ctx: CanvasRenderingContext2D, s: GameState) {
+  ctx.fillStyle = '#070d1f'
+  ctx.fillRect(0, 0, WIDTH, HEIGHT)
+
+  ctx.strokeStyle = 'rgba(56,189,248,0.07)'
+  ctx.lineWidth = 1
+  for (let c = 0; c <= COLS; c++) {
+    ctx.beginPath()
+    ctx.moveTo(c * CELL, 0)
+    ctx.lineTo(c * CELL, HEIGHT)
+    ctx.stroke()
+  }
+  for (let r = 0; r <= ROWS; r++) {
+    ctx.beginPath()
+    ctx.moveTo(0, r * CELL)
+    ctx.lineTo(WIDTH, r * CELL)
+    ctx.stroke()
+  }
+
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'square'
+  ctx.strokeStyle = 'rgba(56,189,248,0.35)'
+  ctx.lineWidth = CELL + 4
+  tracePath(ctx)
+  ctx.stroke()
+  ctx.strokeStyle = '#0f1a33'
+  ctx.lineWidth = CELL - 4
+  tracePath(ctx)
+  ctx.stroke()
+  ctx.setLineDash([6, 10])
+  ctx.lineDashOffset = -s.time * 20
+  ctx.strokeStyle = 'rgba(56,189,248,0.25)'
+  ctx.lineWidth = 2
+  tracePath(ctx)
+  ctx.stroke()
+  ctx.setLineDash([])
+
+  const selected = s.towers.find((t) => t.id === s.selectedId)
+
+  if (s.hover && s.buildType) {
+    const ok = isBuildable(s, s.hover.col, s.hover.row) && s.money >= TOWERS[s.buildType].cost
+    const hx = s.hover.col * CELL + CELL / 2
+    const hy = s.hover.row * CELL + CELL / 2
+    ctx.fillStyle = ok ? 'rgba(56,189,248,0.08)' : 'rgba(239,68,68,0.1)'
+    ctx.strokeStyle = ok ? 'rgba(56,189,248,0.5)' : 'rgba(239,68,68,0.5)'
+    ctx.beginPath()
+    ctx.arc(hx, hy, TOWERS[s.buildType].range, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+    ctx.globalAlpha = 0.55
+    drawTower(ctx, s.buildType, hx, hy, -Math.PI / 2)
+    ctx.globalAlpha = 1
+  }
+
+  if (selected) {
+    ctx.fillStyle = 'rgba(56,189,248,0.07)'
+    ctx.strokeStyle = 'rgba(56,189,248,0.5)'
+    ctx.beginPath()
+    ctx.arc(selected.x, selected.y, TOWERS[selected.type].range, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+  }
+
+  for (const t of s.towers) {
+    drawTower(ctx, t.type, t.x, t.y, t.angle, t.recoil)
+    if (selected && t.id === selected.id) {
+      ctx.strokeStyle = '#e0f2fe'
+      ctx.lineWidth = 2
+      ctx.strokeRect(t.x - 22, t.y - 22, 44, 44)
+    } else if (selected && s.fuseMode) {
+      const ok = !!fusionResult(selected.type, t.type)
+      const pulse = 0.5 + Math.sin(s.time * 8) * 0.3
+      ctx.strokeStyle = ok ? `rgba(74,222,128,${pulse + 0.2})` : 'rgba(100,116,139,0.4)'
+      ctx.lineWidth = 2
+      ctx.setLineDash(ok ? [] : [4, 4])
+      ctx.strokeRect(t.x - 22, t.y - 22, 44, 44)
+      ctx.setLineDash([])
+    }
+  }
+
+  // Tesla keeps a focused beam; Lightning Rod fires brief flashes instead.
+  for (const t of s.towers) {
+    if (t.type !== 'tesla') continue
+    const target = t.beamTargets
+      .map((id) => s.enemies.find((e) => e.id === id && e.alive))
+      .find((e): e is Enemy => !!e)
+    if (target) drawElectricBeam(ctx, t.x, t.y, target.x, target.y, TOWERS.tesla.color, s.time, 2.7)
+  }
+
+  for (const flash of s.lightningFlashes) {
+    const progress = flash.t / flash.dur
+    const alpha = progress < 0.18 ? progress / 0.18 : Math.max(0, 1 - (progress - 0.18) / 0.82)
+    ctx.save()
+    ctx.globalAlpha = alpha
+    for (let i = 0; i < flash.points.length - 1; i++) {
+      const from = flash.points[i]
+      const to = flash.points[i + 1]
+      drawElectricBeam(ctx, from.x, from.y, to.x, to.y, flash.color, s.time + flash.t * 24, 4)
+    }
+    ctx.restore()
+  }
+
+  for (const e of s.enemies) {
+    drawBug(ctx, e.type, e.x, e.y-(e.airborneTimer>0?14:0), e.angle, e.anim, e.cocooning, e.airborneTimer>0, e.helmet)
+    if (e.frozenTimer > 0 || e.slowTimer > 0) {
+      ctx.save()
+      ctx.strokeStyle = e.frozenTimer > 0 ? '#7dd3fc' : '#a5f3fc'
+      ctx.lineWidth = e.frozenTimer > 0 ? 2.5 : 1.5
+      ctx.globalAlpha = e.frozenTimer > 0 ? 0.9 : 0.6
+      ctx.beginPath()
+      ctx.arc(e.x, e.y, ENEMIES[e.type].radius + (e.frozenTimer > 0 ? 5 : 3), 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.restore()
+    }
+    if (e.hp < e.maxHp || e.cocooning) {
+      const r = ENEMIES[e.type].radius
+      ctx.fillStyle = '#111827'
+      ctx.fillRect(e.x - r, e.y - r - 8, r * 2, 3)
+      ctx.fillStyle = e.cocooning ? '#f59e0b' : '#4ade80'
+      const ratio = e.cocooning ? Math.max(0, e.cocoonTimer / 5) : e.hp / e.maxHp
+      ctx.fillRect(e.x - r, e.y - r - 8, r * 2 * ratio, 3)
+    }
+  }
+
+  for (const p of s.projectiles) {
+    if (p.kind === 'energy') {
+      ctx.save()
+      ctx.globalAlpha = 0.13
+      ctx.fillStyle = p.color
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.aura, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.globalAlpha = 1
+      ctx.shadowColor = p.color
+      ctx.shadowBlur = 18
+      ctx.fillStyle = p.color
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.shadowBlur = 0
+      ctx.strokeStyle = '#f3e8ff'
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.size * 0.65, s.time * 5, s.time * 5 + Math.PI * 1.4)
+      ctx.stroke()
+      ctx.restore()
+    } else if (p.kind === 'direct') {
+      ctx.fillStyle = p.color
+      ctx.shadowColor = p.color
+      ctx.shadowBlur = 8
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.shadowBlur = 0
+    } else if (p.kind === 'ice') {
+      ctx.save()
+      ctx.translate(p.x, p.y)
+      ctx.rotate(Math.atan2(p.dirY, p.dirX))
+      ctx.fillStyle = p.color
+      ctx.strokeStyle = '#ecfeff'
+      ctx.lineWidth = 1
+      ctx.shadowColor = p.color
+      ctx.shadowBlur = 7
+      ctx.beginPath()
+      ctx.moveTo(p.size * 1.8, 0)
+      ctx.lineTo(0, -p.size)
+      ctx.lineTo(-p.size * 1.4, 0)
+      ctx.lineTo(0, p.size)
+      ctx.closePath()
+      ctx.fill()
+      ctx.stroke()
+      ctx.shadowBlur = 0
+      ctx.restore()
+    } else {
+      const k = p.t / p.duration
+      const gx = p.sx + (p.tx - p.sx) * k
+      const gy = p.sy + (p.ty - p.sy) * k
+      const h = p.height * 4 * k * (1 - k)
+      ctx.fillStyle = 'rgba(0,0,0,0.4)'
+      ctx.beginPath()
+      ctx.ellipse(gx, gy, p.size * (0.6 + k * 0.4), p.size * 0.5, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = p.color
+      ctx.shadowColor = p.color
+      ctx.shadowBlur = 10
+      ctx.beginPath()
+      ctx.arc(gx, gy - h, p.size * (1 + (h / p.height) * 0.5), 0, Math.PI * 2)
+      ctx.fill()
+      ctx.shadowBlur = 0
+    }
+  }
+
+  for (const strike of s.strikes) {
+    const progress = strike.t / strike.dur
+    const alpha = progress < 0.25 ? progress / 0.25 : 1 - (progress - 0.25) / 0.75
+    ctx.save()
+    ctx.globalAlpha = Math.max(0, alpha)
+    ctx.strokeStyle = strike.color
+    ctx.lineWidth = 5
+    ctx.shadowColor = strike.color
+    ctx.shadowBlur = 16
+    ctx.beginPath()
+    const startY = Math.max(0, strike.y - 100)
+    ctx.moveTo(strike.x - 8, startY)
+    const segments = 7
+    for (let i = 1; i < segments; i++) {
+      const k = i / segments
+      const jitter = Math.sin(s.time * 90 + i * 17 + strike.x) * (8 + i % 2 * 4)
+      ctx.lineTo(strike.x + jitter, startY + (strike.y - startY) * k)
+    }
+    ctx.lineTo(strike.x, strike.y)
+    ctx.stroke()
+    ctx.shadowBlur = 0
+    ctx.fillStyle = '#fef9c3'
+    ctx.beginPath()
+    ctx.arc(strike.x, strike.y, 6 + (1 - progress) * 5, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+  }
+
+  for (const x of s.explosions) {
+    const k = x.t / x.dur
+    ctx.globalAlpha = 1 - k
+    ctx.fillStyle = x.color
+    ctx.beginPath()
+    ctx.arc(x.x, x.y, x.r * (0.4 + k * 0.6), 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = '#fff'
+    ctx.lineWidth = 2
+    ctx.stroke()
+    ctx.globalAlpha = 1
+  }
+}
+
+function drawElectricBeam(
+  ctx: CanvasRenderingContext2D,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  color: string,
+  time: number,
+  width: number,
+) {
+  const dx = x2 - x1
+  const dy = y2 - y1
+  const length = Math.hypot(dx, dy)
+  const steps = Math.max(3, Math.floor(length / 12))
+  const px = length > 0 ? -dy / length : 0
+  const py = length > 0 ? dx / length : 0
+  ctx.save()
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.strokeStyle = color
+  ctx.shadowColor = color
+  ctx.shadowBlur = 10
+  ctx.lineWidth = width + 2
+  ctx.globalAlpha = 0.4
+  ctx.beginPath()
+  ctx.moveTo(x1, y1)
+  ctx.lineTo(x2, y2)
+  ctx.stroke()
+  ctx.globalAlpha = 0.95
+  ctx.lineWidth = width
+  ctx.beginPath()
+  ctx.moveTo(x1, y1)
+  for (let i = 1; i < steps; i++) {
+    const k = i / steps
+    const wave = Math.sin(time * 70 + i * 8.3 + x1 * 0.03) * 3.2
+    ctx.lineTo(x1 + dx * k + px * wave, y1 + dy * k + py * wave)
+  }
+  ctx.lineTo(x2, y2)
+  ctx.stroke()
+  ctx.shadowBlur = 0
+  ctx.strokeStyle = '#ecfeff'
+  ctx.lineWidth = Math.max(0.7, width * 0.38)
+  ctx.globalAlpha = 0.85
+  ctx.beginPath()
+  ctx.moveTo(x1, y1)
+  ctx.lineTo(x2, y2)
+  ctx.stroke()
+  ctx.restore()
+}
+
+function tracePath(ctx: CanvasRenderingContext2D) {
+  ctx.beginPath()
+  ctx.moveTo(PATH[0].x, PATH[0].y)
+  for (let i = 1; i < PATH.length; i++) ctx.lineTo(PATH[i].x, PATH[i].y)
+}
+ : type === 'incomeTax' ? '$' : '
+    ctx.restore()
+    return
+  }
+  if (['buffer','commsLanHouse','electricalStation'].includes(type)) {
+    ctx.strokeStyle = def.color
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.arc(0, 0, type === 'commsLanHouse' ? 13 : 10, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(-7, 0)
+    ctx.lineTo(7, 0)
+    ctx.moveTo(0, -7)
+    ctx.lineTo(0, 7)
+    ctx.stroke()
+    ctx.restore()
+    return
+  }
+  if (def.tier >= 1) {
+    ctx.fillStyle = def.color
+    for (const [cx, cy] of [
+      [-14, -14],
+      [14, -14],
+      [-14, 14],
+      [14, 14],
+    ]) {
+      ctx.beginPath()
+      ctx.arc(cx, cy, 2, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+
+  if (type === 'mortar') {
+    ctx.fillStyle = def.accent
+    ctx.beginPath()
+    ctx.arc(0, 0, 13, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = def.color
+    ctx.beginPath()
+    ctx.arc(0, 0, 10 + recoil * 1.5, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#0f172a'
+    ctx.beginPath()
+    ctx.arc(0, 0, 6, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+    return
+  }
+
+  if (type === 'ice') {
+    ctx.strokeStyle = def.color
+    ctx.lineWidth = 3
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    for (const a of [0, Math.PI / 3, (Math.PI * 2) / 3]) {
+      ctx.moveTo(Math.cos(a) * -10, Math.sin(a) * -10)
+      ctx.lineTo(Math.cos(a) * 10, Math.sin(a) * 10)
+    }
+    ctx.stroke()
+    ctx.fillStyle = '#ecfeff'
+    ctx.beginPath()
+    ctx.arc(0, 0, 4, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+    return
+  }
+
+  if (type === 'retarder' || type === 'icicles' || type === 'snowballer') {
+    ctx.rotate(angle)
+    const back = recoil * 4
+    if (type === 'retarder') {
+      ctx.fillStyle = def.accent
+      ctx.fillRect(-2, -6, 18 - back, 12)
+      ctx.fillStyle = def.color
+      ctx.beginPath()
+      ctx.moveTo(16 - back, -5)
+      ctx.lineTo(22 - back, 0)
+      ctx.lineTo(16 - back, 5)
+      ctx.closePath()
+      ctx.fill()
+    } else if (type === 'icicles') {
+      ctx.fillStyle = def.color
+      for (const offset of [-6, 0, 6]) {
+        ctx.beginPath()
+        ctx.moveTo(1 - back, offset)
+        ctx.lineTo(18 - back, offset - 2)
+        ctx.lineTo(14 - back, offset + 2)
+        ctx.closePath()
+        ctx.fill()
+      }
+    } else {
+      ctx.fillStyle = def.accent
+      ctx.fillRect(-1 - back, -5, 14, 10)
+      ctx.fillStyle = def.color
+      ctx.beginPath()
+      ctx.arc(15 - back, 0, 7, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.strokeStyle = '#ecfeff'
+      ctx.beginPath()
+      ctx.arc(15 - back, 0, 4, 0, Math.PI * 2)
+      ctx.stroke()
+    }
+    ctx.restore()
+    return
+  }
+
+  if (type === 'lightning' || type === 'tesla' || type === 'thunderstorm') {
+    ctx.fillStyle = def.accent
+    ctx.beginPath()
+    ctx.arc(0, 0, 12, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = def.color
+    ctx.lineWidth = type === 'tesla' || type === 'thunderstorm' ? 3.5 : 2.5
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.moveTo(-7, -10)
+    ctx.lineTo(-4, -3)
+    ctx.lineTo(0, -7)
+    ctx.lineTo(4, 2)
+    ctx.lineTo(7, -4)
+    ctx.moveTo(0, -15)
+    ctx.lineTo(0, -7)
+    ctx.moveTo(-5, 6)
+    ctx.lineTo(0, 10)
+    ctx.lineTo(5, 6)
+    ctx.stroke()
+    ctx.fillStyle = '#e0f2fe'
+    ctx.beginPath()
+    ctx.arc(0, 0, type === 'tesla' ? 5 : 3.5, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+    return
+  }
+
+  ctx.rotate(angle)
+  const back = recoil * 4
+  ctx.fillStyle = def.accent
+  ctx.beginPath()
+  ctx.arc(0, 0, type === 'cluster' || type === 'raygun' || type === 'bolt' ? 13 : 11, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = def.color
+  if (type === 'shooter') {
+    ctx.fillRect(2 - back, -3, 18, 6)
+  } else if (type === 'dual') {
+    ctx.fillRect(2 - back, -7, 18, 5)
+    ctx.fillRect(2 - back, 2, 18, 5)
+  } else if (type === 'cannon') {
+    ctx.fillRect(2 - back, -5.5, 17, 11)
+    ctx.fillRect(15 - back, -7, 5, 14)
+  } else if (type === 'cluster') {
+    ctx.fillRect(2 - back, -7, 17, 14)
+    ctx.fillStyle = def.accent
+    for (const oy of [-3.5, 3.5]) {
+      ctx.beginPath()
+      ctx.arc(17 - back, oy, 2.2, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  } else if (type === 'raygun') {
+    ctx.fillRect(1 - back, -6, 10, 12)
+    ctx.fillStyle = def.accent
+    ctx.beginPath()
+    ctx.arc(14 - back, 0, 7 + recoil, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = def.color
+    ctx.beginPath()
+    ctx.arc(14 - back, 0, 4.2 + recoil * 0.5, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = '#f3e8ff'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.arc(14 - back, 0, 6, -1.1, 1.1)
+    ctx.stroke()
+  } else if (type === 'bolt') {
+    ctx.fillRect(1 - back, -5, 11, 10)
+    ctx.strokeStyle = def.color
+    ctx.lineWidth = 3
+    ctx.lineJoin = 'round'
+    ctx.beginPath()
+    ctx.moveTo(7 - back, -8)
+    ctx.lineTo(12 - back, -2)
+    ctx.lineTo(9 - back, 1)
+    ctx.lineTo(16 - back, 7)
+    ctx.stroke()
+  }
+  ctx.fillStyle = def.color
+  ctx.beginPath()
+  ctx.arc(0, 0, 6, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.restore()
+}
+
+export function render(ctx: CanvasRenderingContext2D, s: GameState) {
+  ctx.fillStyle = '#070d1f'
+  ctx.fillRect(0, 0, WIDTH, HEIGHT)
+
+  ctx.strokeStyle = 'rgba(56,189,248,0.07)'
+  ctx.lineWidth = 1
+  for (let c = 0; c <= COLS; c++) {
+    ctx.beginPath()
+    ctx.moveTo(c * CELL, 0)
+    ctx.lineTo(c * CELL, HEIGHT)
+    ctx.stroke()
+  }
+  for (let r = 0; r <= ROWS; r++) {
+    ctx.beginPath()
+    ctx.moveTo(0, r * CELL)
+    ctx.lineTo(WIDTH, r * CELL)
+    ctx.stroke()
+  }
+
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'square'
+  ctx.strokeStyle = 'rgba(56,189,248,0.35)'
+  ctx.lineWidth = CELL + 4
+  tracePath(ctx)
+  ctx.stroke()
+  ctx.strokeStyle = '#0f1a33'
+  ctx.lineWidth = CELL - 4
+  tracePath(ctx)
+  ctx.stroke()
+  ctx.setLineDash([6, 10])
+  ctx.lineDashOffset = -s.time * 20
+  ctx.strokeStyle = 'rgba(56,189,248,0.25)'
+  ctx.lineWidth = 2
+  tracePath(ctx)
+  ctx.stroke()
+  ctx.setLineDash([])
+
+  const selected = s.towers.find((t) => t.id === s.selectedId)
+
+  if (s.hover && s.buildType) {
+    const ok = isBuildable(s, s.hover.col, s.hover.row) && s.money >= TOWERS[s.buildType].cost
+    const hx = s.hover.col * CELL + CELL / 2
+    const hy = s.hover.row * CELL + CELL / 2
+    ctx.fillStyle = ok ? 'rgba(56,189,248,0.08)' : 'rgba(239,68,68,0.1)'
+    ctx.strokeStyle = ok ? 'rgba(56,189,248,0.5)' : 'rgba(239,68,68,0.5)'
+    ctx.beginPath()
+    ctx.arc(hx, hy, TOWERS[s.buildType].range, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+    ctx.globalAlpha = 0.55
+    drawTower(ctx, s.buildType, hx, hy, -Math.PI / 2)
+    ctx.globalAlpha = 1
+  }
+
+  if (selected) {
+    ctx.fillStyle = 'rgba(56,189,248,0.07)'
+    ctx.strokeStyle = 'rgba(56,189,248,0.5)'
+    ctx.beginPath()
+    ctx.arc(selected.x, selected.y, TOWERS[selected.type].range, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+  }
+
+  for (const t of s.towers) {
+    drawTower(ctx, t.type, t.x, t.y, t.angle, t.recoil)
+    if (selected && t.id === selected.id) {
+      ctx.strokeStyle = '#e0f2fe'
+      ctx.lineWidth = 2
+      ctx.strokeRect(t.x - 22, t.y - 22, 44, 44)
+    } else if (selected && s.fuseMode) {
+      const ok = !!fusionResult(selected.type, t.type)
+      const pulse = 0.5 + Math.sin(s.time * 8) * 0.3
+      ctx.strokeStyle = ok ? `rgba(74,222,128,${pulse + 0.2})` : 'rgba(100,116,139,0.4)'
+      ctx.lineWidth = 2
+      ctx.setLineDash(ok ? [] : [4, 4])
+      ctx.strokeRect(t.x - 22, t.y - 22, 44, 44)
+      ctx.setLineDash([])
+    }
+  }
+
+  // Tesla keeps a focused beam; Lightning Rod fires brief flashes instead.
+  for (const t of s.towers) {
+    if (t.type !== 'tesla') continue
+    const target = t.beamTargets
+      .map((id) => s.enemies.find((e) => e.id === id && e.alive))
+      .find((e): e is Enemy => !!e)
+    if (target) drawElectricBeam(ctx, t.x, t.y, target.x, target.y, TOWERS.tesla.color, s.time, 2.7)
+  }
+
+  for (const flash of s.lightningFlashes) {
+    const progress = flash.t / flash.dur
+    const alpha = progress < 0.18 ? progress / 0.18 : Math.max(0, 1 - (progress - 0.18) / 0.82)
+    ctx.save()
+    ctx.globalAlpha = alpha
+    for (let i = 0; i < flash.points.length - 1; i++) {
+      const from = flash.points[i]
+      const to = flash.points[i + 1]
+      drawElectricBeam(ctx, from.x, from.y, to.x, to.y, flash.color, s.time + flash.t * 24, 4)
+    }
+    ctx.restore()
+  }
+
+  for (const e of s.enemies) {
+    drawBug(ctx, e.type, e.x, e.y-(e.airborneTimer>0?14:0), e.angle, e.anim, e.cocooning, e.airborneTimer>0, e.helmet)
+    if (e.frozenTimer > 0 || e.slowTimer > 0) {
+      ctx.save()
+      ctx.strokeStyle = e.frozenTimer > 0 ? '#7dd3fc' : '#a5f3fc'
+      ctx.lineWidth = e.frozenTimer > 0 ? 2.5 : 1.5
+      ctx.globalAlpha = e.frozenTimer > 0 ? 0.9 : 0.6
+      ctx.beginPath()
+      ctx.arc(e.x, e.y, ENEMIES[e.type].radius + (e.frozenTimer > 0 ? 5 : 3), 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.restore()
+    }
+    if (e.hp < e.maxHp || e.cocooning) {
+      const r = ENEMIES[e.type].radius
+      ctx.fillStyle = '#111827'
+      ctx.fillRect(e.x - r, e.y - r - 8, r * 2, 3)
+      ctx.fillStyle = e.cocooning ? '#f59e0b' : '#4ade80'
+      const ratio = e.cocooning ? Math.max(0, e.cocoonTimer / 5) : e.hp / e.maxHp
+      ctx.fillRect(e.x - r, e.y - r - 8, r * 2 * ratio, 3)
+    }
+  }
+
+  for (const p of s.projectiles) {
+    if (p.kind === 'energy') {
+      ctx.save()
+      ctx.globalAlpha = 0.13
+      ctx.fillStyle = p.color
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.aura, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.globalAlpha = 1
+      ctx.shadowColor = p.color
+      ctx.shadowBlur = 18
+      ctx.fillStyle = p.color
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.shadowBlur = 0
+      ctx.strokeStyle = '#f3e8ff'
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.size * 0.65, s.time * 5, s.time * 5 + Math.PI * 1.4)
+      ctx.stroke()
+      ctx.restore()
+    } else if (p.kind === 'direct') {
+      ctx.fillStyle = p.color
+      ctx.shadowColor = p.color
+      ctx.shadowBlur = 8
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.shadowBlur = 0
+    } else if (p.kind === 'ice') {
+      ctx.save()
+      ctx.translate(p.x, p.y)
+      ctx.rotate(Math.atan2(p.dirY, p.dirX))
+      ctx.fillStyle = p.color
+      ctx.strokeStyle = '#ecfeff'
+      ctx.lineWidth = 1
+      ctx.shadowColor = p.color
+      ctx.shadowBlur = 7
+      ctx.beginPath()
+      ctx.moveTo(p.size * 1.8, 0)
+      ctx.lineTo(0, -p.size)
+      ctx.lineTo(-p.size * 1.4, 0)
+      ctx.lineTo(0, p.size)
+      ctx.closePath()
+      ctx.fill()
+      ctx.stroke()
+      ctx.shadowBlur = 0
+      ctx.restore()
+    } else {
+      const k = p.t / p.duration
+      const gx = p.sx + (p.tx - p.sx) * k
+      const gy = p.sy + (p.ty - p.sy) * k
+      const h = p.height * 4 * k * (1 - k)
+      ctx.fillStyle = 'rgba(0,0,0,0.4)'
+      ctx.beginPath()
+      ctx.ellipse(gx, gy, p.size * (0.6 + k * 0.4), p.size * 0.5, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = p.color
+      ctx.shadowColor = p.color
+      ctx.shadowBlur = 10
+      ctx.beginPath()
+      ctx.arc(gx, gy - h, p.size * (1 + (h / p.height) * 0.5), 0, Math.PI * 2)
+      ctx.fill()
+      ctx.shadowBlur = 0
+    }
+  }
+
+  for (const strike of s.strikes) {
+    const progress = strike.t / strike.dur
+    const alpha = progress < 0.25 ? progress / 0.25 : 1 - (progress - 0.25) / 0.75
+    ctx.save()
+    ctx.globalAlpha = Math.max(0, alpha)
+    ctx.strokeStyle = strike.color
+    ctx.lineWidth = 5
+    ctx.shadowColor = strike.color
+    ctx.shadowBlur = 16
+    ctx.beginPath()
+    const startY = Math.max(0, strike.y - 100)
+    ctx.moveTo(strike.x - 8, startY)
+    const segments = 7
+    for (let i = 1; i < segments; i++) {
+      const k = i / segments
+      const jitter = Math.sin(s.time * 90 + i * 17 + strike.x) * (8 + i % 2 * 4)
+      ctx.lineTo(strike.x + jitter, startY + (strike.y - startY) * k)
+    }
+    ctx.lineTo(strike.x, strike.y)
+    ctx.stroke()
+    ctx.shadowBlur = 0
+    ctx.fillStyle = '#fef9c3'
+    ctx.beginPath()
+    ctx.arc(strike.x, strike.y, 6 + (1 - progress) * 5, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+  }
+
+  for (const x of s.explosions) {
+    const k = x.t / x.dur
+    ctx.globalAlpha = 1 - k
+    ctx.fillStyle = x.color
+    ctx.beginPath()
+    ctx.arc(x.x, x.y, x.r * (0.4 + k * 0.6), 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = '#fff'
+    ctx.lineWidth = 2
+    ctx.stroke()
+    ctx.globalAlpha = 1
+  }
+}
+
+function drawElectricBeam(
+  ctx: CanvasRenderingContext2D,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  color: string,
+  time: number,
+  width: number,
+) {
+  const dx = x2 - x1
+  const dy = y2 - y1
+  const length = Math.hypot(dx, dy)
+  const steps = Math.max(3, Math.floor(length / 12))
+  const px = length > 0 ? -dy / length : 0
+  const py = length > 0 ? dx / length : 0
+  ctx.save()
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.strokeStyle = color
+  ctx.shadowColor = color
+  ctx.shadowBlur = 10
+  ctx.lineWidth = width + 2
+  ctx.globalAlpha = 0.4
+  ctx.beginPath()
+  ctx.moveTo(x1, y1)
+  ctx.lineTo(x2, y2)
+  ctx.stroke()
+  ctx.globalAlpha = 0.95
+  ctx.lineWidth = width
+  ctx.beginPath()
+  ctx.moveTo(x1, y1)
+  for (let i = 1; i < steps; i++) {
+    const k = i / steps
+    const wave = Math.sin(time * 70 + i * 8.3 + x1 * 0.03) * 3.2
+    ctx.lineTo(x1 + dx * k + px * wave, y1 + dy * k + py * wave)
+  }
+  ctx.lineTo(x2, y2)
+  ctx.stroke()
+  ctx.shadowBlur = 0
+  ctx.strokeStyle = '#ecfeff'
+  ctx.lineWidth = Math.max(0.7, width * 0.38)
+  ctx.globalAlpha = 0.85
+  ctx.beginPath()
+  ctx.moveTo(x1, y1)
+  ctx.lineTo(x2, y2)
+  ctx.stroke()
+  ctx.restore()
+}
+
+function tracePath(ctx: CanvasRenderingContext2D) {
+  ctx.beginPath()
+  ctx.moveTo(PATH[0].x, PATH[0].y)
+  for (let i = 1; i < PATH.length; i++) ctx.lineTo(PATH[i].x, PATH[i].y)
+}
+, 0, 0)
     ctx.restore()
     return
   }
