@@ -1130,7 +1130,7 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
     ctx.font = 'bold 14px sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText(type === 'economyHouse' ? '$
+    ctx.fillText(type === 'economyHouse' ? '\u0024\u0024\u0024' : type === 'incomeTax' ? '\u0024\u0024' : '\u0024', 0, 0)
     ctx.restore()
     return
   }
