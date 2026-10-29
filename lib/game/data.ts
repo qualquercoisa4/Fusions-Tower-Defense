@@ -18,7 +18,7 @@ export type TowerType =
   | 'commsLanHouse'
   | 'incomeTax'
   | 'electricalStation'
-export type EnemyType = 'grunt' | 'tank' | 'runner' | 'vessel' | 'jumper' | 'healer' | 'bugPrince' | 'swarmBug'
+export type EnemyType = 'grunt' | 'tank' | 'runner' | 'vessel' | 'jumper' | 'healer' | 'bugPrince' | 'swarmBug' | 'splitter' | 'shadowBug' | 'spitter' | 'bulb' | 'bugQueen'
 
 export type TargetMode = 'first' | 'last' | 'strongest' | 'weakest' | 'closest'
 export const TARGET_MODES: { value: TargetMode; label: string }[] = [
@@ -365,8 +365,13 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   jumper: { name: 'Jumper', hp: 95, speed: 70, reward: 10, radius: 10, damage: 2, color: '#c084fc', dark: '#581c87', description: 'Salta para a frente a cada 1,25 segundos. No ar, é imune a Shooter, Cannon e Retarder.' },
   healer: { name: 'Healer', hp: 115, speed: 30, reward: 14, radius: 11, damage: 2, color: '#4ade80', dark: '#166534', description: 'A cada 1,5 segundo, cura inimigos próximos em 15% da vida atual, ou apenas 3,75% quando congelado. Congelá-lo reinicia o cooldown. Não se cura nem cura o Bug Prince.' },
-  bugPrince: { name: 'Bug Prince', hp: 18000, speed: 13, reward: 500, radius: 25, damage: 20, color: '#fbbf24', dark: '#78350f', description: 'Chefe: invoca reforços e chama enxames. Ao morrer, dá capacetes e +25% de vida aos tipos de insetos encontrados.' },
-  swarmBug: { name: 'Swarm Bug', hp: 8, speed: 180, reward: 1, radius: 4.5, damage: 1, color: '#fb7185', dark: '#881337', description: 'Inseto extremamente frágil e veloz. Só aparece em enxames enormes a partir da onda 30.' },
+  bugPrince: { name: 'Bug Prince', hp: 18000, speed: 13, reward: 500, radius: 25, damage: 20, color: '#fbbf24', dark: '#78350f', description: 'Chefe da onda 25: invoca reforços e chama enxames. Ao morrer, dá armadura e +25% de vida aos tipos encontrados.' },
+  swarmBug: { name: 'Swarm Bug', hp: 14, speed: 180, reward: 1, radius: 4.5, damage: 1, color: '#fb7185', dark: '#881337', description: 'Inseto muito frágil e veloz. Surge em enxames enormes a partir da onda 30.' },
+  splitter: { name: 'Splitter', hp: 520, speed: 30, reward: 18, radius: 13, damage: 4, color: '#f97316', dark: '#7c2d12', description: 'Tem muita vida e, ao morrer, divide-se em dois insetos com metade da vida e o dobro da velocidade.' },
+  shadowBug: { name: 'Shadow Bug', hp: 145, speed: 58, reward: 14, radius: 10, damage: 2, color: '#a78bfa', dark: '#312e81', description: 'Fica invulnerável enquanto houver outros tipos de inseto por perto. Outros Shadow Bugs não concedem proteção.' },
+  spitter: { name: 'Spitter', hp: 210, speed: 32, reward: 20, radius: 12, damage: 3, color: '#22d3ee', dark: '#164e63', description: 'A cada 3 segundos, desativa por 3 segundos a torre mais próxima.' },
+  bulb: { name: 'Bulb', hp: 260, speed: 25, reward: 24, radius: 13, damage: 3, color: '#fde047', dark: '#854d0e', description: 'Alterna a cada 3 segundos entre ligado e desligado. Quando ligado, protege os outros insetos próximos.' },
+  bugQueen: { name: 'Bug Queen', hp: 72000, speed: 11, reward: 1500, radius: 32, damage: 30, color: '#f0abfc', dark: '#701a75', description: 'Chefe da onda 50: invoca novos insetos, possui quatro vezes a vida do Bug Prince e deixa um de cada tipo para trás ao morrer. Concede armadura real e +25% de vida.' },
 }
 
 export const CELL = 48
@@ -425,11 +430,19 @@ const WAVE_BLUEPRINTS: Record<number, { type: EnemyType; count: number; delay: n
 }
 export function buildWave(n:number):{type:EnemyType;delay:number}[] {
   if(n===25)return [{type:'bugPrince',delay:0}]
-  if(n>=30){const count=Math.min(120,60+(n-30)*5);return Array.from({length:count},(_,i)=>({type:'swarmBug',delay:i===0?0:.075}))}
+  if(n===50)return [{type:'bugQueen',delay:0}]
   const blueprint=WAVE_BLUEPRINTS[Math.min(29,Math.max(1,n))]
   const queue:{type:EnemyType;delay:number}[]=[]
-  const pace=Math.max(.68,1-n*.012)
+  const pace=Math.max(.55,1-n*.008)
   for(const group of blueprint)for(let i=0;i<group.count;i++)queue.push({type:group.type,delay:group.delay*pace})
+  if(n>=26){
+    const add=(type:EnemyType,count:number,delay:number)=>{for(let i=0;i<count;i++)queue.push({type,delay})}
+    add('splitter',Math.max(2,Math.floor((n-23)*.8)),.48)
+    add('shadowBug',Math.max(3,Math.floor((n-23)*.9)),.38)
+    add('spitter',Math.max(2,Math.floor((n-24)*.55)),.65)
+    add('bulb',Math.max(1,Math.floor((n-25)*.35)),.8)
+    if(n>=30)add('swarmBug',Math.min(140,70+(n-30)*4),.065)
+  }
   return queue
 }
 

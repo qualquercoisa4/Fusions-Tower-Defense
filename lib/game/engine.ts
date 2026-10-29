@@ -33,6 +33,11 @@ export interface Enemy {
   bossThreshold: number
   spawnCooldown: number
   helmet: boolean
+  queenArmor: boolean
+  splitGeneration: number
+  bulbOn: boolean
+  bulbTimer: number
+  attackCooldown: number
   wp: number
   dist: number
   angle: number
@@ -59,6 +64,7 @@ export interface Tower {
   chargeTime: number
   incomeSignalsLeft: number
   incomeWave: number
+  disabledTimer: number
 }
 
 type Projectile =
@@ -177,6 +183,7 @@ export interface GameState {
   seenEnemyTypes: EnemyType[]
   bugPrinceDefeated: boolean
   swarmCounter: number
+  bugQueenDefeated: boolean
 }
 
 export function createGame(): GameState {
@@ -203,6 +210,7 @@ export function createGame(): GameState {
     seenEnemyTypes: [],
     bugPrinceDefeated: false,
     swarmCounter: 0,
+    bugQueenDefeated: false,
   }
 }
 
@@ -238,6 +246,7 @@ export function placeTower(s: GameState, type: TowerType, col: number, row: numb
     chargeTime: 0,
     incomeSignalsLeft: 0,
     incomeWave: -1,
+    disabledTimer: 0,
   })
   return true
 }
@@ -303,14 +312,20 @@ function freezeInRadius(s: GameState, x: number, y: number, radius: number, dura
   }
 }
 
+function isShielded(s: GameState, e: Enemy) {
+  if (e.type === 'shadowBug') return s.enemies.some(other => other.alive && other.id !== e.id && other.type !== 'shadowBug' && Math.hypot(other.x-e.x,other.y-e.y) <= 54)
+  if (e.type === 'bulb' && e.bulbOn) return false
+  return s.enemies.some(other => other.alive && other.id !== e.id && other.type === 'bulb' && other.bulbOn && Math.hypot(other.x-e.x,other.y-e.y) <= 88)
+}
+
 function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType) {
-  if (!e.alive) return
+  if (!e.alive || isShielded(s,e)) return
   if(e.type==='jumper'&&e.airborneTimer>0&&sourceType&&['shooter','cannon','retarder'].includes(sourceType))return
   const previousHp=e.hp;e.hp-=dmg
-  if(e.type==='bugPrince'){
+  if(e.type==='bugPrince'||e.type==='bugQueen'){
     const lostThirds=Math.floor((e.maxHp-e.hp)/(e.maxHp/3))
     while(e.bossThreshold<=3&&lostThirds>=e.bossThreshold){
-      const count=8+s.swarmCounter*2, types:EnemyType[]=['grunt','runner','jumper']
+      const count=e.type==='bugQueen'?12+s.swarmCounter*3:8+s.swarmCounter*2, types:EnemyType[]=['grunt','runner','jumper','splitter','shadowBug','spitter','bulb']
       for(let i=0;i<count;i++)s.spawnQueue.push({type:types[i%types.length],delay:.06})
       s.swarmCounter++;e.bossThreshold++
     }
@@ -566,6 +581,8 @@ export function update(s: GameState, dt: number) {
     e.jumpCooldown -= dt
     e.healCooldown -= dt
     e.spawnCooldown -= dt
+    e.attackCooldown -= dt
+    e.bulbTimer -= dt
     e.slowTimer = Math.max(0, e.slowTimer - dt)
     if (e.slowTimer <= 0) e.slowFactor = 1
     if (e.cocooning) {
@@ -616,7 +633,7 @@ export function update(s: GameState, dt: number) {
       }
       continue
     }
-    let step = def.speed * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
+    let step = def.speed * (e.splitGeneration > 0 ? 2 : 1) * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
     while (step > 0 && e.alive) {
       const target = PATH[e.wp]
       const dx = target.x - e.x
@@ -1058,8 +1075,12 @@ export function drawBug(ctx: CanvasRenderingContext2D, type: EnemyType, x: numbe
   ctx.arc(r * 0.9, -r * 0.14, 1.2, 0, Math.PI * 2)
   ctx.arc(r * 0.9, r * 0.14, 1.2, 0, Math.PI * 2)
   ctx.fill()
+  if(type==='splitter'){ctx.strokeStyle='#ffedd5';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-r*.7,-r*.5);ctx.lineTo(r*.2,r*.5);ctx.moveTo(-r*.7,r*.5);ctx.lineTo(r*.2,-r*.5);ctx.stroke()}
+  if(type==='shadowBug'){ctx.strokeStyle='#c4b5fd';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,r*.95,0,Math.PI*2);ctx.stroke()}
+  if(type==='spitter'){ctx.fillStyle='#a5f3fc';ctx.beginPath();ctx.arc(r*.75,-r*.35,r*.25,0,Math.PI*2);ctx.fill()}
+  if(type==='bulb'){ctx.fillStyle='#fef08a';ctx.shadowColor='#fde047';ctx.shadowBlur=anim%6<3?12:0;ctx.beginPath();ctx.arc(0,0,r*.45,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0}
   if(type==='healer'){ctx.strokeStyle='#dcfce7';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(-r*.35,-r*.3);ctx.lineTo(-r*.35,r*.3);ctx.moveTo(-r*.65,0);ctx.lineTo(-r*.05,0);ctx.stroke()}
-  if(type==='bugPrince'){ctx.fillStyle='#fef3c7';ctx.strokeStyle='#92400e';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-r*.5,-r*.45);ctx.lineTo(-r*.6,-r*1.05);ctx.lineTo(-r*.15,-r*.78);ctx.lineTo(0,-r*1.25);ctx.lineTo(r*.2,-r*.78);ctx.lineTo(r*.6,-r*1.05);ctx.lineTo(r*.48,-r*.42);ctx.closePath();ctx.fill();ctx.stroke()}
+  if(type==='bugPrince'||type==='bugQueen'){ctx.fillStyle=type==='bugQueen'?'#f5d0fe':'#fef3c7';ctx.strokeStyle='#92400e';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-r*.5,-r*.45);ctx.lineTo(-r*.6,-r*1.05);ctx.lineTo(-r*.15,-r*.78);ctx.lineTo(0,-r*(type==='bugQueen'?1.55:1.25));ctx.lineTo(r*.2,-r*.78);ctx.lineTo(r*.6,-r*1.05);ctx.lineTo(r*.48,-r*.42);ctx.closePath();ctx.fill();ctx.stroke()}
   if(helmet){ctx.fillStyle='#cbd5e1';ctx.strokeStyle='#475569';ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(r*.25,-r*.35,r*.42,Math.PI,Math.PI*2);ctx.lineTo(r*.67,-r*.1);ctx.lineTo(-r*.17,-r*.1);ctx.closePath();ctx.fill();ctx.stroke()}
   ctx.restore()
 }
