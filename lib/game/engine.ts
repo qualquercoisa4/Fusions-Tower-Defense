@@ -320,6 +320,7 @@ function isShielded(s: GameState, e: Enemy) {
 
 function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType) {
   if (!e.alive || isShielded(s,e)) return
+  if(e.queenArmor)dmg*=0.75
   if(e.type==='jumper'&&e.airborneTimer>0&&sourceType&&['shooter','cannon','retarder'].includes(sourceType))return
   const previousHp=e.hp;e.hp-=dmg
   if(e.type==='bugPrince'||e.type==='bugQueen'){
@@ -1115,7 +1116,7 @@ export function drawBug(ctx: CanvasRenderingContext2D, type: EnemyType, x: numbe
   if(type==='bulb'){ctx.fillStyle='#fef08a';ctx.shadowColor='#fde047';ctx.shadowBlur=anim%6<3?12:0;ctx.beginPath();ctx.arc(0,0,r*.45,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0}
   if(type==='healer'){ctx.strokeStyle='#dcfce7';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(-r*.35,-r*.3);ctx.lineTo(-r*.35,r*.3);ctx.moveTo(-r*.65,0);ctx.lineTo(-r*.05,0);ctx.stroke()}
   if(type==='bugPrince'||type==='bugQueen'){ctx.fillStyle=type==='bugQueen'?'#f5d0fe':'#fef3c7';ctx.strokeStyle='#92400e';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-r*.5,-r*.45);ctx.lineTo(-r*.6,-r*1.05);ctx.lineTo(-r*.15,-r*.78);ctx.lineTo(0,-r*(type==='bugQueen'?1.55:1.25));ctx.lineTo(r*.2,-r*.78);ctx.lineTo(r*.6,-r*1.05);ctx.lineTo(r*.48,-r*.42);ctx.closePath();ctx.fill();ctx.stroke()}
-  if(helmet){ctx.fillStyle='#cbd5e1';ctx.strokeStyle='#475569';ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(r*.25,-r*.35,r*.42,Math.PI,Math.PI*2);ctx.lineTo(r*.67,-r*.1);ctx.lineTo(-r*.17,-r*.1);ctx.closePath();ctx.fill();ctx.stroke()}
+  if(helmet||type==='bugQueen'){ctx.fillStyle=type==='bugQueen'?'#f5d0fe':'#cbd5e1';ctx.strokeStyle='#475569';ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(r*.25,-r*.35,r*.42,Math.PI,Math.PI*2);ctx.lineTo(r*.67,-r*.1);ctx.lineTo(-r*.17,-r*.1);ctx.closePath();ctx.fill();ctx.stroke()}
   ctx.restore()
 }
 
