@@ -332,10 +332,21 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType
     if(e.hp>0&&previousHp>e.hp)s.explosions.push({x:e.x,y:e.y,r:18,t:0,dur:.15,color:'#fbbf24'})
   }
   if (e.hp <= 0) {
-    if(e.type==='bugPrince'){
-      s.bugPrinceDefeated=true
-      for(const ally of s.enemies){if(!ally.alive||!s.seenEnemyTypes.includes(ally.type)||ally.helmet)continue;ally.maxHp=Math.ceil(ally.maxHp*1.25);ally.hp=Math.ceil(Math.max(1,ally.hp)*1.25);ally.helmet=true}
-      s.explosions.push({x:e.x,y:e.y,r:100,t:0,dur:1.2,color:'#fbbf24'})
+    if(e.type==='bugPrince'||e.type==='bugQueen'){
+      const queen=e.type==='bugQueen'
+      if(queen)s.bugQueenDefeated=true;else s.bugPrinceDefeated=true
+      for(const ally of s.enemies){
+        if(!ally.alive||ally.id===e.id||!s.seenEnemyTypes.includes(ally.type))continue
+        ally.maxHp=Math.ceil(ally.maxHp*1.25)
+        ally.hp=Math.ceil(Math.max(1,ally.hp)*1.25)
+        ally.helmet=true
+        if(queen)ally.queenArmor=true
+      }
+      if(queen){
+        const types:EnemyType[]=['grunt','tank','runner','vessel','jumper','healer','swarmBug','splitter','shadowBug','spitter','bulb']
+        for(const type of types)s.spawnQueue.push({type,delay:.08})
+      }
+      s.explosions.push({x:e.x,y:e.y,r:queen?140:100,t:0,dur:1.2,color:queen?'#f0abfc':'#fbbf24'})
     }
     if (e.type === 'vessel' && !e.cocooning) {
       const nextReviveHp = e.reviveHp * 0.75
@@ -348,6 +359,12 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType
         e.anim = 0
         s.explosions.push({ x: e.x, y: e.y, r: ENEMIES[e.type].radius * 1.8, t: 0, dur: 0.45, color: '#d97706' })
         return
+      }
+    }
+    if(e.type==='splitter'&&e.splitGeneration===0){
+      for(let i=0;i<2;i++){
+        const childHp=Math.max(1,Math.ceil(e.maxHp/2))
+        s.enemies.push({...e,id:s.nextId++,hp:childHp,maxHp:childHp,reviveHp:childHp,alive:true,splitGeneration:1,helmet:e.helmet,queenArmor:e.queenArmor,spawnCooldown:3.5,attackCooldown:3,bulbOn:false,bulbTimer:3,anim:e.anim+i*.3})
       }
     }
     e.alive = false
@@ -539,9 +556,10 @@ export function update(s: GameState, dt: number) {
     if (s.spawnTimer <= 0) {
       const next = s.spawnQueue.shift()!
       const def = ENEMIES[next.type]
-      const boss = next.type === 'bugPrince'
-      const helmet = s.bugPrinceDefeated && s.seenEnemyTypes.includes(next.type)
-      const hp = Math.max(1, Math.round((def.hp * (boss ? 1 : hpScale(s.wave)) * (helmet ? 1.25 : 1)) / 1.5))
+      const boss = next.type === 'bugPrince' || next.type === 'bugQueen'
+      const helmet = (s.bugPrinceDefeated || s.bugQueenDefeated) && s.seenEnemyTypes.includes(next.type)
+      const queenArmor = s.bugQueenDefeated && s.seenEnemyTypes.includes(next.type)
+      const hp = Math.max(1, Math.round((def.hp * (boss ? 1 : hpScale(s.wave)) / 1.5) * (helmet ? 1.25 : 1) * (queenArmor ? 1.25 : 1)))
       if (!boss && !s.seenEnemyTypes.includes(next.type)) s.seenEnemyTypes.push(next.type)
       s.enemies.push({
         id: s.nextId++,
@@ -558,8 +576,13 @@ export function update(s: GameState, dt: number) {
         airborneTimer: 0,
         healCooldown: 2,
         bossThreshold: 1,
-        spawnCooldown: 3.5,
+        spawnCooldown: next.type==='spitter'?0.8:3.5,
         helmet,
+        queenArmor,
+        splitGeneration: 0,
+        bulbOn: false,
+        bulbTimer: 3,
+        attackCooldown: 3,
         wp: 1,
         dist: 0,
         angle: 0,
@@ -604,10 +627,19 @@ export function update(s: GameState, dt: number) {
       }
       s.explosions.push({x:e.x,y:e.y,r:92,t:0,dur:.25,color:e.frozenTimer>0?'#7dd3fc':'#4ade80'});e.healCooldown=1.5
     }
-    if(e.type==='bugPrince'&&e.spawnCooldown<=0){
-      const picks:EnemyType[]=['grunt','runner','tank','vessel','jumper','healer']
-      const type=picks[Math.floor(Math.random()*picks.length)]
-      s.spawnQueue.push({type,delay:.05},{type:Math.random()<.5?'grunt':'runner',delay:.05});e.spawnCooldown=3.5
+    if((e.type==='bugPrince'||e.type==='bugQueen')&&e.spawnCooldown<=0){
+      const picks:EnemyType[]=e.type==='bugQueen'?['grunt','runner','tank','vessel','jumper','healer','splitter','shadowBug','spitter','bulb']:['grunt','runner','tank','vessel','jumper','healer']
+      s.spawnQueue.push({type:picks[Math.floor(Math.random()*picks.length)],delay:.05},{type:picks[Math.floor(Math.random()*picks.length)],delay:.05})
+      e.spawnCooldown=e.type==='bugQueen'?2.8:3.5
+    }
+    if(e.type==='bulb'&&e.bulbTimer<=0){
+      e.bulbOn=!e.bulbOn;e.bulbTimer=3
+      s.explosions.push({x:e.x,y:e.y,r:e.bulbOn?88:30,t:0,dur:.35,color:e.bulbOn?'#fde047':'#64748b'})
+    }
+    if(e.type==='spitter'&&e.attackCooldown<=0){
+      const tower=s.towers.filter(t=>t.disabledTimer<=0).sort((a,b)=>Math.hypot(a.x-e.x,a.y-e.y)-Math.hypot(b.x-e.x,b.y-e.y))[0]
+      if(tower){tower.disabledTimer=3;s.explosions.push({x:tower.x,y:tower.y,r:24,t:0,dur:.35,color:'#22d3ee'})}
+      e.attackCooldown=3
     }
     if(e.type==='jumper'&&e.jumpCooldown<=0&&e.frozenTimer<=0&&!e.cocooning){
       e.airborneTimer=.52;e.jumpCooldown=1.25;e.anim=0
@@ -661,6 +693,8 @@ export function update(s: GameState, dt: number) {
 
   for (const t of s.towers) {
     const baseDef = TOWERS[t.type]
+    t.disabledTimer = Math.max(0,t.disabledTimer-dt)
+    if(t.disabledTimer>0){t.beamTargets=[];continue}
     t.cooldown -= dt
     t.recoil = Math.max(0, t.recoil - dt * 5)
     if (t.type === 'incomeFarm' || t.type === 'incomeTax') {
