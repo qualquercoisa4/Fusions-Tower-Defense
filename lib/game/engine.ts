@@ -215,6 +215,19 @@ export function createGame(): GameState {
   }
 }
 
+
+
+export function spawnDebugEnemy(s: GameState, type: EnemyType) {
+  const def = ENEMIES[type]
+  const boss = type === 'bugPrince' || type === 'bugQueen'
+  const helmet = (s.bugPrinceDefeated || s.bugQueenDefeated) && s.seenEnemyTypes.includes(type)
+  const queenArmor = s.bugQueenDefeated && s.seenEnemyTypes.includes(type)
+  const hp = Math.max(1, Math.round((def.hp * (boss ? 1 : hpScale(Math.max(1, s.wave))) / 1.5) * (helmet ? 1.25 : 1) * (queenArmor ? 1.25 : 1)))
+  if (!boss && !s.seenEnemyTypes.includes(type)) s.seenEnemyTypes.push(type)
+  s.enemies.push({ id: s.nextId++, type, x: PATH[0].x, y: PATH[0].y, hp, maxHp: hp, reviveHp: hp, frozenTimer: 0, slowTimer: 0, slowFactor: 1, jumpCooldown: 1.25, airborneTimer: 0, healCooldown: 2, bossThreshold: 1, spawnCooldown: type === 'spitter' ? 0.8 : 3.5, helmet, queenArmor, splitGeneration: 0, bulbOn: false, bulbTimer: 3, attackCooldown: 3, wp: 1, dist: 0, angle: 0, anim: Math.random() * 10, alive: true, cocooning: false, cocoonTimer: 0 })
+  s.status = 'playing'
+}
+
 export const isBuildable = (s: GameState, col: number, row: number) =>
   col >= 0 &&
   row >= 0 &&
@@ -226,9 +239,9 @@ export const isBuildable = (s: GameState, col: number, row: number) =>
 export const towerAt = (s: GameState, col: number, row: number) =>
   s.towers.find((t) => t.col === col && t.row === row)
 
-export function placeTower(s: GameState, type: TowerType, col: number, row: number) {
-  const cost = TOWERS[type].cost
-  if (s.money < cost || !isBuildable(s, col, row)) return false
+export function placeTower(s: GameState, type: TowerType, col: number, row: number, free = false) {
+  const cost = free ? 0 : TOWERS[type].cost
+  if ((!free && s.money < TOWERS[type].cost) || !isBuildable(s, col, row)) return false
   s.money -= cost
   s.towers.push({
     id: s.nextId++,

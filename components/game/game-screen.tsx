@@ -1,13 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Coins, FastForward, Heart, Merge, Play, RotateCcw, Trash2, Waves } from 'lucide-react'
-import { BUILDABLE, CELL, HEIGHT, TARGET_MODES, TOWERS, WIDTH, fusionResult, type TargetMode, type TowerType } from '@/lib/game/data'
+import { ArrowLeft, Bug, Coins, FastForward, Heart, Merge, Play, RotateCcw, Trash2, Waves, Wrench } from 'lucide-react'
+import { BUILDABLE, CELL, ENEMIES, HEIGHT, TARGET_MODES, TOWERS, WIDTH, fusionResult, type EnemyType, type TargetMode, type TowerType } from '@/lib/game/data'
 import {
   createGame,
   fuseTowers,
   placeTower,
   render,
+  spawnDebugEnemy,
   sellTower,
   startWave,
   towerAt,
@@ -22,6 +23,9 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
   const speedRef = useRef(1)
   const [, setTick] = useState(0)
   const [speed, setSpeed] = useState(1)
+  const [debugOpen, setDebugOpen] = useState(false)
+  const [debugTowerType, setDebugTowerType] = useState<TowerType | ''>('')
+  const [debugEnemyType, setDebugEnemyType] = useState<EnemyType>('grunt')
   const [message, setMessage] = useState<string | null>(null)
   const refresh = useCallback(() => setTick((t) => t + 1), [])
 
@@ -94,6 +98,17 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
     if (s.status !== 'playing') return
     const { col, row } = cellFromEvent(e)
     const clicked = towerAt(s, col, row)
+
+    if (debugOpen && debugTowerType) {
+      if (placeTower(s, debugTowerType, col, row, true)) {
+        flash(`${TOWERS[debugTowerType].name} criada gratuitamente`)
+        setDebugTowerType('')
+      } else {
+        flash('Local inválido ou já ocupado')
+      }
+      refresh()
+      return
+    }
 
     if (s.fuseMode && s.selectedId) {
       if (clicked && clicked.id !== s.selectedId) {
@@ -177,6 +192,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
           <Stat icon={<Heart className="size-4 text-rose-400" aria-hidden />} label="Vidas" value={s.lives} />
           <Stat icon={<Coins className="size-4 text-amber-300" aria-hidden />} label="Créditos" value={s.money} />
           <Stat icon={<Waves className="size-4 text-sky-300" aria-hidden />} label="Onda" value={s.wave} />
+          <button onClick={() => { setDebugOpen((v) => !v); setDebugTowerType(''); }} aria-pressed={debugOpen} className={`flex items-center gap-1 rounded-md border px-2 py-1 text-xs ${debugOpen ? 'border-amber-300 bg-amber-400/15 text-amber-200' : 'border-slate-600 text-slate-300 hover:border-amber-300'}`}><Wrench className="size-3.5" aria-hidden /> Debug</button>
         </div>
       </header>
 
@@ -217,6 +233,25 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
         </div>
 
         <aside className="w-full lg:w-72 flex flex-col gap-4">
+          {debugOpen && (
+            <section className="rounded-lg border border-amber-400/40 bg-[#171526] p-3">
+              <h2 className="mb-2 flex items-center gap-2 font-display text-xs tracking-widest text-amber-300"><Bug className="size-4" aria-hidden /> MODO DEBUG</h2>
+              <p className="mb-3 text-[11px] leading-relaxed text-slate-400">Crie qualquer torre sem gastar créditos ou invoque insetos instantaneamente. Para colocar uma torre, escolha-a e toque em uma casa livre do mapa.</p>
+              <label className="mb-1 block text-xs text-slate-300" htmlFor="debug-enemy">Spawnar inseto</label>
+              <div className="flex gap-2">
+                <select id="debug-enemy" value={debugEnemyType} onChange={(event) => setDebugEnemyType(event.target.value as EnemyType)} className="min-w-0 flex-1 rounded-md border border-slate-600 bg-[#071020] px-2 py-2 text-sm">
+                  {(Object.keys(ENEMIES) as EnemyType[]).map((type) => <option key={type} value={type}>{ENEMIES[type].name}</option>)}
+                </select>
+                <button onClick={() => { spawnDebugEnemy(game.current, debugEnemyType); refresh(); flash(`${ENEMIES[debugEnemyType].name} spawnado`); }} className="rounded-md bg-amber-400 px-3 py-2 text-sm font-semibold text-slate-950">Spawn</button>
+              </div>
+              <label className="mb-1 mt-3 block text-xs text-slate-300" htmlFor="debug-tower">Spawnar torre grátis</label>
+              <select id="debug-tower" value={debugTowerType} onChange={(event) => setDebugTowerType(event.target.value as TowerType | '')} className="mb-2 w-full rounded-md border border-slate-600 bg-[#071020] px-2 py-2 text-sm">
+                <option value="">Selecione uma torre...</option>
+                {(Object.keys(TOWERS) as TowerType[]).map((type) => <option key={type} value={type}>{TOWERS[type].name} (T{TOWERS[type].tier})</option>)}
+              </select>
+              {debugTowerType && <div className="flex items-center gap-2"><SpriteIcon tower={debugTowerType} label={TOWERS[debugTowerType].name} /><span className="min-w-0 flex-1 text-xs text-amber-200">Toque no mapa para posicionar grátis</span><button onClick={() => setDebugTowerType('')} className="rounded border border-slate-600 px-2 py-1 text-xs">Cancelar</button></div>}
+            </section>
+          )}
           <section className="rounded-lg border border-sky-500/20 bg-[#0a1226] p-3">
             <h2 className="mb-2 font-display text-xs tracking-widest text-sky-300/80">CONSTRUIR</h2>
             <div className="grid grid-cols-2 gap-2">
