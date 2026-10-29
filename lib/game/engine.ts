@@ -1615,11 +1615,7 @@ function tracePath(ctx: CanvasRenderingContext2D) {
   ctx.moveTo(PATH[0].x, PATH[0].y)
   for (let i = 1; i < PATH.length; i++) ctx.lineTo(PATH[i].x, PATH[i].y)
 }
- : type === 'incomeTax' ? '$' : '
-    ctx.restore()
-    return
-  }
-  if (['buffer','commsLanHouse','electricalStation'].includes(type)) {
+ {
     ctx.strokeStyle = def.color
     ctx.lineWidth = 3
     ctx.beginPath()

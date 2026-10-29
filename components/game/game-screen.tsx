@@ -246,6 +246,26 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
             </div>
           </section>
 
+          <section className="rounded-lg border border-violet-500/20 bg-[#0a1226] p-3">
+            <h2 className="mb-2 font-display text-xs tracking-widest text-violet-300/90">FUSÕES TIER 2</h2>
+            <div className="flex flex-col gap-2">
+              {([
+                { result: 'cryoMortar', recipe: 'Mortar + Icicles' },
+                { result: 'tripleShooter', recipe: 'Dual Shooter + Dual Shooter' },
+                { result: 'economyHouse', recipe: 'Tax Manager + Tax Manager' },
+              ] as const).map(({ result, recipe }) => (
+                <div key={result} className="flex items-center gap-2 rounded-md border border-slate-700/80 bg-slate-900/50 p-2">
+                  <SpriteIcon tower={result} label={TOWERS[result].name} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-slate-100">{TOWERS[result].name}</p>
+                    <p className="text-[11px] leading-snug text-slate-400">{recipe}</p>
+                  </div>
+                  <span className="text-[10px] text-violet-300">T2</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
           <section className="rounded-lg border border-sky-500/20 bg-[#0a1226] p-3 min-h-40">
             <h2 className="mb-2 font-display text-xs tracking-widest text-sky-300/80">TORRE SELECIONADA</h2>
             {selected && selDef ? (
