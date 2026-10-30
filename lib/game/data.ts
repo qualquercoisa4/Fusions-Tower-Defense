@@ -527,44 +527,80 @@ export const PATH_CELLS = (() => {
   return set
 })()
 
-const WAVE_BLUEPRINTS: Record<number, { type: EnemyType; count: number; delay: number }[]> = {
-  1:[{type:'grunt',count:12,delay:.75}],2:[{type:'grunt',count:14,delay:.7},{type:'runner',count:3,delay:.45}],
-  3:[{type:'grunt',count:12,delay:.65},{type:'runner',count:6,delay:.4}],4:[{type:'grunt',count:16,delay:.62},{type:'tank',count:2,delay:1.3}],
-  5:[{type:'grunt',count:14,delay:.6},{type:'runner',count:8,delay:.38},{type:'vessel',count:1,delay:1.7}],6:[{type:'runner',count:12,delay:.35},{type:'tank',count:3,delay:1.1}],
-  7:[{type:'grunt',count:18,delay:.55},{type:'vessel',count:2,delay:1.5}],8:[{type:'jumper',count:5,delay:1},{type:'grunt',count:12,delay:.55}],
-  9:[{type:'runner',count:14,delay:.32},{type:'tank',count:4,delay:1}],10:[{type:'jumper',count:7,delay:.85},{type:'vessel',count:2,delay:1.35}],
-  11:[{type:'grunt',count:20,delay:.5},{type:'healer',count:2,delay:1.25}],12:[{type:'runner',count:14,delay:.3},{type:'healer',count:3,delay:1}],
-  13:[{type:'jumper',count:8,delay:.8},{type:'tank',count:5,delay:.9}],14:[{type:'vessel',count:4,delay:1.25},{type:'healer',count:3,delay:.9}],
-  15:[{type:'runner',count:18,delay:.28},{type:'jumper',count:8,delay:.75}],16:[{type:'grunt',count:22,delay:.42},{type:'healer',count:4,delay:.8}],
-  17:[{type:'tank',count:8,delay:.75},{type:'jumper',count:10,delay:.7}],18:[{type:'vessel',count:5,delay:1},{type:'healer',count:4,delay:.8}],
-  19:[{type:'runner',count:22,delay:.25},{type:'tank',count:6,delay:.7}],20:[{type:'jumper',count:12,delay:.65},{type:'healer',count:5,delay:.75},{type:'vessel',count:4,delay:.95}],
-  21:[{type:'grunt',count:24,delay:.36},{type:'healer',count:6,delay:.7}],22:[{type:'runner',count:24,delay:.23},{type:'jumper',count:12,delay:.6}],
-  23:[{type:'tank',count:10,delay:.6},{type:'healer',count:6,delay:.65}],24:[{type:'vessel',count:8,delay:.8},{type:'jumper',count:14,delay:.55}],
-  25:[{type:'runner',count:28,delay:.2},{type:'healer',count:7,delay:.6}],26:[{type:'tank',count:12,delay:.52},{type:'vessel',count:8,delay:.7},{type:'healer',count:6,delay:.55}],
-  27:[{type:'jumper',count:18,delay:.45},{type:'runner',count:18,delay:.2}],28:[{type:'vessel',count:10,delay:.62},{type:'healer',count:8,delay:.5},{type:'jumper',count:12,delay:.45}],
-  29:[{type:'tank',count:16,delay:.45},{type:'vessel',count:10,delay:.55},{type:'healer',count:10,delay:.45}],
+type WaveGroup = { type: EnemyType; count: number; spacing: number; gapAfter?: number }
+
+// Cada grupo é um envio independente. spacing controla o intervalo entre
+// insetos do mesmo grupo; gapAfter controla a pausa antes do próximo grupo.
+const WAVE_GROUPS: Record<number, WaveGroup[]> = {
+  1: [{type:'grunt',count:12,spacing:.75}],
+  2: [{type:'grunt',count:10,spacing:.65},{type:'runner',count:3,spacing:.45}],
+  3: [{type:'grunt',count:8,spacing:.55},{type:'runner',count:5,spacing:.4},{type:'grunt',count:6,spacing:.55}],
+  4: [{type:'grunt',count:10,spacing:.55},{type:'tank',count:2,spacing:1.2},{type:'grunt',count:6,spacing:.5}],
+  5: [{type:'grunt',count:10,spacing:.5},{type:'runner',count:6,spacing:.38},{type:'vessel',count:1,spacing:1.4},{type:'grunt',count:8,spacing:.5}],
+  6: [{type:'runner',count:8,spacing:.32},{type:'tank',count:2,spacing:1},{type:'runner',count:8,spacing:.32}],
+  7: [{type:'grunt',count:12,spacing:.5},{type:'vessel',count:2,spacing:1.25},{type:'grunt',count:8,spacing:.48}],
+  8: [{type:'jumper',count:4,spacing:.85},{type:'grunt',count:10,spacing:.5},{type:'jumper',count:3,spacing:.8}],
+  9: [{type:'runner',count:10,spacing:.3},{type:'tank',count:3,spacing:.9},{type:'grunt',count:8,spacing:.48}],
+  10: [{type:'grunt',count:10,spacing:.45},{type:'jumper',count:5,spacing:.75},{type:'vessel',count:2,spacing:1.2}],
+  11: [{type:'grunt',count:10,spacing:.45},{type:'healer',count:1,spacing:0},{type:'grunt',count:10,spacing:.45},{type:'healer',count:1,spacing:0}],
+  12: [{type:'runner',count:8,spacing:.28},{type:'healer',count:1,spacing:0},{type:'runner',count:8,spacing:.28},{type:'grunt',count:8,spacing:.45}],
+  13: [{type:'tank',count:3,spacing:.85},{type:'jumper',count:5,spacing:.7},{type:'tank',count:3,spacing:.85}],
+  14: [{type:'vessel',count:2,spacing:1.1},{type:'grunt',count:10,spacing:.42},{type:'healer',count:2,spacing:.85},{type:'runner',count:6,spacing:.3}],
+  15: [{type:'runner',count:10,spacing:.26},{type:'jumper',count:5,spacing:.65},{type:'runner',count:10,spacing:.26}],
+  16: [{type:'grunt',count:12,spacing:.4},{type:'healer',count:1,spacing:0},{type:'tank',count:4,spacing:.75},{type:'grunt',count:10,spacing:.4},{type:'healer',count:2,spacing:.75}],
+  17: [{type:'jumper',count:6,spacing:.62},{type:'tank',count:4,spacing:.72},{type:'jumper',count:6,spacing:.62},{type:'runner',count:8,spacing:.26}],
+  18: [{type:'grunt',count:10,spacing:.42},{type:'healer',count:1,spacing:0},{type:'bulb',count:1,spacing:0},{type:'grunt',count:10,spacing:.42},{type:'jumper',count:5,spacing:.7},{type:'spitter',count:1,spacing:0},{type:'runner',count:10,spacing:.28}],
+  19: [{type:'runner',count:12,spacing:.24},{type:'tank',count:4,spacing:.68},{type:'healer',count:2,spacing:.75},{type:'runner',count:10,spacing:.24}],
+  20: [{type:'jumper',count:8,spacing:.58},{type:'healer',count:2,spacing:.7},{type:'vessel',count:3,spacing:.9},{type:'runner',count:12,spacing:.24},{type:'jumper',count:5,spacing:.58}],
+  21: [{type:'grunt',count:12,spacing:.36},{type:'healer',count:2,spacing:.65},{type:'tank',count:4,spacing:.65},{type:'grunt',count:12,spacing:.36},{type:'runner',count:10,spacing:.24}],
+  22: [{type:'runner',count:14,spacing:.22},{type:'jumper',count:7,spacing:.52},{type:'runner',count:14,spacing:.22},{type:'healer',count:2,spacing:.65}],
+  23: [{type:'tank',count:5,spacing:.58},{type:'bulb',count:1,spacing:0},{type:'shadowBug',count:4,spacing:.42},{type:'healer',count:2,spacing:.65},{type:'grunt',count:14,spacing:.34},{type:'spitter',count:1,spacing:0}],
+  24: [{type:'vessel',count:4,spacing:.72},{type:'jumper',count:8,spacing:.48},{type:'bulb',count:1,spacing:0},{type:'vessel',count:4,spacing:.72},{type:'healer',count:3,spacing:.6},{type:'runner',count:12,spacing:.22}],
+  26: [{type:'grunt',count:16,spacing:.32},{type:'splitter',count:3,spacing:.8},{type:'runner',count:12,spacing:.2},{type:'healer',count:2,spacing:.55},{type:'tank',count:5,spacing:.55}],
+  27: [{type:'runner',count:18,spacing:.18},{type:'shadowBug',count:5,spacing:.34},{type:'grunt',count:16,spacing:.3},{type:'jumper',count:8,spacing:.45}],
+  28: [{type:'vessel',count:5,spacing:.62},{type:'healer',count:3,spacing:.5},{type:'jumper',count:10,spacing:.42},{type:'splitter',count:4,spacing:.72},{type:'runner',count:12,spacing:.2}],
+  29: [{type:'tank',count:7,spacing:.5},{type:'bulb',count:2,spacing:.65},{type:'vessel',count:5,spacing:.55},{type:'spitter',count:2,spacing:.7},{type:'healer',count:3,spacing:.5},{type:'grunt',count:18,spacing:.3}],
+  30: [{type:'swarmBug',count:35,spacing:.07},{type:'tank',count:5,spacing:.5},{type:'swarmBug',count:35,spacing:.07},{type:'splitter',count:4,spacing:.7},{type:'grunt',count:18,spacing:.28}],
+  31: [{type:'runner',count:20,spacing:.17},{type:'shadowBug',count:6,spacing:.32},{type:'grunt',count:18,spacing:.28},{type:'bulb',count:2,spacing:.6},{type:'swarmBug',count:45,spacing:.065}],
+  32: [{type:'splitter',count:5,spacing:.65},{type:'swarmBug',count:45,spacing:.065},{type:'healer',count:3,spacing:.48},{type:'tank',count:7,spacing:.48},{type:'runner',count:18,spacing:.17}],
+  33: [{type:'grunt',count:20,spacing:.26},{type:'spitter',count:3,spacing:.6},{type:'jumper',count:12,spacing:.4},{type:'shadowBug',count:7,spacing:.3},{type:'swarmBug',count:50,spacing:.06}],
+  34: [{type:'vessel',count:7,spacing:.52},{type:'healer',count:4,spacing:.45},{type:'bulb',count:2,spacing:.55},{type:'runner',count:20,spacing:.16},{type:'swarmBug',count:55,spacing:.06}],
+  35: [{type:'tank',count:9,spacing:.44},{type:'splitter',count:6,spacing:.6},{type:'grunt',count:22,spacing:.24},{type:'spitter',count:3,spacing:.55},{type:'swarmBug',count:60,spacing:.055}],
+  36: [{type:'jumper',count:14,spacing:.36},{type:'shadowBug',count:8,spacing:.28},{type:'bulb',count:3,spacing:.5},{type:'runner',count:22,spacing:.15},{type:'swarmBug',count:65,spacing:.055}],
+  37: [{type:'vessel',count:8,spacing:.48},{type:'healer',count:5,spacing:.42},{type:'splitter',count:7,spacing:.55},{type:'grunt',count:24,spacing:.22},{type:'swarmBug',count:70,spacing:.05}],
+  38: [{type:'runner',count:24,spacing:.14},{type:'spitter',count:4,spacing:.5},{type:'tank',count:9,spacing:.42},{type:'shadowBug',count:9,spacing:.26},{type:'swarmBug',count:75,spacing:.05}],
+  39: [{type:'splitter',count:8,spacing:.52},{type:'bulb',count:3,spacing:.48},{type:'vessel',count:9,spacing:.45},{type:'healer',count:5,spacing:.4},{type:'jumper',count:14,spacing:.34},{type:'swarmBug',count:80,spacing:.048}],
+  40: [{type:'tank',count:10,spacing:.4},{type:'bulb',count:3,spacing:.45},{type:'vessel',count:8,spacing:.42},{type:'healer',count:5,spacing:.38},{type:'spitter',count:4,spacing:.48},{type:'splitter',count:8,spacing:.5},{type:'swarmBug',count:85,spacing:.045}],
+  41: [{type:'runner',count:28,spacing:.13},{type:'shadowBug',count:10,spacing:.24},{type:'jumper',count:16,spacing:.32},{type:'swarmBug',count:90,spacing:.045}],
+  42: [{type:'splitter',count:9,spacing:.48},{type:'healer',count:6,spacing:.36},{type:'tank',count:11,spacing:.38},{type:'bulb',count:4,spacing:.42},{type:'swarmBug',count:95,spacing:.043}],
+  43: [{type:'vessel',count:10,spacing:.4},{type:'spitter',count:5,spacing:.44},{type:'shadowBug',count:11,spacing:.22},{type:'runner',count:26,spacing:.13},{type:'swarmBug',count:100,spacing:.042}],
+  44: [{type:'jumper',count:18,spacing:.3},{type:'bulb',count:4,spacing:.4},{type:'splitter',count:10,spacing:.45},{type:'healer',count:6,spacing:.34},{type:'swarmBug',count:105,spacing:.04}],
+  45: [{type:'tank',count:12,spacing:.36},{type:'vessel',count:10,spacing:.38},{type:'healer',count:6,spacing:.32},{type:'spitter',count:5,spacing:.4},{type:'grunt',count:26,spacing:.2},{type:'swarmBug',count:110,spacing:.04}],
+  46: [{type:'runner',count:30,spacing:.12},{type:'shadowBug',count:12,spacing:.2},{type:'bulb',count:4,spacing:.38},{type:'jumper',count:18,spacing:.28},{type:'swarmBug',count:115,spacing:.038}],
+  47: [{type:'splitter',count:11,spacing:.42},{type:'vessel',count:11,spacing:.36},{type:'healer',count:7,spacing:.3},{type:'spitter',count:6,spacing:.38},{type:'swarmBug',count:120,spacing:.037}],
+  48: [{type:'tank',count:14,spacing:.34},{type:'bulb',count:5,spacing:.36},{type:'shadowBug',count:13,spacing:.18},{type:'jumper',count:20,spacing:.26},{type:'splitter',count:11,spacing:.4},{type:'swarmBug',count:125,spacing:.035}],
+  49: [{type:'vessel',count:12,spacing:.34},{type:'healer',count:8,spacing:.28},{type:'bulb',count:5,spacing:.34},{type:'spitter',count:7,spacing:.34},{type:'shadowBug',count:14,spacing:.17},{type:'splitter',count:12,spacing:.38},{type:'runner',count:30,spacing:.11},{type:'swarmBug',count:135,spacing:.032}],
 }
-export function buildWave(n:number):{type:EnemyType;delay:number}[] {
-  if(n===25)return [{type:'bugPrince',delay:0}]
-  if(n===50)return [{type:'bugQueen',delay:0}]
-  const blueprint=WAVE_BLUEPRINTS[Math.min(29,Math.max(1,n))]
-  const queue:{type:EnemyType;delay:number}[]=[]
-  // BTD6 pacing: rounds 1-40 compressed into waves 1-25, then 41-60 into 26-50.
-  const referenceRound=n<=25?Math.round(n*1.6):40+Math.round((n-25)*.8)
-  const countScale=1+Math.max(0,referenceRound-1)*.025
-  const pace=Math.max(.42,1-n*.009)
-  for(const group of blueprint){
-    const count=Math.max(1,Math.round(group.count*countScale))
-    for(let i=0;i<count;i++)queue.push({type:group.type,delay:group.delay*pace})
-  }
-  if(n>=26){
-    const add=(type:EnemyType,count:number,delay:number)=>{for(let i=0;i<Math.round(count*countScale);i++)queue.push({type,delay:delay*pace})}
-    add('splitter',Math.max(2,Math.floor((n-23)*.8)),.48)
-    add('shadowBug',Math.max(3,Math.floor((n-23)*.9)),.38)
-    add('spitter',Math.max(2,Math.floor((n-24)*.55)),.65)
-    add('bulb',Math.max(1,Math.floor((n-25)*.35)),.8)
-    if(n>=30)add('swarmBug',Math.min(220,70+(n-30)*5),.065)
-  }
+
+export function buildWave(n: number): { type: EnemyType; delay: number }[] {
+  if (n === 25) return [{ type: 'bugPrince', delay: 0 }]
+  if (n === 50) return [{ type: 'bugQueen', delay: 0 }]
+
+  const groups = WAVE_GROUPS[Math.max(1, Math.min(49, Math.floor(n)))] ?? WAVE_GROUPS[1]
+  const queue: { type: EnemyType; delay: number }[] = []
+
+  groups.forEach((group, groupIndex) => {
+    for (let i = 0; i < group.count; i++) {
+      const isLastInGroup = i === group.count - 1
+      const isLastGroup = groupIndex === groups.length - 1
+      queue.push({
+        type: group.type,
+        // A pausa entre grupos é aplicada depois do último inseto do envio.
+        delay: isLastInGroup && !isLastGroup ? (group.gapAfter ?? 0.35) : group.spacing,
+      })
+    }
+  })
+
   return queue
 }
 
