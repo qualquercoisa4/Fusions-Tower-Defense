@@ -491,27 +491,34 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
 }
 
 export const CELL = 48
-export const COLS = 24
+export const COLS = 18
 export const ROWS = 16
 export const WIDTH = CELL * COLS
 export const HEIGHT = CELL * ROWS
 
-// Caminho serpenteante com quatro travessias horizontais e três retornos longos.
+// Percurso serpenteante inspirado no desenho: entrada à esquerda,
+// dois grandes retornos centrais e uma última subida/descida à direita.
 const WAYPOINT_CELLS: [number, number][] = [
-  [-1, 3],
-  [21, 3],
-  [21, 6],
-  [2, 6],
-  [2, 9],
-  [21, 9],
-  [21, 12],
-  [2, 12],
-  [2, 15],
-  [24, 15],
+  [-1, 7],
+  [3, 7],
+  [3, 3],
+  [10, 3],
+  [10, 7],
+  [6, 7],
+  [6, 10],
+  [13, 10],
+  [13, 14],
+  [3, 14],
+  [3, 11],
+  [16, 11],
+  [16, 2],
+  [14, 2],
+  [14, 0],
+  [18, 0],
 ]
 
 // Quatro posições de fazenda: duas em cada extremidade do mapa.
-export const FARM_CELLS = new Set(['0,0', '0,14', '23,0', '23,14'])
+export const FARM_CELLS = new Set(['0,0', '0,14', '17,0', '17,14'])
 
 export const PATH = WAYPOINT_CELLS.map(([c, r]) => ({
   x: c * CELL + CELL / 2,
