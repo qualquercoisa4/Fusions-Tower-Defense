@@ -995,6 +995,7 @@ export function update(s: GameState, dt: number) {
           const clone = { ...original, color: '#c084fc', teleporterClone: true } as Projectile
           if (clone.kind === 'energy') clone.hitTimers = { ...clone.hitTimers }
           if ('hitIds' in clone) clone.hitIds = [...clone.hitIds]
+          if (clone.kind === 'snowball') { clone.carriedIds = [...clone.carriedIds]; clone.carrierId = s.nextId++ }
           s.projectiles.push(clone)
           const px = 'x' in original ? original.x : original.sx + (original.tx - original.sx) * (original.t / original.duration)
           const py = 'y' in original ? original.y : original.sy + (original.ty - original.sy) * (original.t / original.duration)
