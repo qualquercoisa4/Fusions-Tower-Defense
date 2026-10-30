@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Bug, Coins, FastForward, Heart, Merge, Play, RotateCcw, Trash2, Waves, Wrench } from 'lucide-react'
-import { BUILDABLE, CELL, ENEMIES, HEIGHT, TARGET_MODES, TOWERS, WIDTH, fusionResult, type EnemyType, type TargetMode, type TowerType } from '@/lib/game/data'
+import { BUILDABLE, CELL, ENEMIES, HEIGHT, TARGET_MODES, TOWERS, TOWER_ELEMENTS, WIDTH, fusionResult, type ElementClass, type EnemyType, type TargetMode, type TowerType } from '@/lib/game/data'
 import {
   createGame,
   fuseTowers,
@@ -16,6 +16,15 @@ import {
   type GameState,
 } from '@/lib/game/engine'
 import { SpriteIcon } from './sprite-icon'
+
+const ELEMENT_LABELS: Record<ElementClass, string> = {
+  normal: 'Normal / Primário',
+  fire: 'Fogo / Explosivo',
+  electricity: 'Eletricidade / Choque',
+  ice: 'Gelo / Ar',
+  earth: 'Terra / Terrestre',
+  plasma: 'Plasma / Mágico',
+}
 
 export function GameScreen({ onExit }: { onExit: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -275,6 +284,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
                   >
                     <SpriteIcon tower={type} label={def.name} />
                     <span className="font-medium">{def.name}</span>
+                    {TOWER_ELEMENTS[type] && <span className="text-[10px] leading-tight text-violet-300">{ELEMENT_LABELS[TOWER_ELEMENTS[type]!]}</span>}
                     <span className="flex items-center gap-1 text-amber-300 text-xs">
                       <Coins className="size-3" aria-hidden />
                       {def.cost}
@@ -315,7 +325,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
                   <SpriteIcon tower={selected.type} label={selDef.name} size={40} />
                   <div>
                     <p className="font-medium">{selDef.name}</p>
-                    <p className="text-xs text-slate-400">Tier {selDef.tier}</p>
+                    <p className="text-xs text-slate-400">Tier {selDef.tier} · {TOWER_ELEMENTS[selected.type] ? ELEMENT_LABELS[TOWER_ELEMENTS[selected.type]!] : 'Suporte'}</p>
                   </div>
                 </div>
                 <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
