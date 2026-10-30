@@ -1669,12 +1669,32 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
     }
   }
 
-  if (type === 'boulderLauncher' || type === 'rockLauncher') {
+  if (type === 'slingshot') {
+    ctx.strokeStyle = def.color; ctx.lineWidth = 4; ctx.lineCap = 'round'
+    ctx.beginPath(); ctx.moveTo(-8, -11); ctx.lineTo(1, 0); ctx.lineTo(-8, 11)
+    ctx.moveTo(1, 0); ctx.lineTo(13, 0); ctx.stroke()
+    ctx.strokeStyle = '#fef3c7'; ctx.lineWidth = 2
+    ctx.beginPath(); ctx.moveTo(-7, -10); ctx.quadraticCurveTo(3, 0, -7, 10); ctx.stroke()
+    ctx.restore(); return
+  }
+  if (type === 'boulderLauncher' || type === 'rockLauncher' || type === 'boulderCannon' || type === 'snowballLauncher') {
     ctx.rotate(angle); ctx.fillStyle = def.accent; ctx.fillRect(-5, -5, 21, 10)
     ctx.fillStyle = def.color; ctx.strokeStyle = '#e7e5e4'; ctx.lineWidth = 1.5
-    const r = type === 'boulderLauncher' ? 10 : 7
+    const r = type === 'boulderCannon' ? 14 : type === 'boulderLauncher' ? 10 : type === 'snowballLauncher' ? 9 : 7
     ctx.beginPath(); ctx.arc(14, 0, r + recoil, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
     ctx.fillStyle = '#f5f5f4'; ctx.beginPath(); ctx.arc(11, -3, r * 0.25, 0, Math.PI * 2); ctx.fill(); ctx.restore(); return
+  }
+  if (type === 'electricSyringe') {
+    ctx.rotate(angle); ctx.fillStyle = def.accent; ctx.fillRect(-8, -6, 23, 12)
+    ctx.fillStyle = def.color; ctx.fillRect(8, -4, 12, 8)
+    ctx.strokeStyle = '#cffafe'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(20, 0); ctx.lineTo(25, 0); ctx.stroke()
+    ctx.restore(); return
+  }
+  if (type === 'portalGun') {
+    ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 3; ctx.shadowColor = '#a78bfa'; ctx.shadowBlur = 12
+    ctx.beginPath(); ctx.ellipse(-5, 0, 6, 11, -0.25, 0, Math.PI * 2); ctx.stroke()
+    ctx.strokeStyle = '#c084fc'; ctx.beginPath(); ctx.ellipse(7, 0, 6, 11, 0.25, 0, Math.PI * 2); ctx.stroke()
+    ctx.restore(); return
   }
   if (type === 'teleporter') {
     ctx.rotate(angle); ctx.strokeStyle = '#c084fc'; ctx.lineWidth = 3; ctx.shadowColor = '#c084fc'; ctx.shadowBlur = 13
