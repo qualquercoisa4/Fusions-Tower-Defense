@@ -481,31 +481,37 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   jumper: { name: 'Jumper', hp: 95, speed: 70, reward: 10, radius: 10, damage: 2, color: '#c084fc', dark: '#581c87', description: 'Salta para a frente a cada 1 segundo, avançando mais distância. No ar, é imune a Shooter, Cannon e Retarder.' },
   healer: { name: 'Healer', hp: 115, speed: 30, reward: 14, radius: 11, damage: 2, color: '#4ade80', dark: '#166534', description: 'A cada 1,25 segundo, cura inimigos próximos em 20% da vida atual, ou 5% quando congelado. Congelá-lo reinicia o cooldown. Não se cura nem cura os chefes.' },
-  bugPrince: { name: 'Bug Prince', hp: 18000, speed: 13, reward: 500, radius: 25, damage: 20, color: '#fbbf24', dark: '#78350f', description: 'Chefe da onda 25: invoca reforços e chama enxames. Ao morrer, dá armadura e +25% de vida aos tipos encontrados.' },
+  bugPrince: { name: 'Bug Prince', hp: 18000, speed: 13, reward: 500, radius: 25, damage: 600, color: '#fbbf24', dark: '#78350f', description: 'Chefe da onda 25: invoca reforços e chama enxames. Ao morrer, dá armadura e +25% de vida aos tipos encontrados.' },
   swarmBug: { name: 'Swarm Bug', hp: 14, speed: 180, reward: 1, radius: 4.5, damage: 1, color: '#fb7185', dark: '#881337', description: 'Inseto muito frágil e veloz. Surge em enxames progressivamente maiores a partir da onda 30.' },
   splitter: { name: 'Splitter', hp: 520, speed: 30, reward: 18, radius: 13, damage: 4, color: '#f97316', dark: '#7c2d12', description: 'Tem muita vida e, ao morrer, divide-se em dois insetos com metade da vida e o dobro da velocidade.' },
   shadowBug: { name: 'Shadow Bug', hp: 145, speed: 58, reward: 14, radius: 10, damage: 2, color: '#a78bfa', dark: '#312e81', description: 'Fica invulnerável enquanto houver outros tipos de inseto em um raio maior por perto. Outros Shadow Bugs não concedem proteção.' },
   spitter: { name: 'Spitter', hp: 210, speed: 32, reward: 20, radius: 12, damage: 3, color: '#22d3ee', dark: '#164e63', description: 'A cada 2,5 segundos, desativa por 3,5 segundos a torre mais próxima.' },
   bulb: { name: 'Bulb', hp: 260, speed: 25, reward: 24, radius: 13, damage: 3, color: '#fde047', dark: '#854d0e', description: 'Alterna a cada 2,5 segundos entre ligado e desligado. Quando ligado, protege os outros insetos em uma área maior.' },
-  bugQueen: { name: 'Bug Queen', hp: 72000, speed: 11, reward: 1500, radius: 32, damage: 30, color: '#f0abfc', dark: '#701a75', description: 'Chefe da onda 50: invoca novos insetos, possui quatro vezes a vida do Bug Prince e deixa um de cada tipo para trás ao morrer. Concede armadura real e +25% de vida.' },
+  bugQueen: { name: 'Bug Queen', hp: 72000, speed: 11, reward: 1500, radius: 32, damage: 600, color: '#f0abfc', dark: '#701a75', description: 'Chefe da onda 50: invoca novos insetos, possui quatro vezes a vida do Bug Prince e deixa um de cada tipo para trás ao morrer. Concede armadura real e +25% de vida.' },
 }
 
 export const CELL = 48
-export const COLS = 16
-export const ROWS = 10
+export const COLS = 24
+export const ROWS = 16
 export const WIDTH = CELL * COLS
 export const HEIGHT = CELL * ROWS
 
+// Caminho serpenteante com quatro travessias horizontais e três retornos longos.
 const WAYPOINT_CELLS: [number, number][] = [
-  [-1, 2],
-  [4, 2],
-  [4, 7],
-  [9, 7],
-  [9, 2],
-  [13, 2],
-  [13, 7],
-  [16, 7],
+  [-1, 3],
+  [21, 3],
+  [21, 6],
+  [2, 6],
+  [2, 9],
+  [21, 9],
+  [21, 12],
+  [2, 12],
+  [2, 15],
+  [24, 15],
 ]
+
+// Quatro posições de fazenda: duas em cada extremidade do mapa.
+export const FARM_CELLS = new Set(['0,0', '0,14', '23,0', '23,14'])
 
 export const PATH = WAYPOINT_CELLS.map(([c, r]) => ({
   x: c * CELL + CELL / 2,
