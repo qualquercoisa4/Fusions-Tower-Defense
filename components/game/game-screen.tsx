@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Bug, Coins, FastForward, Heart, Merge, Play, RotateCcw, Trash2, Waves, Wrench } from 'lucide-react'
+import { Activity, ArrowLeft, Atom, Bomb, Bug, CircleDot, Coins, Crosshair, FastForward, Flame, Heart, Merge, Mountain, Pickaxe, Play, RotateCcw, Snowflake, Sparkles, Target, Trash2, Waves, Wind, Wrench, Zap, type LucideIcon } from 'lucide-react'
 import { BUILDABLE, CELL, ENEMIES, HEIGHT, TARGET_MODES, TOWERS, TOWER_ELEMENTS, WIDTH, fusionResult, type ElementClass, type EnemyType, type TargetMode, type TowerType } from '@/lib/game/data'
 import {
   createGame,
@@ -24,6 +24,37 @@ const ELEMENT_LABELS: Record<ElementClass, string> = {
   ice: 'Gelo / Ar',
   earth: 'Terra / Terrestre',
   plasma: 'Plasma / Mágico',
+}
+
+const BASE_TOWER_ELEMENT_ICONS: Partial<Record<TowerType, readonly [LucideIcon, LucideIcon]>> = {
+  shooter: [CircleDot, Crosshair],
+  cannon: [Flame, Bomb],
+  lightning: [Zap, Activity],
+  retarder: [Snowflake, Wind],
+  boulderLauncher: [Mountain, Pickaxe],
+  teleporter: [Atom, Sparkles],
+}
+
+const FUSION_ELEMENT_ICONS: Record<ElementClass, LucideIcon> = {
+  normal: CircleDot,
+  fire: Flame,
+  electricity: Zap,
+  ice: Snowflake,
+  earth: Mountain,
+  plasma: Atom,
+}
+
+function TowerElementIcons({ type }: { type: TowerType }) {
+  const element = TOWER_ELEMENTS[type]
+  const baseIcons = BASE_TOWER_ELEMENT_ICONS[type]
+  const icons: LucideIcon[] = baseIcons ? [...baseIcons] : element ? [FUSION_ELEMENT_ICONS[element]] : []
+  if (!icons.length) return null
+  const label = element ? ELEMENT_LABELS[element] : 'Elemento'
+  return (
+    <span className="inline-flex items-center gap-1 text-violet-300" role="img" aria-label={label} title={label}>
+      {icons.map((Icon, index) => <Icon key={index} className="size-3.5" aria-hidden />)}
+    </span>
+  )
 }
 
 export function GameScreen({ onExit }: { onExit: () => void }) {
@@ -284,7 +315,12 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
                   >
                     <SpriteIcon tower={type} label={def.name} />
                     <span className="font-medium">{def.name}</span>
-                    {TOWER_ELEMENTS[type] && <span className="text-[10px] leading-tight text-violet-300">{ELEMENT_LABELS[TOWER_ELEMENTS[type]!]}</span>}
+                    {TOWER_ELEMENTS[type] && (
+                      <span className="flex items-center gap-1 text-[10px] leading-tight text-violet-300">
+                        <TowerElementIcons type={type} />
+                        {ELEMENT_LABELS[TOWER_ELEMENTS[type]!]}
+                      </span>
+                    )}
                     <span className="flex items-center gap-1 text-amber-300 text-xs">
                       <Coins className="size-3" aria-hidden />
                       {def.cost}
@@ -308,7 +344,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
                 <div key={result} className="flex items-center gap-2 rounded-md border border-slate-700/80 bg-slate-900/50 p-2">
                   <SpriteIcon tower={result} label={TOWERS[result].name} />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-slate-100">{TOWERS[result].name}</p>
+                    <div className="flex items-center gap-2"><p className="text-sm font-medium text-slate-100">{TOWERS[result].name}</p><TowerElementIcons type={result} /></div>
                     <p className="text-[11px] leading-snug text-slate-400">{recipe}</p>
                   </div>
                   <span className="text-[10px] text-violet-300">T2</span>
@@ -326,6 +362,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
                   <div>
                     <p className="font-medium">{selDef.name}</p>
                     <p className="text-xs text-slate-400">Tier {selDef.tier} · {TOWER_ELEMENTS[selected.type] ? ELEMENT_LABELS[TOWER_ELEMENTS[selected.type]!] : 'Suporte'}</p>
+                    {TOWER_ELEMENTS[selected.type] && <TowerElementIcons type={selected.type} />}
                   </div>
                 </div>
                 <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
