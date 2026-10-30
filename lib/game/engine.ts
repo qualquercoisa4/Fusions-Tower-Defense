@@ -1034,10 +1034,7 @@ export function update(s: GameState, dt: number) {
       p.y += (dy / d) * step
       return true
     }
-    if (p.kind === 'boulder') {
-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(Math.atan2(p.dirY, p.dirX)); ctx.fillStyle = p.color; ctx.strokeStyle = '#e7e5e4'; ctx.lineWidth = 1.5; ctx.shadowColor = p.color; ctx.shadowBlur = 8
-      ctx.beginPath(); ctx.moveTo(p.size, 0); ctx.lineTo(p.size * 0.55, -p.size * 0.72); ctx.lineTo(-p.size * 0.7, -p.size * 0.85); ctx.lineTo(-p.size, 0); ctx.lineTo(-p.size * 0.45, p.size * 0.75); ctx.lineTo(p.size * 0.65, p.size * 0.62); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore()
-    } else if (p.kind === 'homing') {
+    if (p.kind === 'homing') {
       let target = p.targetId === null ? null : s.enemies.find(enemy => enemy.id === p.targetId && enemy.alive && !p.hitIds.includes(enemy.id)) ?? null
       if (!target) {
         p.targetId = null
@@ -1762,7 +1759,10 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
       const vy = 'y' in p ? p.y : p.sy + (p.ty - p.sy) * (p.t / p.duration)
       ctx.save(); ctx.globalAlpha = 0.32; ctx.fillStyle = '#c084fc'; ctx.shadowColor = '#c084fc'; ctx.shadowBlur = 16; ctx.beginPath(); ctx.arc(vx, vy, ('size' in p ? p.size : 5) + 7, 0, Math.PI * 2); ctx.fill(); ctx.restore()
     }
-    if (p.kind === 'homing') {
+    if (p.kind === 'boulder') {
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(Math.atan2(p.dirY, p.dirX)); ctx.fillStyle = p.color; ctx.strokeStyle = '#e7e5e4'; ctx.lineWidth = 1.5; ctx.shadowColor = p.color; ctx.shadowBlur = 8
+      ctx.beginPath(); ctx.moveTo(p.size, 0); ctx.lineTo(p.size * 0.55, -p.size * 0.72); ctx.lineTo(-p.size * 0.7, -p.size * 0.85); ctx.lineTo(-p.size, 0); ctx.lineTo(-p.size * 0.45, p.size * 0.75); ctx.lineTo(p.size * 0.65, p.size * 0.62); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore()
+    } else if (p.kind === 'homing') {
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(Math.atan2(p.dirY, p.dirX)); ctx.shadowColor = p.color; ctx.shadowBlur = 13; ctx.fillStyle = p.color; ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(-4, -3.5); ctx.lineTo(-2, 0); ctx.lineTo(-4, 3.5); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#f5eaff'; ctx.beginPath(); ctx.arc(0, 0, 1.5, 0, Math.PI * 2); ctx.fill(); ctx.restore()
     } else if (p.kind === 'energy') {
       ctx.save()
