@@ -1228,6 +1228,90 @@ export function update(s: GameState, dt: number) {
       }
       return p.traveled < p.maxDistance && p.x >= -24 && p.x <= WIDTH + 24 && p.y >= -24 && p.y <= HEIGHT + 24
     }
+    if (p.kind === 'slingshot') {
+      const step = p.speed * dt
+      p.x += p.dirX * step; p.y += p.dirY * step; p.traveled += step
+      if (p.x < 8 || p.x > WIDTH - 8) {
+        if (p.bouncesLeft <= 0) return false
+        p.x = Math.max(8, Math.min(WIDTH - 8, p.x)); p.dirX *= -1; p.bouncesLeft--
+      }
+      if (p.y < 8 || p.y > HEIGHT - 8) {
+        if (p.bouncesLeft <= 0) return false
+        p.y = Math.max(8, Math.min(HEIGHT - 8, p.y)); p.dirY *= -1; p.bouncesLeft--
+      }
+      const hit = s.enemies.filter(enemy => enemy.alive && !p.hitIds.includes(enemy.id) && Math.hypot(enemy.x-p.x, enemy.y-p.y) <= ENEMIES[enemy.type].radius + p.size + 2)
+        .sort((a,b) => Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0]
+      if (hit) {
+        p.hitIds.push(hit.id); damageEnemy(s, hit, p.damage, 'slingshot')
+        s.explosions.push({ x: hit.x, y: hit.y, r: 9, t: 0, dur: 0.14, color: p.color })
+        if (p.hitIds.length >= p.hitLimit) return false
+      }
+      return p.traveled < 2200
+    }
+    if (p.kind === 'fragment') {
+      const step = p.speed * dt
+      p.x += p.dirX * step; p.y += p.dirY * step; p.traveled += step
+      const hit = s.enemies.filter(enemy => enemy.alive && Math.hypot(enemy.x-p.x, enemy.y-p.y) <= ENEMIES[enemy.type].radius + p.size + 1)
+        .sort((a,b) => Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0]
+      if (hit) {
+        damageEnemy(s, hit, p.damage, 'boulderCannon')
+        s.explosions.push({ x: hit.x, y: hit.y, r: 7, t: 0, dur: 0.12, color: p.color })
+        return false
+      }
+      return p.traveled < p.maxDistance && p.x >= -10 && p.x <= WIDTH + 10 && p.y >= -10 && p.y <= HEIGHT + 10
+    }
+    if (p.kind === 'syringe') {
+      const dx = p.tx - p.x, dy = p.ty - p.y, distance = Math.hypot(dx, dy), step = p.speed * dt
+      if (distance <= step + 2) {
+        p.x = p.tx; p.y = p.ty
+        s.electricTraps.push({ x: p.x, y: p.y, radius: p.radius, t: 0, duration: 7, tickTimer: 0, damage: p.damage })
+        s.explosions.push({ x: p.x, y: p.y, r: p.radius, t: 0, dur: 0.42, color: '#67e8f9' })
+        return false
+      }
+      p.x += (dx / distance) * step; p.y += (dy / distance) * step
+      return true
+    }
+    if (p.kind === 'snowball') {
+      const old = { x: p.x, y: p.y }
+      const nextDistance = Math.max(0, p.pathDistance - p.speed * dt)
+      const next = pointOnPath(nextDistance)
+      p.traveled += p.pathDistance - nextDistance; p.pathDistance = nextDistance
+      p.x = next.x; p.y = next.y
+      for (let i = 0; i < p.carriedIds.length; i++) {
+        const carried = s.enemies.find(enemy => enemy.id === p.carriedIds[i] && enemy.alive)
+        if (carried) placeEnemyOnPath(carried, p.pathDistance + (i - (p.carriedIds.length - 1) / 2) * 7)
+      }
+      const dx = p.x - old.x, dy = p.y - old.y, lenSq = dx * dx + dy * dy
+      const hit = s.enemies.filter(enemy => enemy.alive && enemy.carriedBy == null && !p.carriedIds.includes(enemy.id))
+        .map(enemy => {
+          const along = lenSq > 0 ? Math.max(0, Math.min(1, ((enemy.x-old.x)*dx+(enemy.y-old.y)*dy)/lenSq)) : 0
+          return { enemy, along, distance: Math.hypot(enemy.x-(old.x+along*dx), enemy.y-(old.y+along*dy)) }
+        })
+        .filter(item => item.distance <= ENEMIES[item.enemy.type].radius + p.size)
+        .sort((a,b) => a.along-b.along)[0]?.enemy
+      if (hit) {
+        hit.carriedBy = p.carrierId; p.carriedIds.push(hit.id)
+        s.explosions.push({ x: hit.x, y: hit.y, r: 12, t: 0, dur: 0.16, color: p.color })
+      }
+      if (p.carriedIds.length >= 5 || p.pathDistance <= 0) {
+        const count = p.carriedIds.length
+        for (let i = 0; i < count; i++) {
+          const carried = s.enemies.find(enemy => enemy.id === p.carriedIds[i])
+          if (carried) {
+            carried.carriedBy = undefined
+            placeEnemyOnPath(carried, p.pathDistance + (i - (count - 1) / 2) * 18)
+          }
+        }
+        explode(s, p.x, p.y, p.splash, p.damage, p.color, 'snowballLauncher')
+        freezeInRadius(s, p.x, p.y, p.splash, 1)
+        for (const enemy of s.enemies) {
+          if (!enemy.alive || Math.hypot(enemy.x-p.x,enemy.y-p.y) > p.splash + ENEMIES[enemy.type].radius) continue
+          placeEnemyOnPath(enemy, enemy.dist + (enemy.id % 3 - 1) * 7)
+        }
+        return false
+      }
+      return true
+    }
     if (p.kind === 'boulder') {
       const old = { x: p.x, y: p.y }
       const nextDistance = Math.max(0, p.pathDistance - p.speed * dt)
@@ -1246,6 +1330,17 @@ export function update(s: GameState, dt: number) {
       if (hit) {
         p.hitIds.push(hit.id); damageEnemy(s, hit, p.damage, p.sourceType)
         s.explosions.push({ x: hit.x, y: hit.y, r: p.size + 5, t: 0, dur: 0.16, color: p.color })
+        if (p.shatterOnHit) {
+          for (let i = 0; i < (p.fragmentCount ?? 8); i++) {
+            const angle = Math.random() * Math.PI * 2, speed = 180 + Math.random() * 100
+            spawned.push({ kind: 'fragment', x: hit.x, y: hit.y, dirX: Math.cos(angle), dirY: Math.sin(angle),
+              speed, traveled: 0, maxDistance: 115 + Math.random() * 35,
+              damage: p.fragmentDamage ?? 26, color: '#a8a29e', size: 4 + Math.random() * 1.5,
+              sourceType: 'boulderCannon', sourceTowerId: p.sourceTowerId })
+          }
+          s.explosions.push({ x: hit.x, y: hit.y, r: 34, t: 0, dur: 0.28, color: '#d6d3d1' })
+          return false
+        }
         p.damage = Math.max(0, p.damage - p.damageDecay); p.size = Math.max(0, p.size - p.sizeDecay)
         if (p.damage <= 0 || p.size <= 0 || p.hitIds.length >= p.hitLimit) return false
       }
