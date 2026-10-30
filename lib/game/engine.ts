@@ -130,6 +130,7 @@ type Projectile = (
       dirX: number
       dirY: number
       traveled: number
+      pathDistance: number
       maxDistance: number
       speed: number
       damage: number
@@ -511,15 +512,48 @@ function findChainTargets(s: GameState, first: Enemy, linkRange = 76) {
   return targets
 }
 
+function pathMetrics() {
+  const lengths = [0]
+  for (let i = 1; i < PATH.length; i++) lengths[i] = lengths[i - 1] + Math.hypot(PATH[i].x - PATH[i - 1].x, PATH[i].y - PATH[i - 1].y)
+  return lengths
+}
+const REVERSE_PATH_LENGTHS = pathMetrics()
+function pointOnPath(distance: number) {
+  const d = Math.max(0, Math.min(REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1], distance))
+  let i = 1
+  while (i < REVERSE_PATH_LENGTHS.length - 1 && REVERSE_PATH_LENGTHS[i] < d) i++
+  const span = REVERSE_PATH_LENGTHS[i] - REVERSE_PATH_LENGTHS[i - 1]
+  const k = span > 0 ? (d - REVERSE_PATH_LENGTHS[i - 1]) / span : 0
+  return { x: PATH[i - 1].x + (PATH[i].x - PATH[i - 1].x) * k, y: PATH[i - 1].y + (PATH[i].y - PATH[i - 1].y) * k }
+}
+function projectToPath(x: number, y: number) {
+  let best = { distance: 0, x: PATH[0].x, y: PATH[0].y, error: Infinity }
+  for (let i = 1; i < PATH.length; i++) {
+    const a = PATH[i - 1], b = PATH[i], dx = b.x - a.x, dy = b.y - a.y
+    const lenSq = dx * dx + dy * dy
+    const k = lenSq ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / lenSq)) : 0
+    const px = a.x + dx * k, py = a.y + dy * k, error = Math.hypot(x - px, y - py)
+    if (error < best.error) best = { distance: REVERSE_PATH_LENGTHS[i - 1] + Math.sqrt(lenSq) * k, x: px, y: py, error }
+  }
+  return best
+}
+function findReversePathTarget(s: GameState, t: Tower, range: number) {
+  const projection = projectToPath(t.x, t.y)
+  if (projection.error > range) return null
+  return s.enemies.filter(e => e.alive && e.dist <= projection.distance + 4)
+    .sort((a, b) => b.dist - a.dist)[0] ?? null
+}
+
 function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
   t.recoil = 1
 
   if (t.type === 'boulderLauncher' || t.type === 'rockLauncher') {
     const count = t.type === 'rockLauncher' ? 2 : 1
     for (let i = 0; i < count; i++) {
-      const angle = t.angle + (count === 2 ? (i === 0 ? -0.075 : 0.075) : 0)
+      const projection = projectToPath(t.x, t.y)
+      const angle = Math.atan2(projection.y - t.y, projection.x - t.x) + (count === 2 ? (i === 0 ? -0.075 : 0.075) : 0)
       const dirX = Math.cos(angle), dirY = Math.sin(angle)
-      s.projectiles.push({ kind: 'boulder', x: t.x + dirX * 18, y: t.y + dirY * 18, dirX, dirY, traveled: 0, maxDistance: def.range + 38, speed: def.projectileSpeed, damage: def.damage, damageDecay: t.type === 'rockLauncher' ? 10 : 20, sizeDecay: t.type === 'rockLauncher' ? 0.38 : 0.82, hitLimit: t.type === 'rockLauncher' ? 13 : 10, hitIds: [], color: def.color, size: t.type === 'rockLauncher' ? 7 : 12, sourceType: t.type, sourceTowerId: t.id })
+      s.projectiles.push({ kind: 'boulder', x: t.x + dirX * 18, y: t.y + dirY * 18, dirX, dirY, traveled: 0, pathDistance: projection.distance, maxDistance: projection.distance + 20, speed: def.projectileSpeed, damage: def.damage, damageDecay: t.type === 'rockLauncher' ? 10 : 20, sizeDecay: t.type === 'rockLauncher' ? 0.38 : 0.82, hitLimit: t.type === 'rockLauncher' ? 13 : 10, hitIds: [], color: def.color, size: t.type === 'rockLauncher' ? 7 : 12, sourceType: t.type, sourceTowerId: t.id })
     }
     return
   }
@@ -856,13 +890,15 @@ export function update(s: GameState, dt: number) {
     const hasStation = buffSources.some(other => other.type === 'electricalStation')
     const buff = hasComms ? 1.2 : hasBuffer ? 1.1 : hasStation ? 1.05 : 1
     const def = {...baseDef, damage:baseDef.damage*buff, range:baseDef.range*(1+(hasComms ? 0.1 : hasBuffer ? 0.06 : hasStation ? 0.03 : 0)), fireRate:baseDef.fireRate*buff, projectileSpeed:baseDef.projectileSpeed*buff, splash:baseDef.splash*(1+(hasComms ? 0.1 : hasBuffer ? 0.06 : hasStation ? 0.03 : 0))}
-    const foundTarget = findTarget(
-      s,
-      t,
-      def.range,
-      t.targetMode,
-      (enemy) => t.type !== 'retarder' || enemy.frozenTimer <= 0,
-    )
+    const foundTarget = (t.type === 'boulderLauncher' || t.type === 'rockLauncher')
+      ? findReversePathTarget(s, t, def.range)
+      : findTarget(
+          s,
+          t,
+          def.range,
+          t.targetMode,
+          (enemy) => t.type !== 'retarder' || enemy.frozenTimer <= 0,
+        )
     const lockedTeslaTarget =
       t.type === 'tesla' && t.chargeTargetId !== null
         ? s.enemies.find(
@@ -1070,15 +1106,18 @@ export function update(s: GameState, dt: number) {
       return p.traveled < p.maxDistance && p.x >= -24 && p.x <= WIDTH + 24 && p.y >= -24 && p.y <= HEIGHT + 24
     }
     if (p.kind === 'boulder') {
-      const oldX = p.x, oldY = p.y
-      const step = p.speed * dt
-      p.x += p.dirX * step; p.y += p.dirY * step; p.traveled += step
-      const dx = p.x - oldX, dy = p.y - oldY, lenSq = dx * dx + dy * dy
+      const old = { x: p.x, y: p.y }
+      const nextDistance = Math.max(0, p.pathDistance - p.speed * dt)
+      const next = pointOnPath(nextDistance)
+      p.traveled += p.pathDistance - nextDistance
+      p.pathDistance = nextDistance
+      p.x = next.x; p.y = next.y
+      const dx = p.x - old.x, dy = p.y - old.y, lenSq = dx * dx + dy * dy
       let hit: Enemy | null = null, hitAlong = Infinity
       for (const enemy of s.enemies) {
         if (!enemy.alive || p.hitIds.includes(enemy.id)) continue
-        const along = lenSq > 0 ? Math.max(0, Math.min(1, ((enemy.x - oldX) * dx + (enemy.y - oldY) * dy) / lenSq)) : 0
-        const nearX = oldX + along * dx, nearY = oldY + along * dy
+        const along = lenSq > 0 ? Math.max(0, Math.min(1, ((enemy.x - old.x) * dx + (enemy.y - old.y) * dy) / lenSq)) : 0
+        const nearX = old.x + along * dx, nearY = old.y + along * dy
         if (Math.hypot(enemy.x - nearX, enemy.y - nearY) <= ENEMIES[enemy.type].radius + p.size && along < hitAlong) { hit = enemy; hitAlong = along }
       }
       if (hit) {
@@ -1087,7 +1126,7 @@ export function update(s: GameState, dt: number) {
         p.damage = Math.max(0, p.damage - p.damageDecay); p.size = Math.max(0, p.size - p.sizeDecay)
         if (p.damage <= 0 || p.size <= 0 || p.hitIds.length >= p.hitLimit) return false
       }
-      return p.traveled < p.maxDistance && p.x >= -24 && p.x <= WIDTH + 24 && p.y >= -24 && p.y <= HEIGHT + 24
+      return p.pathDistance > 0 && p.damage > 0 && p.size > 0
     }
     if (p.kind === 'energy') {
       const step = p.speed * dt
