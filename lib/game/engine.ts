@@ -782,7 +782,8 @@ export function update(s: GameState, dt: number) {
     t.disabledTimer = Math.max(0,t.disabledTimer-dt)
     if(t.disabledTimer>0){t.beamTargets=[];continue}
     t.cooldown -= dt
-    t.recoil = Math.max(0, t.recoil - dt * 5)
+    if (t.type === 'plasmaBlaster') t.recoil = Math.min(1, t.recoil + dt * baseDef.fireRate)
+    else t.recoil = Math.max(0, t.recoil - dt * 5)
     if (t.type === 'teleporter') {
       t.supportCooldown = Math.max(0, t.supportCooldown - dt)
       if (t.supportCooldown <= 0) {
@@ -850,7 +851,8 @@ export function update(s: GameState, dt: number) {
       t.beamTargets = []
       if (!target) continue
       t.angle = Math.atan2(target.y - t.y, target.x - t.x)
-      if (t.cooldown <= 0) {
+      const laserReady = t.type === 'plasmaBlaster' ? t.recoil >= 1 : t.cooldown <= 0
+      if (laserReady) {
         const dirX = Math.cos(t.angle), dirY = Math.sin(t.angle)
         const hitWidth = t.type === 'plasmaBlaster' ? 9 : 5
         const lineTargets = s.enemies.filter(enemy => {
@@ -865,8 +867,8 @@ export function update(s: GameState, dt: number) {
           for (const enemy of lineTargets) damageEnemy(s, enemy, perEnemyDamage, t.type)
         }
         s.plasmaBeams.push({ x1: t.x, y1: t.y, x2: t.x + dirX * def.range, y2: t.y + dirY * def.range, width: t.type === 'plasmaBlaster' ? 8 : 3.2, t: 0, duration: t.type === 'plasmaBlaster' ? 0.46 : 0.2, color: def.color })
-        t.cooldown = 1 / def.fireRate
-        t.recoil = 0.5
+        if (t.type === 'plasmaBlaster') t.recoil = 0
+        else { t.cooldown = 1 / def.fireRate; t.recoil = 0.5 }
       }
       continue
     }
@@ -1377,9 +1379,13 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
   }
   if (type === 'plasmaBlaster' || type === 'plasmaRod') {
     ctx.rotate(angle); ctx.fillStyle = def.accent; ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.fill()
-    ctx.strokeStyle = def.color; ctx.lineCap = 'round'; ctx.lineWidth = type === 'plasmaBlaster' ? 8 : 4; ctx.shadowColor = def.color; ctx.shadowBlur = 11
-    ctx.beginPath(); ctx.moveTo(2, 0); ctx.lineTo(21 - recoil * 3, 0); ctx.stroke(); ctx.shadowBlur = 0
-    ctx.fillStyle = '#f5eaff'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill(); ctx.restore(); return
+    ctx.strokeStyle = def.color; ctx.lineCap = 'round'; ctx.lineWidth = type === 'plasmaBlaster' ? 8 : 4; ctx.shadowColor = def.color; ctx.shadowBlur = type === 'plasmaBlaster' ? 5 + recoil * 18 : 11
+    ctx.beginPath(); ctx.moveTo(2, 0); ctx.lineTo(21 - (type === 'plasmaBlaster' ? 0 : recoil * 3), 0); ctx.stroke(); ctx.shadowBlur = 0
+    if (type === 'plasmaBlaster') {
+      ctx.globalAlpha = 0.25 + recoil * 0.75; ctx.strokeStyle = '#e9d5ff'; ctx.lineWidth = 2
+      ctx.beginPath(); ctx.arc(0, 0, 10 + recoil * 6, 0, Math.PI * 2 * recoil); ctx.stroke(); ctx.globalAlpha = 1
+    }
+    ctx.fillStyle = '#f5eaff'; ctx.beginPath(); ctx.arc(0, 0, type === 'plasmaBlaster' ? 4 + recoil * 4 : 4, 0, Math.PI * 2); ctx.fill(); ctx.restore(); return
   }
   if (type === 'plasmaHypothermia') {
     ctx.fillStyle = def.accent; ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = def.color; ctx.lineWidth = 2.5; ctx.shadowColor = def.color; ctx.shadowBlur = 8
