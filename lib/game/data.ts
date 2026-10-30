@@ -491,34 +491,39 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
 }
 
 export const CELL = 48
-export const COLS = 18
-export const ROWS = 16
+export const COLS = 16
+export const ROWS = 10
 export const WIDTH = CELL * COLS
 export const HEIGHT = CELL * ROWS
 
-// Percurso serpenteante inspirado no desenho: entrada à esquerda,
-// dois grandes retornos centrais e uma última subida/descida à direita.
+// Caminho compacto e sinuoso para o tabuleiro original de 16 x 10.
+// A rota cruza o mapa várias vezes, mas deixa os quatro cantos livres para farms.
 const WAYPOINT_CELLS: [number, number][] = [
-  [-1, 7],
-  [3, 7],
-  [3, 3],
-  [10, 3],
-  [10, 7],
-  [6, 7],
-  [6, 10],
-  [13, 10],
-  [13, 14],
-  [3, 14],
-  [3, 11],
-  [16, 11],
-  [16, 2],
-  [14, 2],
-  [14, 0],
-  [18, 0],
+  [-1, 5],
+  [2, 5],
+  [2, 2],
+  [9, 2],
+  [9, 5],
+  [5, 5],
+  [5, 8],
+  [13, 8],
+  [13, 3],
+  [7, 3],
+  [7, 1],
+  [15, 1],
+  [15, 6],
+  [11, 6],
+  [11, 9],
+  [16, 9],
 ]
 
-// Quatro posições de fazenda: duas em cada extremidade do mapa.
-export const FARM_CELLS = new Set(['0,0', '0,14', '17,0', '17,14'])
+// Oito espaços de farms: dois em cada canto/extremidade do tabuleiro.
+export const FARM_CELLS = new Set([
+  '0,0', '1,0',
+  '0,9', '1,9',
+  '14,0', '15,0',
+  '14,9', '15,9',
+])
 
 export const PATH = WAYPOINT_CELLS.map(([c, r]) => ({
   x: c * CELL + CELL / 2,
