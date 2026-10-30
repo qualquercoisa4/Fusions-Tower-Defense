@@ -8,6 +8,7 @@ import {
   FARM_CELLS,
   ROWS,
   TOWERS,
+  TOWER_ELEMENTS,
   WIDTH,
   buildWave,
   fusionResult,
@@ -414,14 +415,15 @@ export function startWave(s: GameState) {
 }
 
 function applyFreeze(e: Enemy, duration: number) {
-  if (!e.alive || duration <= 0 || e.type === 'bugPrince') return
+  if (!e.alive || duration <= 0 || e.type === 'bugPrince' || ENEMIES[e.type].immunities?.includes('ice')) return
   const wasFrozen = e.frozenTimer > 0
   e.frozenTimer = Math.max(e.frozenTimer, duration)
   if (e.type === 'healer' && !wasFrozen) e.healCooldown = 1.5
 }
 
-function applySlow(e: Enemy, duration: number, factor: number) {
+function applySlow(e: Enemy, duration: number, factor: number, sourceType?: TowerType) {
   if (!e.alive || duration <= 0 || e.type === 'bugPrince') return
+  if (sourceType && TOWER_ELEMENTS[sourceType] === 'ice' && ENEMIES[e.type].immunities?.includes('ice')) return
   e.slowTimer = Math.max(e.slowTimer, duration)
   e.slowFactor = Math.min(e.slowFactor, factor)
 }
@@ -438,9 +440,23 @@ function isShielded(s: GameState, e: Enemy) {
   return s.enemies.some(other => other.alive && other.id !== e.id && other.type === 'bulb' && other.bulbOn && Math.hypot(other.x-e.x,other.y-e.y) <= 104)
 }
 
+function isElementImmuneToTower(enemyType: EnemyType, towerType?: TowerType) {
+  const element = towerType ? TOWER_ELEMENTS[towerType] : undefined
+  return !!element && !!ENEMIES[enemyType].immunities?.includes(element)
+}
+
+function canTowerTargetEnemy(enemy: Enemy, towerType: TowerType) {
+  if (towerType === 'portalGun' && enemy.type === 'flyBug') return false
+  return !isElementImmuneToTower(enemy.type, towerType)
+}
+
 function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType) {
   if (!e.alive || isShielded(s,e)) return
+  if (isElementImmuneToTower(e.type, sourceType)) return
   if(e.queenArmor)dmg*=0.75
+  const element = sourceType ? TOWER_ELEMENTS[sourceType] : undefined
+  if (element && ENEMIES[e.type].weaknesses?.includes(element)) dmg *= 1.5
+  else if (element && ENEMIES[e.type].resistances?.includes(element)) dmg *= 0.5
   if(e.type==='jumper'&&e.airborneTimer>0&&sourceType&&['shooter','cannon','retarder'].includes(sourceType))return
   const previousHp=e.hp;e.hp-=dmg
   if(e.type==='bugPrince'||e.type==='bugQueen'){
@@ -464,7 +480,7 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType
         if(queen)ally.queenArmor=true
       }
       if(queen){
-        const types:EnemyType[]=['grunt','tank','runner','vessel','jumper','healer','swarmBug','splitter','shadowBug','spitter','bulb']
+        const types:EnemyType[]=['grunt','tank','runner','vessel','jumper','healer','swarmBug','splitter','shadowBug','spitter','bulb','flyBug','ironBug','rubberBug','heatBug','ghostBug','dirtBug']
         for(const type of types)s.spawnQueue.push({type,delay:.08})
       }
       s.explosions.push({x:e.x,y:e.y,r:queen?140:100,t:0,dur:1.2,color:queen?'#f0abfc':'#fbbf24'})
@@ -529,7 +545,7 @@ function findTarget(
   return best
 }
 
-function findChainTargets(s: GameState, first: Enemy, linkRange = 76) {
+function findChainTargets(s: GameState, first: Enemy, linkRange = 76, towerType?: TowerType) {
   const targets = [first]
   const used = new Set([first.id])
   while (targets.length < 3) {
@@ -537,7 +553,7 @@ function findChainTargets(s: GameState, first: Enemy, linkRange = 76) {
     let nearest: Enemy | null = null
     let nearestDistance = linkRange
     for (const e of s.enemies) {
-      if (!e.alive || used.has(e.id)) continue
+      if (!e.alive || used.has(e.id) || (towerType && !canTowerTargetEnemy(e, towerType))) continue
       const distance = Math.hypot(e.x - from.x, e.y - from.y)
       if (distance <= nearestDistance) {
         nearest = e
@@ -589,7 +605,7 @@ function projectToPath(x: number, y: number) {
 function findReversePathTarget(s: GameState, t: Tower, range: number) {
   const projection = projectToPath(t.x, t.y)
   if (projection.error > range) return null
-  return s.enemies.filter(e => e.alive && e.dist <= projection.distance + 4)
+  return s.enemies.filter(e => e.alive && canTowerTargetEnemy(e, t.type) && e.dist <= projection.distance + 4)
     .sort((a, b) => b.dist - a.dist)[0] ?? null
 }
 
@@ -719,7 +735,7 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
       y = Math.max(4, Math.min(HEIGHT - 4, t.y + Math.sin(angle) * distance))
     }
     s.strikes.push({ x, y, t: 0, dur: 0.34, color: def.color })
-    explode(s, x, y, def.splash, def.damage, def.color)
+    explode(s, x, y, def.splash, def.damage, def.color, t.type)
     return
   }
 
@@ -738,6 +754,7 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
       damage: def.damage,
       color: def.color,
       size: 7,
+      sourceType: t.type,
       sourceTowerId: t.id,
     })
     return
@@ -771,6 +788,7 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
     cluster: def.style === 'cluster',
     cryo: t.type === 'cryoMortar',
     color: def.color,
+    sourceType: t.type,
     size: def.style === 'mortar' ? 6 : 7,
     sourceTowerId: t.id,
   })
@@ -885,7 +903,7 @@ export function update(s: GameState, dt: number) {
       s.explosions.push({x:e.x,y:e.y,r:92,t:0,dur:.25,color:e.frozenTimer>0?'#7dd3fc':'#4ade80'});e.healCooldown=1.25
     }
     if((e.type==='bugPrince'||e.type==='bugQueen')&&e.spawnCooldown<=0){
-      const picks:EnemyType[]=e.type==='bugQueen'?['grunt','runner','tank','vessel','jumper','healer','splitter','shadowBug','spitter','bulb']:['grunt','runner','tank','vessel','jumper','healer']
+      const picks:EnemyType[]=e.type==='bugQueen'?['grunt','runner','tank','vessel','jumper','healer','splitter','shadowBug','spitter','bulb','flyBug','ironBug','rubberBug','heatBug','ghostBug','dirtBug']:['grunt','runner','tank','vessel','jumper','healer']
       s.spawnQueue.push({type:picks[Math.floor(Math.random()*picks.length)],delay:.05},{type:picks[Math.floor(Math.random()*picks.length)],delay:.05})
       e.spawnCooldown=e.type==='bugQueen'?2.3:2.8
     }
@@ -922,7 +940,7 @@ export function update(s: GameState, dt: number) {
         if(e.wp>=PATH.length&&e.alive){e.alive=false;s.lives-=def.damage}
       }
       if (e.alive && e.dist > previousDist) {
-        const portal = s.portalPairs.find(pair => !pair.usedEnemyIds.includes(e.id) && previousDist < pair.blueDistance && e.dist >= pair.blueDistance)
+        const portal = e.type === 'flyBug' ? undefined : s.portalPairs.find(pair => !pair.usedEnemyIds.includes(e.id) && previousDist < pair.blueDistance && e.dist >= pair.blueDistance)
         if (portal) {
           portal.usedEnemyIds.push(e.id)
           placeEnemyOnPath(e, portal.purpleDistance)
@@ -967,7 +985,7 @@ export function update(s: GameState, dt: number) {
       }
     }
     if (e.alive && e.dist > previousDist) {
-      const portal = s.portalPairs.find(pair => !pair.usedEnemyIds.includes(e.id) && previousDist < pair.blueDistance && e.dist >= pair.blueDistance)
+      const portal = e.type === 'flyBug' ? undefined : s.portalPairs.find(pair => !pair.usedEnemyIds.includes(e.id) && previousDist < pair.blueDistance && e.dist >= pair.blueDistance)
       if (portal) {
         portal.usedEnemyIds.push(e.id)
         placeEnemyOnPath(e, portal.purpleDistance)
@@ -1047,14 +1065,14 @@ export function update(s: GameState, dt: number) {
           t,
           def.range,
           t.targetMode,
-          (enemy) => t.type !== 'retarder' || enemy.frozenTimer <= 0,
+          (enemy) => canTowerTargetEnemy(enemy, t.type) && (t.type !== 'retarder' || enemy.frozenTimer <= 0),
         )
     const lockedTeslaTarget =
       t.type === 'tesla' && t.chargeTargetId !== null
         ? s.enemies.find(
             (e) =>
               e.id === t.chargeTargetId &&
-              e.alive &&
+              e.alive && canTowerTargetEnemy(e, t.type) &&
               Math.hypot(e.x - t.x, e.y - t.y) <= def.range,
           ) ?? null
         : null
@@ -1069,7 +1087,7 @@ export function update(s: GameState, dt: number) {
         const dirX = Math.cos(t.angle), dirY = Math.sin(t.angle)
         const hitWidth = t.type === 'plasmaBlaster' ? 9 : 5
         const lineTargets = s.enemies.filter(enemy => {
-          if (!enemy.alive) return false
+          if (!enemy.alive || !canTowerTargetEnemy(enemy, t.type)) return false
           const dx = enemy.x - t.x, dy = enemy.y - t.y
           const along = dx * dirX + dy * dirY
           const across = Math.abs(dx * dirY - dy * dirX)
@@ -1087,7 +1105,7 @@ export function update(s: GameState, dt: number) {
     }
 
     if (t.type === 'ice') {
-      for (const enemy of s.enemies) if (enemy.alive && Math.hypot(enemy.x-t.x,enemy.y-t.y)<=def.range) applySlow(enemy,0.45,0.65)
+      for (const enemy of s.enemies) if (enemy.alive && Math.hypot(enemy.x-t.x,enemy.y-t.y)<=def.range) applySlow(enemy,0.45,0.65,'ice')
     }
 
     if (t.type === 'thunderstorm') {
@@ -1099,7 +1117,7 @@ export function update(s: GameState, dt: number) {
         const dirY = Math.sin(t.angle)
         const lineTargets = s.enemies
           .filter((enemy) => {
-            if (!enemy.alive) return false
+            if (!enemy.alive || !canTowerTargetEnemy(enemy, t.type)) return false
             const dx = enemy.x - t.x
             const dy = enemy.y - t.y
             const along = dx * dirX + dy * dirY
@@ -1108,7 +1126,7 @@ export function update(s: GameState, dt: number) {
           })
           .sort((a, b) => Math.hypot(a.x - t.x, a.y - t.y) - Math.hypot(b.x - t.x, b.y - t.y))
         for (const enemy of lineTargets) {
-          damageEnemy(s, enemy, def.damage)
+          damageEnemy(s, enemy, def.damage, t.type)
           applyFreeze(enemy, 0.5)
           s.lightningFlashes.push({
             points: [{ x: enemy.x, y: Math.max(0, enemy.y - 96) }, { x: enemy.x, y: enemy.y }],
@@ -1128,7 +1146,7 @@ export function update(s: GameState, dt: number) {
       if (!target) continue
       t.angle = Math.atan2(target.y - t.y, target.x - t.x)
       if (t.cooldown <= 0) {
-        const chain = findChainTargets(s, target)
+        const chain = findChainTargets(s, target, 76, t.type)
         s.lightningFlashes.push({
           points: [{ x: t.x, y: t.y }, ...chain.map((enemy) => ({ x: enemy.x, y: enemy.y }))],
           t: 0,
@@ -1136,7 +1154,7 @@ export function update(s: GameState, dt: number) {
           color: def.color,
         })
         const splitDamage = def.damage / chain.length
-        for (const enemy of chain) damageEnemy(s, enemy, splitDamage)
+        for (const enemy of chain) damageEnemy(s, enemy, splitDamage, t.type)
         t.cooldown = 1 / def.fireRate
         t.recoil = 0.35
       }
@@ -1161,7 +1179,7 @@ export function update(s: GameState, dt: number) {
       t.beamTargets = [target.id]
       if (t.cooldown <= 0) {
         const chargeMultiplier = 1 + Math.min(11, t.chargeTime * 2.2)
-        damageEnemy(s, target, def.damage * chargeMultiplier)
+        damageEnemy(s, target, def.damage * chargeMultiplier, t.type)
         t.cooldown = 1 / def.fireRate
         t.recoil = 0.3
       }
@@ -1186,7 +1204,7 @@ export function update(s: GameState, dt: number) {
       if (!enemy.alive || pool.usedEnemyIds.length >= 5 || pool.usedEnemyIds.includes(enemy.id)) continue
       if (Math.hypot(enemy.x - pool.x, enemy.y - pool.y) <= pool.radius + ENEMIES[enemy.type].radius) {
         pool.usedEnemyIds.push(enemy.id)
-        applySlow(enemy, 2.4, 0.6)
+        applySlow(enemy, 2.4, 0.6, 'plasmaHypothermia')
         enemy.plasmaDotTimer = Math.max(enemy.plasmaDotTimer, 2.5)
         enemy.plasmaDotTick = 0
         s.explosions.push({ x: enemy.x, y: enemy.y, r: 12, t: 0, dur: 0.22, color: '#c084fc' })
@@ -1224,7 +1242,7 @@ export function update(s: GameState, dt: number) {
           let nearest: Enemy | null = null
           let nearestDistance = p.sourceType === 'plasmaCannon' ? 340 : 170
           for (const enemy of s.enemies) {
-            if (!enemy.alive || p.hitIds.includes(enemy.id)) continue
+            if (!enemy.alive || p.hitIds.includes(enemy.id) || (p.sourceType && !canTowerTargetEnemy(enemy, p.sourceType))) continue
             const distance = Math.hypot(enemy.x - p.x, enemy.y - p.y)
             if (distance < nearestDistance) { nearest = enemy; nearestDistance = distance }
           }
@@ -1242,7 +1260,7 @@ export function update(s: GameState, dt: number) {
       }
       const step = p.speed * dt
       p.x += p.dirX * step; p.y += p.dirY * step; p.traveled += step
-      const hit = s.enemies.filter(enemy => enemy.alive && !p.hitIds.includes(enemy.id) && Math.hypot(enemy.x - p.x, enemy.y - p.y) <= ENEMIES[enemy.type].radius + p.size + 2).sort((a,b) => Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0]
+      const hit = s.enemies.filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'teleporter') && !p.hitIds.includes(enemy.id) && Math.hypot(enemy.x - p.x, enemy.y - p.y) <= ENEMIES[enemy.type].radius + p.size + 2).sort((a,b) => Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0]
       if (hit) {
         p.hitIds.push(hit.id)
         damageEnemy(s, hit, p.damage, p.sourceType)
@@ -1262,7 +1280,7 @@ export function update(s: GameState, dt: number) {
         if (p.bouncesLeft <= 0) return false
         p.y = Math.max(8, Math.min(HEIGHT - 8, p.y)); p.dirY *= -1; p.bouncesLeft--
       }
-      const hit = s.enemies.filter(enemy => enemy.alive && !p.hitIds.includes(enemy.id) && Math.hypot(enemy.x-p.x, enemy.y-p.y) <= ENEMIES[enemy.type].radius + p.size + 2)
+      const hit = s.enemies.filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'slingshot') && !p.hitIds.includes(enemy.id) && Math.hypot(enemy.x-p.x, enemy.y-p.y) <= ENEMIES[enemy.type].radius + p.size + 2)
         .sort((a,b) => Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0]
       if (hit) {
         p.hitIds.push(hit.id); damageEnemy(s, hit, p.damage, 'slingshot')
@@ -1274,7 +1292,7 @@ export function update(s: GameState, dt: number) {
     if (p.kind === 'fragment') {
       const step = p.speed * dt
       p.x += p.dirX * step; p.y += p.dirY * step; p.traveled += step
-      const hit = s.enemies.filter(enemy => enemy.alive && Math.hypot(enemy.x-p.x, enemy.y-p.y) <= ENEMIES[enemy.type].radius + p.size + 1)
+      const hit = s.enemies.filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'boulderCannon') && Math.hypot(enemy.x-p.x, enemy.y-p.y) <= ENEMIES[enemy.type].radius + p.size + 1)
         .sort((a,b) => Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0]
       if (hit) {
         damageEnemy(s, hit, p.damage, 'boulderCannon')
@@ -1305,7 +1323,7 @@ export function update(s: GameState, dt: number) {
         if (carried) placeEnemyOnPath(carried, p.pathDistance + (i - (p.carriedIds.length - 1) / 2) * 7)
       }
       const dx = p.x - old.x, dy = p.y - old.y, lenSq = dx * dx + dy * dy
-      const hit = s.enemies.filter(enemy => enemy.alive && enemy.carriedBy == null && !p.carriedIds.includes(enemy.id))
+      const hit = s.enemies.filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, 'snowballLauncher') && enemy.carriedBy == null && !p.carriedIds.includes(enemy.id))
         .map(enemy => {
           const along = lenSq > 0 ? Math.max(0, Math.min(1, ((enemy.x-old.x)*dx+(enemy.y-old.y)*dy)/lenSq)) : 0
           return { enemy, along, distance: Math.hypot(enemy.x-(old.x+along*dx), enemy.y-(old.y+along*dy)) }
@@ -1345,7 +1363,7 @@ export function update(s: GameState, dt: number) {
       const dx = p.x - old.x, dy = p.y - old.y, lenSq = dx * dx + dy * dy
       let hit: Enemy | null = null, hitAlong = Infinity
       for (const enemy of s.enemies) {
-        if (!enemy.alive || p.hitIds.includes(enemy.id)) continue
+        if (!enemy.alive || p.hitIds.includes(enemy.id) || !canTowerTargetEnemy(enemy, p.sourceType ?? 'boulderLauncher')) continue
         const along = lenSq > 0 ? Math.max(0, Math.min(1, ((enemy.x - old.x) * dx + (enemy.y - old.y) * dy) / lenSq)) : 0
         const nearX = old.x + along * dx, nearY = old.y + along * dy
         if (Math.hypot(enemy.x - nearX, enemy.y - nearY) <= ENEMIES[enemy.type].radius + p.size && along < hitAlong) { hit = enemy; hitAlong = along }
@@ -1381,7 +1399,7 @@ export function update(s: GameState, dt: number) {
           const remaining = p.hitTimers[enemy.id] ?? 0
           if (remaining <= 0) {
             // Aura damage is applied in small electric pulses while an enemy is inside it.
-            damageEnemy(s, enemy, p.damage / 4)
+            damageEnemy(s, enemy, p.damage / 4, p.sourceType)
             p.hitTimers[enemy.id] = 0.18
             s.explosions.push({ x: enemy.x, y: enemy.y, r: 9, t: 0, dur: 0.12, color: p.color })
           } else {
@@ -1402,13 +1420,14 @@ export function update(s: GameState, dt: number) {
       const hit = s.enemies.find(
         (enemy) =>
           enemy.alive &&
+          canTowerTargetEnemy(enemy, p.sourceType ?? 'retarder') &&
           !p.hitIds.includes(enemy.id) &&
           Math.hypot(enemy.x - p.x, enemy.y - p.y) <= ENEMIES[enemy.type].radius + p.size + 2,
       )
       if (hit) {
         p.hitIds.push(hit.id)
         if (p.freezeDuration > 0) applyFreeze(hit, p.freezeDuration)
-        if (p.slowDuration > 0) applySlow(hit, p.slowDuration, p.slowFactor)
+        if (p.slowDuration > 0) applySlow(hit, p.slowDuration, p.slowFactor, p.sourceType)
         damageEnemy(s, hit, p.damage, p.sourceType)
 
         if (p.splitOnHit) {
@@ -1447,7 +1466,7 @@ export function update(s: GameState, dt: number) {
 
         if (p.hitIds.length >= p.hitLimit) {
           if (p.explodeAtLimit) {
-            explode(s, p.x, p.y, p.splash, p.damage, p.color)
+            explode(s, p.x, p.y, p.splash, p.damage, p.color, p.sourceType)
             freezeInRadius(s, p.x, p.y, p.splash, p.splashFreezeDuration)
           }
           return false
@@ -1457,14 +1476,14 @@ export function update(s: GameState, dt: number) {
       const stillInBounds =
         p.traveled < p.maxDistance && p.x >= -20 && p.x <= WIDTH + 20 && p.y >= -20 && p.y <= HEIGHT + 20
       if (!stillInBounds && p.explodeAtLimit) {
-        explode(s, p.x, p.y, p.splash, p.damage, p.color)
+        explode(s, p.x, p.y, p.splash, p.damage, p.color, p.sourceType)
         freezeInRadius(s, p.x, p.y, p.splash, p.splashFreezeDuration)
       }
       return stillInBounds
     }
     p.t += dt
     if (p.t >= p.duration) {
-      explode(s, p.tx, p.ty, p.splash, p.damage, p.color)
+      explode(s, p.tx, p.ty, p.splash, p.damage, p.color, p.sourceType)
       if (p.cryo) {
         freezeInRadius(s,p.tx,p.ty,p.splash,0.5)
         for(let i=0;i<8;i++) { const a=i*Math.PI/4; spawned.push({kind:'ice',x:p.tx,y:p.ty,dirX:Math.cos(a),dirY:Math.sin(a),traveled:0,maxDistance:125,speed:290,damage:p.damage*.45,color:p.teleporterClone?'#c084fc':'#a5f3fc',size:4,freezeDuration:0,slowDuration:0,slowFactor:1,hitLimit:4,hitIds:[],splitOnHit:false,explodeAtLimit:false,splash:0,splashFreezeDuration:0,sourceType:p.sourceType??'cryoMortar',sourceTowerId:p.sourceTowerId,teleporterClone:p.teleporterClone}) }
@@ -1533,6 +1552,17 @@ export function drawBug(ctx: CanvasRenderingContext2D, type: EnemyType, x: numbe
   ctx.translate(x, y)
   if(airborne){ctx.scale(1.3,1.3);ctx.shadowColor='#c084fc';ctx.shadowBlur=12}
   ctx.rotate(angle)
+  if (type === 'ghostBug') ctx.globalAlpha = 0.58
+  if (type === 'flyBug') {
+    ctx.fillStyle = 'rgba(224,242,254,0.78)'
+    ctx.strokeStyle = '#7dd3fc'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.ellipse(-r * 0.05, -r * 0.92, r * 0.42, r * 0.82, -0.38, 0, Math.PI * 2)
+    ctx.ellipse(-r * 0.05, r * 0.92, r * 0.42, r * 0.82, 0.38, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+  }
   if (type === 'vessel' && cocooning) {
     const pulse = 1 + Math.sin(anim * 5) * 0.035
     ctx.scale(pulse, 1 / pulse)
@@ -1631,6 +1661,29 @@ export function drawBug(ctx: CanvasRenderingContext2D, type: EnemyType, x: numbe
   ctx.arc(r * 0.9, -r * 0.14, 1.2, 0, Math.PI * 2)
   ctx.arc(r * 0.9, r * 0.14, 1.2, 0, Math.PI * 2)
   ctx.fill()
+  if (type === 'ironBug') {
+    ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 2
+    ctx.beginPath(); ctx.ellipse(-r * 0.55, 0, r * 0.58, r * 0.48, 0, 0, Math.PI * 2); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(-r * 0.75, -r * 0.36); ctx.lineTo(-r * 0.35, r * 0.36); ctx.moveTo(-r * 0.35, -r * 0.36); ctx.lineTo(-r * 0.75, r * 0.36); ctx.stroke()
+  }
+  if (type === 'rubberBug') {
+    ctx.strokeStyle = '#713f12'; ctx.lineWidth = 2.3
+    ctx.beginPath(); ctx.arc(-r * 0.55, 0, r * 0.53, -1.05, 1.05); ctx.stroke()
+    ctx.beginPath(); ctx.arc(-r * 0.55, 0, r * 0.53, Math.PI - 1.05, Math.PI + 1.05); ctx.stroke()
+  }
+  if (type === 'heatBug') {
+    ctx.strokeStyle = '#fed7aa'; ctx.lineWidth = 2.2; ctx.shadowColor = '#fb923c'; ctx.shadowBlur = 12
+    ctx.beginPath(); ctx.arc(-r * 0.55, 0, r * 0.78, -Math.PI * 0.78, Math.PI * 0.78); ctx.stroke()
+    ctx.shadowBlur = 0
+  }
+  if (type === 'ghostBug') {
+    ctx.strokeStyle = '#ede9fe'; ctx.lineWidth = 1.5
+    ctx.beginPath(); ctx.arc(0, 0, r * 1.18, 0.15, Math.PI * 1.85); ctx.stroke()
+  }
+  if (type === 'dirtBug') {
+    ctx.fillStyle = '#78716c'; ctx.strokeStyle = '#d6d3d1'; ctx.lineWidth = 1
+    ctx.beginPath(); ctx.moveTo(-r * 1.05, -r * 0.12); ctx.lineTo(-r * 0.72, -r * 0.65); ctx.lineTo(-r * 0.24, -r * 0.52); ctx.lineTo(-r * 0.1, r * 0.42); ctx.lineTo(-r * 0.72, r * 0.6); ctx.closePath(); ctx.fill(); ctx.stroke()
+  }
   if(type==='splitter'){ctx.strokeStyle='#ffedd5';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-r*.7,-r*.5);ctx.lineTo(r*.2,r*.5);ctx.moveTo(-r*.7,r*.5);ctx.lineTo(r*.2,-r*.5);ctx.stroke()}
   if(type==='shadowBug'){ctx.strokeStyle='#c4b5fd';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,r*.95,0,Math.PI*2);ctx.stroke()}
   if(type==='spitter'){ctx.fillStyle='#a5f3fc';ctx.beginPath();ctx.arc(r*.75,-r*.35,r*.25,0,Math.PI*2);ctx.fill()}
@@ -2067,7 +2120,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 
   for (const e of s.enemies) {
-    drawBug(ctx, e.type, e.x, e.y-(e.airborneTimer>0?14:0), e.angle, e.anim, e.cocooning, e.airborneTimer>0, e.helmet)
+    drawBug(ctx, e.type, e.x, e.y-(e.type==='flyBug'?10:e.airborneTimer>0?14:0), e.angle, e.anim, e.cocooning, e.airborneTimer>0 || e.type==='flyBug', e.helmet)
     if (e.plasmaDotTimer > 0) {
       ctx.save(); ctx.strokeStyle = '#d8b4fe'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.8; ctx.beginPath(); ctx.arc(e.x, e.y, ENEMIES[e.type].radius + 7, s.time * 2, s.time * 2 + Math.PI * 1.5); ctx.stroke(); ctx.restore()
     }
