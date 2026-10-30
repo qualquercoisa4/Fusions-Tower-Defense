@@ -214,14 +214,14 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     description: 'Dispara projéteis de plasma perfurantes que perseguem inimigos. Ocasionalmente duplica um projétil de uma torre aliada próxima, deixando-o roxo e com uma aura dimensional.',
   },
   boulderLauncher: {
-    name: 'Boulder Launcher', tier: 0, damage: 200, range: 165, fireRate: 0.24, splash: 0,
-    style: 'shell', projectileSpeed: 205, inaccuracy: 0, cost: 500,
+    name: 'Boulder Launcher', tier: 0, damage: 200, range: 165, fireRate: 0.08, splash: 0,
+    style: 'shell', projectileSpeed: 65, inaccuracy: 0, cost: 500,
     color: '#a8a29e', accent: '#57534e',
     description: 'Lança uma pedra pesada que atravessa até 10 inimigos. Começa causando 200 de dano; a cada impacto, perde 20 de dano e diminui de tamanho. Desaparece quando o dano chega a zero.',
   },
   rockLauncher: {
-    name: 'Rock Launcher', tier: 1, damage: 125, range: 170, fireRate: 0.32, splash: 0,
-    style: 'shell', projectileSpeed: 230, inaccuracy: 0, cost: 0,
+    name: 'Rock Launcher', tier: 1, damage: 125, range: 170, fireRate: 0.1, splash: 0,
+    style: 'shell', projectileSpeed: 70, inaccuracy: 0, cost: 0,
     color: '#d6d3d1', accent: '#78716c',
     description: 'Dispara duas pedras menores. Cada uma começa causando 125 de dano e perde 10 de dano e um pouco de tamanho por inimigo atingido, atravessando até 13 inimigos antes de se desfazer.',
   },
