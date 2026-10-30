@@ -28,6 +28,11 @@ export type TowerType =
   | 'plasmaBlaster'
   | 'plasmaRod'
   | 'plasmaHypothermia'
+  | 'slingshot'
+  | 'boulderCannon'
+  | 'electricSyringe'
+  | 'snowballLauncher'
+  | 'portalGun'
 export type EnemyType = 'grunt' | 'tank' | 'runner' | 'vessel' | 'jumper' | 'healer' | 'bugPrince' | 'swarmBug' | 'splitter' | 'shadowBug' | 'spitter' | 'bulb' | 'bugQueen'
 
 export type TargetMode = 'first' | 'last' | 'strongest' | 'weakest' | 'closest'
@@ -225,6 +230,36 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     color: '#d6d3d1', accent: '#78716c',
     description: 'Dispara duas pedras menores. Cada uma começa causando 125 de dano e perde 10 de dano e um pouco de tamanho por inimigo atingido, atravessando até 13 inimigos antes de se desfazer.',
   },
+  slingshot: {
+    name: 'Slingshot', tier: 1, damage: 38, range: 165, fireRate: 0.42, splash: 0,
+    style: 'shell', projectileSpeed: 310, inaccuracy: 0, cost: 0,
+    color: '#c4a484', accent: '#713f12',
+    description: 'Dispara uma pedra que perfura até 5 inimigos e quica nas bordas do mapa 3 vezes antes de desaparecer.',
+  },
+  boulderCannon: {
+    name: 'Boulder Cannon', tier: 1, damage: 180, range: 170, fireRate: 0.16, splash: 0,
+    style: 'shell', projectileSpeed: 58, inaccuracy: 0, cost: 0,
+    color: '#78716c', accent: '#292524',
+    description: 'Lança uma pedra enorme pelo caminho. Ao atingir o primeiro inimigo, ela se despedaça em 8 pedrinhas que voam em direções aleatórias.',
+  },
+  electricSyringe: {
+    name: 'Electric Syringe', tier: 1, damage: 16, range: 165, fireRate: 0.1, splash: 34,
+    style: 'shell', projectileSpeed: 260, inaccuracy: 0, cost: 0,
+    color: '#67e8f9', accent: '#164e63',
+    description: 'A cada 10 segundos, dispara uma seringa que se fixa no chão por 7 segundos, causando dano elétrico em área a todos os inimigos que passam por ela.',
+  },
+  snowballLauncher: {
+    name: 'Snowball Launcher', tier: 1, damage: 62, range: 170, fireRate: 0.12, splash: 58,
+    style: 'shell', projectileSpeed: 88, inaccuracy: 0, cost: 0,
+    color: '#e0f2fe', accent: '#0369a1',
+    description: 'Lança uma bola de neve que captura até 5 inimigos e os carrega para trás pelo caminho. Ao explodir, causa dano em área, espalha os inimigos e congela por 1 segundo.',
+  },
+  portalGun: {
+    name: 'Portal Gun', tier: 1, damage: 0, range: 170, fireRate: 0.5, splash: 0,
+    style: 'support', projectileSpeed: 0, inaccuracy: 0, cost: 0,
+    color: '#a78bfa', accent: '#4c1d95',
+    description: 'Abre um portal azul e um roxo no caminho por 2 segundos. Inimigos que atravessam o portal azul saem pelo portal roxo.',
+  },
   plasmaCannon: {
     name: 'Plasma Cannon', tier: 1, damage: 9, range: 150, fireRate: 0.95, splash: 0,
     style: 'bullet', projectileSpeed: 390, inaccuracy: 0, cost: 0,
@@ -343,6 +378,11 @@ const FUSIONS: Record<string, TowerType> = {
   'lightning+retarder': 'thunderstorm',
   'retarder+retarder': 'ice',
   'boulderLauncher+boulderLauncher': 'rockLauncher',
+  'boulderLauncher+shooter': 'slingshot',
+  'boulderLauncher+cannon': 'boulderCannon',
+  'boulderLauncher+lightning': 'electricSyringe',
+  'boulderLauncher+retarder': 'snowballLauncher',
+  'boulderLauncher+teleporter': 'portalGun',
   'shooter+teleporter': 'plasmaCannon',
   'cannon+teleporter': 'plasmaBlaster',
   'lightning+teleporter': 'plasmaRod',
@@ -372,6 +412,11 @@ export const FUSION_LIST: { a: TowerType; b: TowerType; result: TowerType }[] = 
   { a: 'lightning', b: 'retarder', result: 'thunderstorm' },
   { a: 'retarder', b: 'retarder', result: 'ice' },
   { a: 'boulderLauncher', b: 'boulderLauncher', result: 'rockLauncher' },
+  { a: 'boulderLauncher', b: 'shooter', result: 'slingshot' },
+  { a: 'boulderLauncher', b: 'cannon', result: 'boulderCannon' },
+  { a: 'boulderLauncher', b: 'lightning', result: 'electricSyringe' },
+  { a: 'boulderLauncher', b: 'retarder', result: 'snowballLauncher' },
+  { a: 'boulderLauncher', b: 'teleporter', result: 'portalGun' },
   { a: 'shooter', b: 'teleporter', result: 'plasmaCannon' },
   { a: 'cannon', b: 'teleporter', result: 'plasmaBlaster' },
   { a: 'lightning', b: 'teleporter', result: 'plasmaRod' },
