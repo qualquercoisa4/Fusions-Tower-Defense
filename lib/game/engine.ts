@@ -5,6 +5,7 @@ import {
   HEIGHT,
   PATH,
   PATH_CELLS,
+  FARM_CELLS,
   ROWS,
   TOWERS,
   WIDTH,
@@ -326,20 +327,23 @@ export function spawnDebugEnemy(s: GameState, type: EnemyType) {
   s.status = 'playing'
 }
 
-export const isBuildable = (s: GameState, col: number, row: number) =>
-  col >= 0 &&
-  row >= 0 &&
-  col < COLS &&
-  row < ROWS &&
-  !PATH_CELLS.has(`${col},${row}`) &&
-  !s.towers.some((t) => t.col === col && t.row === row)
+const INCOME_TOWERS: TowerType[] = ['incomeFarm', 'incomeTax', 'economyHouse']
+
+export const isBuildable = (s: GameState, col: number, row: number, type?: TowerType) => {
+  const cell = `${col},${row}`
+  const farmPad = FARM_CELLS.has(cell)
+  return col >= 0 && row >= 0 && col < COLS && row < ROWS &&
+    !PATH_CELLS.has(cell) &&
+    !s.towers.some((t) => t.col === col && t.row === row) &&
+    (type ? (INCOME_TOWERS.includes(type) ? farmPad : !farmPad) : true)
+}
 
 export const towerAt = (s: GameState, col: number, row: number) =>
   s.towers.find((t) => t.col === col && t.row === row)
 
 export function placeTower(s: GameState, type: TowerType, col: number, row: number, free = false) {
   const cost = free ? 0 : TOWERS[type].cost
-  if ((!free && s.money < TOWERS[type].cost) || !isBuildable(s, col, row)) return false
+  if ((!free && s.money < TOWERS[type].cost) || !isBuildable(s, col, row, type)) return false
   s.money -= cost
   s.towers.push({
     id: s.nextId++,
@@ -401,9 +405,9 @@ export function startWave(s: GameState) {
   s.wave++
   s.waveActive = true
   for (const tower of s.towers) {
-    if (tower.type === 'incomeFarm') { tower.incomeSignalsLeft = 5; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
-    else if (tower.type === 'incomeTax') { tower.incomeSignalsLeft = 7; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
-    else if (tower.type === 'economyHouse') { tower.incomeSignalsLeft = 8; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
+    if (tower.type === 'incomeFarm' && FARM_CELLS.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 5; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
+    else if (tower.type === 'incomeTax' && FARM_CELLS.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 7; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
+    else if (tower.type === 'economyHouse' && FARM_CELLS.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 8; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
   }
   s.spawnQueue = buildWave(s.wave)
   s.spawnTimer = 0
@@ -873,10 +877,9 @@ export function update(s: GameState, dt: number) {
     }
     if (e.carriedBy != null) continue
     if (e.type === 'healer' && e.healCooldown <= 0) {
-      // Frozen healers still heal, but at only 25% of their normal strength.
       const healRatio = e.frozenTimer > 0 ? 0.05 : 0.2
       for (const ally of s.enemies) {
-        if (!ally.alive || ally.id === e.id || ally.type === 'bugPrince') continue
+        if (!ally.alive || ally.id === e.id || ally.type === 'bugPrince' || ally.type === 'bugQueen') continue
         if (Math.hypot(ally.x-e.x,ally.y-e.y)<=110 && ally.hp<ally.maxHp) ally.hp=Math.min(ally.maxHp,ally.hp+Math.max(1,ally.hp*healRatio))
       }
       s.explosions.push({x:e.x,y:e.y,r:92,t:0,dur:.25,color:e.frozenTimer>0?'#7dd3fc':'#4ade80'});e.healCooldown=1.25
@@ -930,7 +933,16 @@ export function update(s: GameState, dt: number) {
       }
       continue
     }
-    let step = def.speed * (e.splitGeneration > 0 ? 2 : 1) * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
+    const supportRadius = e.type === 'healer' ? 110 : e.type === 'shadowBug' ? 68 : e.type === 'bulb' ? 104 : 0
+    const hasAlliesInSupportRange = supportRadius > 0 && s.enemies.some(other =>
+      other.alive && other.id !== e.id &&
+      (e.type !== 'shadowBug' || other.type !== 'shadowBug') &&
+      (e.type !== 'bulb' || other.type !== 'bulb') &&
+      other.type !== 'bugPrince' && other.type !== 'bugQueen' &&
+      Math.hypot(other.x - e.x, other.y - e.y) <= supportRadius
+    )
+    const isolatedSupportSpeed = supportRadius > 0 && !hasAlliesInSupportRange ? 2.2 : 1
+    let step = def.speed * isolatedSupportSpeed * (e.splitGeneration > 0 ? 2 : 1) * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
     while (step > 0 && e.alive) {
       const target = PATH[e.wp]
       const dx = target.x - e.x
@@ -1007,7 +1019,7 @@ export function update(s: GameState, dt: number) {
       }
     }
     if (t.type === 'incomeFarm' || t.type === 'incomeTax' || t.type === 'economyHouse') {
-      if (s.waveActive && t.incomeWave === s.wave && t.incomeSignalsLeft > 0 && t.cooldown <= 0) {
+      if (s.waveActive && FARM_CELLS.has(`${t.col},${t.row}`) && t.incomeWave === s.wave && t.incomeSignalsLeft > 0 && t.cooldown <= 0) {
         const baseIncome = t.type === 'incomeFarm' ? 30 : t.type === 'incomeTax' ? 70 : 80
         const stationNearby = s.towers.some(other => other.type === 'electricalStation' && Math.hypot(other.x-t.x,other.y-t.y) <= TOWERS.electricalStation.range)
         s.money += Math.round(baseIncome * (stationNearby ? 1.5 : 1))
@@ -1917,6 +1929,21 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
     ctx.stroke()
   }
 
+  // Pads verdes exclusivos para torres de renda.
+  for (const cell of FARM_CELLS) {
+    const [col, row] = cell.split(',').map(Number)
+    const x = col * CELL, y = row * CELL
+    ctx.fillStyle = 'rgba(34,197,94,0.2)'
+    ctx.fillRect(x + 2, y + 2, CELL - 4, CELL - 4)
+    ctx.strokeStyle = 'rgba(74,222,128,0.9)'
+    ctx.lineWidth = 2
+    ctx.strokeRect(x + 4, y + 4, CELL - 8, CELL - 8)
+    ctx.fillStyle = 'rgba(134,239,172,0.95)'
+    ctx.font = 'bold 9px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('FARM', x + CELL / 2, y + CELL / 2 + 3)
+  }
+
   ctx.lineJoin = 'round'
   ctx.lineCap = 'square'
   ctx.strokeStyle = 'rgba(56,189,248,0.35)'
@@ -1969,7 +1996,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   const selected = s.towers.find((t) => t.id === s.selectedId)
 
   if (s.hover && s.buildType) {
-    const ok = isBuildable(s, s.hover.col, s.hover.row) && s.money >= TOWERS[s.buildType].cost
+    const ok = isBuildable(s, s.hover.col, s.hover.row, s.buildType) && s.money >= TOWERS[s.buildType].cost
     const hx = s.hover.col * CELL + CELL / 2
     const hy = s.hover.row * CELL + CELL / 2
     ctx.fillStyle = ok ? 'rgba(56,189,248,0.08)' : 'rgba(239,68,68,0.1)'
