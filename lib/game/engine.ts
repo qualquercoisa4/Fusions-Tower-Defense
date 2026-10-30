@@ -776,6 +776,23 @@ export function update(s: GameState, dt: number) {
   if (s.status !== 'playing') return
   s.time += dt
 
+  for (const trap of s.electricTraps) {
+    trap.t += dt
+    trap.tickTimer -= dt
+    if (trap.tickTimer <= 0) {
+      for (const enemy of s.enemies) {
+        if (enemy.alive && Math.hypot(enemy.x - trap.x, enemy.y - trap.y) <= trap.radius + ENEMIES[enemy.type].radius) {
+          damageEnemy(s, enemy, trap.damage, 'electricSyringe')
+          s.explosions.push({ x: enemy.x, y: enemy.y, r: 10, t: 0, dur: 0.14, color: '#67e8f9' })
+        }
+      }
+      trap.tickTimer = 0.35
+    }
+  }
+  s.electricTraps = s.electricTraps.filter(trap => trap.t < trap.duration)
+  for (const pair of s.portalPairs) pair.t += dt
+  s.portalPairs = s.portalPairs.filter(pair => pair.t < pair.duration)
+
   if (s.waveActive && s.spawnQueue.length) {
     s.spawnTimer -= dt
     if (s.spawnTimer <= 0) {
@@ -854,6 +871,7 @@ export function update(s: GameState, dt: number) {
       // The vessel cannot move while sealed, but towers can still damage it.
       continue
     }
+    if (e.carriedBy != null) continue
     if (e.type === 'healer' && e.healCooldown <= 0) {
       // Frozen healers still heal, but at only 25% of their normal strength.
       const healRatio = e.frozenTimer > 0 ? 0.0375 : 0.15
@@ -901,6 +919,7 @@ export function update(s: GameState, dt: number) {
       }
       continue
     }
+    const previousDist = e.dist
     let step = def.speed * (e.splitGeneration > 0 ? 2 : 1) * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
     while (step > 0 && e.alive) {
       const target = PATH[e.wp]
@@ -925,6 +944,16 @@ export function update(s: GameState, dt: number) {
         step = 0
       }
     }
+    if (e.alive && e.dist > previousDist) {
+      const portal = s.portalPairs.find(pair => !pair.usedEnemyIds.includes(e.id) && previousDist < pair.blueDistance && e.dist >= pair.blueDistance)
+      if (portal) {
+        portal.usedEnemyIds.push(e.id)
+        placeEnemyOnPath(e, portal.purpleDistance)
+        const blue = pointOnPath(portal.blueDistance), purple = pointOnPath(portal.purpleDistance)
+        s.explosions.push({ x: blue.x, y: blue.y, r: 20, t: 0, dur: 0.3, color: '#38bdf8' })
+        s.explosions.push({ x: purple.x, y: purple.y, r: 23, t: 0, dur: 0.35, color: '#c084fc' })
+      }
+    }
   }
 
   for (const t of s.towers) {
@@ -932,7 +961,15 @@ export function update(s: GameState, dt: number) {
     t.disabledTimer = Math.max(0,t.disabledTimer-dt)
     if(t.disabledTimer>0){t.beamTargets=[];continue}
     t.cooldown -= dt
-    if (t.type === 'rockLauncher' && t.burstShotsRemaining > 0) t.burstTimer = Math.max(0, t.burstTimer - dt)
+    if (t.type === 'rockLauncher' && t.burstShotsRemaining > 0) {
+      t.burstTimer = Math.max(0, t.burstTimer - dt)
+      if (t.burstTimer <= 0) {
+        launchPathBoulder(s, t, baseDef)
+        t.burstShotsRemaining = 0
+        t.burstTimer = 0
+      }
+      continue
+    }
     if (t.type === 'plasmaBlaster') t.recoil = Math.min(1, t.recoil + dt * baseDef.fireRate)
     else t.recoil = Math.max(0, t.recoil - dt * 5)
     if (t.type === 'teleporter') {
@@ -980,7 +1017,7 @@ export function update(s: GameState, dt: number) {
     const hasStation = buffSources.some(other => other.type === 'electricalStation')
     const buff = hasComms ? 1.2 : hasBuffer ? 1.1 : hasStation ? 1.05 : 1
     const def = {...baseDef, damage:baseDef.damage*buff, range:baseDef.range*(1+(hasComms ? 0.1 : hasBuffer ? 0.06 : hasStation ? 0.03 : 0)), fireRate:baseDef.fireRate*buff, projectileSpeed:baseDef.projectileSpeed*buff, splash:baseDef.splash*(1+(hasComms ? 0.1 : hasBuffer ? 0.06 : hasStation ? 0.03 : 0))}
-    const foundTarget = (t.type === 'boulderLauncher' || t.type === 'rockLauncher')
+    const foundTarget = (['boulderLauncher', 'rockLauncher', 'boulderCannon', 'snowballLauncher', 'electricSyringe', 'portalGun'].includes(t.type))
       ? findReversePathTarget(s, t, def.range)
       : findTarget(
           s,
@@ -1028,24 +1065,6 @@ export function update(s: GameState, dt: number) {
 
     if (t.type === 'ice') {
       for (const enemy of s.enemies) if (enemy.alive && Math.hypot(enemy.x-t.x,enemy.y-t.y)<=def.range) applySlow(enemy,0.45,0.65)
-      if (t.type === 'rockLauncher' && t.burstShotsRemaining > 0) {
-      if (target && t.burstTimer <= 0) {
-        t.angle = Math.atan2(target.y - t.y, target.x - t.x)
-        fire(s, t, target, def)
-        t.burstShotsRemaining = 0
-        t.burstTimer = 0
-      }
-      continue
-    }
-    if (!target || t.cooldown > 0) continue
-      t.angle = Math.atan2(target.y-t.y,target.x-t.x)
-      fire(s,t,target,def)
-      if (t.type === 'rockLauncher') {
-        t.burstShotsRemaining = 1
-        t.burstTimer = 0.5
-      }
-      t.cooldown = 1 / def.fireRate
-      continue
     }
 
     if (t.type === 'thunderstorm') {
@@ -1133,6 +1152,7 @@ export function update(s: GameState, dt: number) {
     t.angle = Math.atan2(target.y - t.y, target.x - t.x)
     if (t.cooldown <= 0) {
       fire(s, t, target, def)
+      if (t.type === 'rockLauncher') { t.burstShotsRemaining = 1; t.burstTimer = 0.5 }
       t.cooldown = 1 / def.fireRate
     }
   }
