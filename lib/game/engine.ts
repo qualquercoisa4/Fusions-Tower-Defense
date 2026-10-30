@@ -50,6 +50,12 @@ export interface Enemy {
   cocooning: boolean
   cocoonTimer: number
   carriedBy?: number
+  segmentHp?: number[]
+  segmentMaxHp?: number
+  burrowTimer: number
+  burrowCooldown: number
+  burrowRemaining: number
+  heatFuse: number
 }
 
 export interface Tower {
@@ -201,7 +207,7 @@ type Projectile = (
       color: string
       size: number
     }
-) & { sourceTowerId?: number; teleporterClone?: boolean; sourceType?: TowerType }
+) & { sourceTowerId?: number; teleporterClone?: boolean; sourceType?: TowerType; ghostCheckedIds?: number[]; ghostEvadedIds?: number[] }
 
 interface PlasmaPool {
   x: number
@@ -324,7 +330,18 @@ export function spawnDebugEnemy(s: GameState, type: EnemyType) {
   const queenArmor = s.bugQueenDefeated && s.seenEnemyTypes.includes(type)
   const hp = Math.max(1, Math.round((def.hp * (boss ? 1 : hpScale(Math.max(1, s.wave))) / 1.5) * (helmet ? 1.25 : 1) * (queenArmor ? 1.25 : 1)))
   if (!boss && !s.seenEnemyTypes.includes(type)) s.seenEnemyTypes.push(type)
-  s.enemies.push({ id: s.nextId++, type, x: PATH[0].x, y: PATH[0].y, hp, maxHp: hp, reviveHp: hp, frozenTimer: 0, slowTimer: 0, slowFactor: 1, plasmaDotTimer: 0, plasmaDotTick: 0, jumpCooldown: 1.25, airborneTimer: 0, healCooldown: 2, bossThreshold: 1, spawnCooldown: type === 'spitter' ? 0.8 : 3.5, helmet, queenArmor, splitGeneration: 0, bulbOn: false, bulbTimer: 3, attackCooldown: 3, wp: 1, dist: 0, angle: 0, anim: Math.random() * 10, alive: true, cocooning: false, cocoonTimer: 0 })
+  s.enemies.push({
+    id: s.nextId++, type, x: PATH[0].x, y: PATH[0].y, hp, maxHp: hp, reviveHp: hp,
+    frozenTimer: 0, slowTimer: 0, slowFactor: 1, plasmaDotTimer: 0, plasmaDotTick: 0,
+    jumpCooldown: 1.25, airborneTimer: 0, healCooldown: 2, bossThreshold: 1,
+    spawnCooldown: type === 'spitter' ? 0.8 : 3.5, helmet, queenArmor, splitGeneration: 0,
+    bulbOn: false, bulbTimer: 3, attackCooldown: 3, wp: 1, dist: 0, angle: 0,
+    anim: Math.random() * 10, alive: true, cocooning: false, cocoonTimer: 0,
+    segmentHp: type === 'dirtBug' ? Array.from({ length: 4 }, () => hp / 4) : undefined,
+    segmentMaxHp: type === 'dirtBug' ? hp / 4 : undefined,
+    burrowTimer: 0, burrowCooldown: type === 'dirtBug' ? 2.2 + Math.random() * 1.8 : 0,
+    burrowRemaining: 0, heatFuse: type === 'heatBug' ? 3.5 + Math.random() * 3 : 0,
+  })
   s.status = 'playing'
 }
 
@@ -415,14 +432,14 @@ export function startWave(s: GameState) {
 }
 
 function applyFreeze(e: Enemy, duration: number) {
-  if (!e.alive || duration <= 0 || e.type === 'bugPrince' || ENEMIES[e.type].immunities?.includes('ice')) return
+  if (!e.alive || duration <= 0 || e.type === 'bugPrince' || e.burrowTimer > 0 || ENEMIES[e.type].immunities?.includes('ice')) return
   const wasFrozen = e.frozenTimer > 0
   e.frozenTimer = Math.max(e.frozenTimer, duration)
   if (e.type === 'healer' && !wasFrozen) e.healCooldown = 1.5
 }
 
 function applySlow(e: Enemy, duration: number, factor: number, sourceType?: TowerType) {
-  if (!e.alive || duration <= 0 || e.type === 'bugPrince') return
+  if (!e.alive || duration <= 0 || e.type === 'bugPrince' || e.burrowTimer > 0) return
   if (sourceType && TOWER_ELEMENTS[sourceType] === 'ice' && ENEMIES[e.type].immunities?.includes('ice')) return
   e.slowTimer = Math.max(e.slowTimer, duration)
   e.slowFactor = Math.min(e.slowFactor, factor)
@@ -446,19 +463,58 @@ function isElementImmuneToTower(enemyType: EnemyType, towerType?: TowerType) {
 }
 
 function canTowerTargetEnemy(enemy: Enemy, towerType: TowerType) {
+  if (enemy.burrowTimer > 0) return false
   if (towerType === 'portalGun' && enemy.type === 'flyBug') return false
+  const element = TOWER_ELEMENTS[towerType]
+  if (enemy.type === 'ironBug' && element === 'normal') return true
+  if (enemy.type === 'rubberBug' && element === 'electricity') return true
   return !isElementImmuneToTower(enemy.type, towerType)
 }
 
-function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType) {
-  if (!e.alive || isShielded(s,e)) return
+function projectilePassesGhost(p: Projectile, enemy: Enemy) {
+  if (enemy.type !== 'ghostBug') return false
+  if (p.ghostCheckedIds?.includes(enemy.id)) return !!p.ghostEvadedIds?.includes(enemy.id)
+  ;(p.ghostCheckedIds ??= []).push(enemy.id)
+  if (Math.random() < 0.2) {
+    ;(p.ghostEvadedIds ??= []).push(enemy.id)
+    return true
+  }
+  return false
+}
+
+function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType, sourceTowerId?: number, fromProjectile = false) {
+  if (!e.alive || isShielded(s,e) || e.burrowTimer > 0) return
+  const element = sourceType ? TOWER_ELEMENTS[sourceType] : undefined
+  if (e.type === 'ironBug' && element === 'normal' && fromProjectile && sourceTowerId && Math.random() < 0.1) {
+    const tower = s.towers.find(item => item.id === sourceTowerId)
+    if (tower) {
+      tower.disabledTimer = Math.max(tower.disabledTimer, 1)
+      s.lightningFlashes.push({ points: [{ x: e.x, y: e.y }, { x: tower.x, y: tower.y }], t: 0, dur: 0.24, color: '#cbd5e1' })
+      s.explosions.push({ x: tower.x, y: tower.y, r: 20, t: 0, dur: 0.35, color: '#cbd5e1' })
+    }
+    return
+  }
+  if (e.type === 'rubberBug' && element === 'electricity') {
+    const recovered = Math.min(e.maxHp - e.hp, dmg)
+    if (recovered > 0) {
+      e.hp += recovered
+      s.explosions.push({ x: e.x, y: e.y, r: 18, t: 0, dur: 0.3, color: '#fde047' })
+    }
+    return
+  }
   if (isElementImmuneToTower(e.type, sourceType)) return
   if(e.queenArmor)dmg*=0.75
-  const element = sourceType ? TOWER_ELEMENTS[sourceType] : undefined
   if (element && ENEMIES[e.type].weaknesses?.includes(element)) dmg *= 1.5
   else if (element && ENEMIES[e.type].resistances?.includes(element)) dmg *= 0.5
   if(e.type==='jumper'&&e.airborneTimer>0&&sourceType&&['shooter','cannon','retarder'].includes(sourceType))return
-  const previousHp=e.hp;e.hp-=dmg
+  const previousHp=e.hp
+  if (e.type === 'dirtBug' && e.segmentHp) {
+    const segmentIndex = e.segmentHp.findIndex(segment => segment > 0)
+    if (segmentIndex >= 0) e.segmentHp[segmentIndex] = Math.max(0, e.segmentHp[segmentIndex] - dmg)
+    e.hp = e.segmentHp.reduce((sum, segment) => sum + segment, 0)
+  } else {
+    e.hp -= dmg
+  }
   if(e.type==='bugPrince'||e.type==='bugQueen'){
     const lostThirds=Math.floor((e.maxHp-e.hp)/(e.maxHp/3))
     while(e.bossThreshold<=3&&lostThirds>=e.bossThreshold){
@@ -476,6 +532,11 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType
         if(!ally.alive||ally.id===e.id||!s.seenEnemyTypes.includes(ally.type))continue
         ally.maxHp=Math.ceil(ally.maxHp*1.25)
         ally.hp=Math.ceil(Math.max(1,ally.hp)*1.25)
+        if (ally.segmentHp) {
+          ally.segmentHp = ally.segmentHp.map(segment => segment * 1.25)
+          if (ally.segmentMaxHp) ally.segmentMaxHp *= 1.25
+          ally.hp = ally.segmentHp.reduce((sum, segment) => sum + segment, 0)
+        }
         ally.helmet=true
         if(queen)ally.queenArmor=true
       }
@@ -510,9 +571,11 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType
   }
 }
 
-function explode(s: GameState, x: number, y: number, radius: number, dmg: number, color: string, sourceType?: TowerType) {
+function explode(s: GameState, x: number, y: number, radius: number, dmg: number, color: string, sourceType?: TowerType, sourceTowerId?: number, projectile = false) {
   for (const e of s.enemies) {
-    if (e.alive && Math.hypot(e.x - x, e.y - y) <= radius + ENEMIES[e.type].radius) damageEnemy(s, e, dmg, sourceType)
+    if (!e.alive || Math.hypot(e.x - x, e.y - y) > radius + ENEMIES[e.type].radius) continue
+    if (projectile && e.type === 'ghostBug' && Math.random() < 0.2) continue
+    damageEnemy(s, e, dmg, sourceType, sourceTowerId, projectile)
   }
   s.explosions.push({ x, y, r: radius, t: 0, dur: 0.4, color })
 }
@@ -856,6 +919,12 @@ export function update(s: GameState, dt: number) {
         alive: true,
         cocooning: false,
         cocoonTimer: 0,
+        segmentHp: next.type === 'dirtBug' ? Array.from({ length: 4 }, () => hp / 4) : undefined,
+        segmentMaxHp: next.type === 'dirtBug' ? hp / 4 : undefined,
+        burrowTimer: 0,
+        burrowCooldown: next.type === 'dirtBug' ? 2.2 + Math.random() * 1.8 : 0,
+        burrowRemaining: 0,
+        heatFuse: next.type === 'heatBug' ? 3.5 + Math.random() * 3 : 0,
       })
       s.spawnTimer = next.delay
     }
@@ -898,7 +967,21 @@ export function update(s: GameState, dt: number) {
       const healRatio = e.frozenTimer > 0 ? 0.05 : 0.2
       for (const ally of s.enemies) {
         if (!ally.alive || ally.id === e.id || ally.type === 'bugPrince' || ally.type === 'bugQueen') continue
-        if (Math.hypot(ally.x-e.x,ally.y-e.y)<=110 && ally.hp<ally.maxHp) ally.hp=Math.min(ally.maxHp,ally.hp+Math.max(1,ally.hp*healRatio))
+        if (Math.hypot(ally.x-e.x,ally.y-e.y)<=110 && ally.hp<ally.maxHp) {
+          const healAmount = Math.max(1, ally.hp * healRatio)
+          if (ally.segmentHp && ally.segmentMaxHp) {
+            let remainingHeal = healAmount
+            for (let i = 0; i < ally.segmentHp.length && remainingHeal > 0; i++) {
+              if (ally.segmentHp[i] <= 0) continue
+              const restored = Math.min(remainingHeal, ally.segmentMaxHp - ally.segmentHp[i])
+              ally.segmentHp[i] += restored
+              remainingHeal -= restored
+            }
+            ally.hp = ally.segmentHp.reduce((sum, segment) => sum + segment, 0)
+          } else {
+            ally.hp = Math.min(ally.maxHp, ally.hp + healAmount)
+          }
+        }
       }
       s.explosions.push({x:e.x,y:e.y,r:92,t:0,dur:.25,color:e.frozenTimer>0?'#7dd3fc':'#4ade80'});e.healCooldown=1.25
     }
@@ -916,11 +999,66 @@ export function update(s: GameState, dt: number) {
       if(tower){tower.disabledTimer=3.5;s.explosions.push({x:tower.x,y:tower.y,r:24,t:0,dur:.35,color:'#22d3ee'})}
       e.attackCooldown=2.5
     }
-    if(e.type==='jumper'&&e.jumpCooldown<=0&&e.frozenTimer<=0&&!e.cocooning){
-      e.airborneTimer=.55;e.jumpCooldown=1;e.anim=0
+    if (e.type === 'heatBug') {
+      e.heatFuse -= dt
+      if (e.heatFuse <= 0) {
+        const blastRadius = 132
+        for (const tower of s.towers) {
+          if (Math.hypot(tower.x - e.x, tower.y - e.y) <= blastRadius) tower.disabledTimer = Math.max(tower.disabledTimer, 4)
+        }
+        s.explosions.push({ x: e.x, y: e.y, r: blastRadius, t: 0, dur: 0.65, color: '#fb923c' })
+        e.alive = false
+        s.money += Math.floor(ENEMIES[e.type].reward * (s.towers.some(tower => tower.type === 'economyHouse') ? 1.1 : 1))
+        continue
+      }
+    }
+    if (e.type === 'dirtBug') {
+      e.burrowCooldown -= dt
+      if (e.burrowTimer > 0) {
+        const travel = Math.min(e.burrowRemaining, 118 * dt)
+        if (travel > 0) {
+          placeEnemyOnPath(e, e.dist + travel)
+          e.burrowRemaining -= travel
+        }
+        e.burrowTimer = Math.max(0, e.burrowTimer - dt)
+        if (e.burrowTimer <= 0) {
+          e.burrowRemaining = 0
+          e.burrowCooldown = 3.6 + Math.random() * 2.2
+          s.explosions.push({ x: e.x, y: e.y, r: 17, t: 0, dur: 0.28, color: '#a8a29e' })
+        }
+        if (e.dist >= REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1]) {
+          e.alive = false
+          s.lives -= def.damage
+        }
+        continue
+      }
+      if (e.burrowCooldown <= 0 && e.frozenTimer <= 0) {
+        e.burrowTimer = 0.78
+        e.burrowRemaining = 92
+        s.explosions.push({ x: e.x, y: e.y, r: 20, t: 0, dur: 0.3, color: '#78716c' })
+        continue
+      }
     }
     if (e.frozenTimer > 0) continue
     const previousDist = e.dist
+    if (e.type === 'flyBug') {
+      const exit = PATH[PATH.length - 1]
+      const dx = exit.x - e.x, dy = exit.y - e.y
+      const distance = Math.hypot(dx, dy)
+      const step = def.speed * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
+      if (distance > 0.001) e.angle = Math.atan2(dy, dx)
+      if (distance <= step) {
+        e.x = exit.x; e.y = exit.y; e.alive = false; s.lives -= def.damage
+      } else if (distance > 0) {
+        e.x += (dx / distance) * step
+        e.y += (dy / distance) * step
+        e.dist += step
+      }
+      continue
+    }
+    if(e.type==='jumper'&&e.jumpCooldown<=0&&e.frozenTimer<=0&&!e.cocooning){
+      e.airborneTimer=.55;e.jumpCooldown=1;e.anim=0
+    }
     if (e.type === 'jumper') {
       // Each jump covers up to 70 world units over 0.52s, smoothly following
       // the waypoint path instead of teleporting. Crossing a waypoint never stalls it.
