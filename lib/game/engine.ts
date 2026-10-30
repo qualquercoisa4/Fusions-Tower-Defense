@@ -429,9 +429,9 @@ function freezeInRadius(s: GameState, x: number, y: number, radius: number, dura
 }
 
 function isShielded(s: GameState, e: Enemy) {
-  if (e.type === 'shadowBug') return s.enemies.some(other => other.alive && other.id !== e.id && other.type !== 'shadowBug' && Math.hypot(other.x-e.x,other.y-e.y) <= 54)
+  if (e.type === 'shadowBug') return s.enemies.some(other => other.alive && other.id !== e.id && other.type !== 'shadowBug' && Math.hypot(other.x-e.x,other.y-e.y) <= 68)
   if (e.type === 'bulb' && e.bulbOn) return false
-  return s.enemies.some(other => other.alive && other.id !== e.id && other.type === 'bulb' && other.bulbOn && Math.hypot(other.x-e.x,other.y-e.y) <= 88)
+  return s.enemies.some(other => other.alive && other.id !== e.id && other.type === 'bulb' && other.bulbOn && Math.hypot(other.x-e.x,other.y-e.y) <= 104)
 }
 
 function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType) {
@@ -442,7 +442,7 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType
   if(e.type==='bugPrince'||e.type==='bugQueen'){
     const lostThirds=Math.floor((e.maxHp-e.hp)/(e.maxHp/3))
     while(e.bossThreshold<=3&&lostThirds>=e.bossThreshold){
-      const count=e.type==='bugQueen'?12+s.swarmCounter*3:8+s.swarmCounter*2, types:EnemyType[]=['grunt','runner','jumper','splitter','shadowBug','spitter','bulb']
+      const count=e.type==='bugQueen'?16+s.swarmCounter*4:11+s.swarmCounter*3, types:EnemyType[]=['grunt','runner','jumper','splitter','shadowBug','spitter','bulb']
       for(let i=0;i<count;i++)s.spawnQueue.push({type:types[i%types.length],delay:.06})
       s.swarmCounter++;e.bossThreshold++
     }
@@ -466,12 +466,12 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType
       s.explosions.push({x:e.x,y:e.y,r:queen?140:100,t:0,dur:1.2,color:queen?'#f0abfc':'#fbbf24'})
     }
     if (e.type === 'vessel' && !e.cocooning) {
-      const nextReviveHp = e.reviveHp * 0.75
+      const nextReviveHp = e.reviveHp * 0.8
       // Regrowth compounds: 75% of the previous regenerated amount each time.
       if (nextReviveHp >= 1) {
         e.reviveHp = nextReviveHp
         e.cocooning = true
-        e.cocoonTimer = 5
+        e.cocoonTimer = 4.2
         e.hp = e.reviveHp
         e.anim = 0
         s.explosions.push({ x: e.x, y: e.y, r: ENEMIES[e.type].radius * 1.8, t: 0, dur: 0.45, color: '#d97706' })
@@ -874,29 +874,29 @@ export function update(s: GameState, dt: number) {
     if (e.carriedBy != null) continue
     if (e.type === 'healer' && e.healCooldown <= 0) {
       // Frozen healers still heal, but at only 25% of their normal strength.
-      const healRatio = e.frozenTimer > 0 ? 0.0375 : 0.15
+      const healRatio = e.frozenTimer > 0 ? 0.05 : 0.2
       for (const ally of s.enemies) {
         if (!ally.alive || ally.id === e.id || ally.type === 'bugPrince') continue
-        if (Math.hypot(ally.x-e.x,ally.y-e.y)<=92 && ally.hp<ally.maxHp) ally.hp=Math.min(ally.maxHp,ally.hp+Math.max(1,ally.hp*healRatio))
+        if (Math.hypot(ally.x-e.x,ally.y-e.y)<=110 && ally.hp<ally.maxHp) ally.hp=Math.min(ally.maxHp,ally.hp+Math.max(1,ally.hp*healRatio))
       }
-      s.explosions.push({x:e.x,y:e.y,r:92,t:0,dur:.25,color:e.frozenTimer>0?'#7dd3fc':'#4ade80'});e.healCooldown=1.5
+      s.explosions.push({x:e.x,y:e.y,r:92,t:0,dur:.25,color:e.frozenTimer>0?'#7dd3fc':'#4ade80'});e.healCooldown=1.25
     }
     if((e.type==='bugPrince'||e.type==='bugQueen')&&e.spawnCooldown<=0){
       const picks:EnemyType[]=e.type==='bugQueen'?['grunt','runner','tank','vessel','jumper','healer','splitter','shadowBug','spitter','bulb']:['grunt','runner','tank','vessel','jumper','healer']
       s.spawnQueue.push({type:picks[Math.floor(Math.random()*picks.length)],delay:.05},{type:picks[Math.floor(Math.random()*picks.length)],delay:.05})
-      e.spawnCooldown=e.type==='bugQueen'?2.8:3.5
+      e.spawnCooldown=e.type==='bugQueen'?2.3:2.8
     }
     if(e.type==='bulb'&&e.bulbTimer<=0){
-      e.bulbOn=!e.bulbOn;e.bulbTimer=3
+      e.bulbOn=!e.bulbOn;e.bulbTimer=2.5
       s.explosions.push({x:e.x,y:e.y,r:e.bulbOn?88:30,t:0,dur:.35,color:e.bulbOn?'#fde047':'#64748b'})
     }
     if(e.type==='spitter'&&e.attackCooldown<=0){
       const tower=s.towers.filter(t=>t.disabledTimer<=0).sort((a,b)=>Math.hypot(a.x-e.x,a.y-e.y)-Math.hypot(b.x-e.x,b.y-e.y))[0]
-      if(tower){tower.disabledTimer=3;s.explosions.push({x:tower.x,y:tower.y,r:24,t:0,dur:.35,color:'#22d3ee'})}
-      e.attackCooldown=3
+      if(tower){tower.disabledTimer=3.5;s.explosions.push({x:tower.x,y:tower.y,r:24,t:0,dur:.35,color:'#22d3ee'})}
+      e.attackCooldown=2.5
     }
     if(e.type==='jumper'&&e.jumpCooldown<=0&&e.frozenTimer<=0&&!e.cocooning){
-      e.airborneTimer=.52;e.jumpCooldown=1.25;e.anim=0
+      e.airborneTimer=.55;e.jumpCooldown=1;e.anim=0
     }
     if (e.frozenTimer > 0) continue
     const previousDist = e.dist
@@ -904,7 +904,7 @@ export function update(s: GameState, dt: number) {
       // Each jump covers up to 70 world units over 0.52s, smoothly following
       // the waypoint path instead of teleporting. Crossing a waypoint never stalls it.
       if(e.airborneTimer>0){
-        let step=70*dt/.52
+        let step=82*dt/.55
         while(step>0&&e.alive&&e.wp<PATH.length){
           const target=PATH[e.wp]
           const dx=target.x-e.x,dy=target.y-e.y,distance=Math.hypot(dx,dy)
