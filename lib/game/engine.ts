@@ -504,7 +504,7 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
   }
 
   if (t.type === 'plasmaCannon') {
-    for (const angle of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+    for (const angle of [Math.PI / 4, Math.PI * 1.25]) {
       const dirX = Math.cos(angle), dirY = Math.sin(angle)
       s.projectiles.push({ kind: 'homing', x: t.x + dirX * 17, y: t.y + dirY * 17, dirX, dirY, traveled: 0, maxDistance: def.range * 4 + 220, speed: def.projectileSpeed, turnRate: 5.6, acquireAfter: 18, targetId: null, hitIds: [], hitLimit: 4, damage: def.damage, color: def.color, size: 4, sourceType: t.type, sourceTowerId: t.id })
     }
@@ -1374,7 +1374,7 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
   if (type === 'plasmaCannon') {
     ctx.fillStyle = def.accent; ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.fill()
     ctx.strokeStyle = def.color; ctx.lineWidth = 5; ctx.lineCap = 'round'
-    for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) { ctx.beginPath(); ctx.moveTo(Math.cos(a) * 5, Math.sin(a) * 5); ctx.lineTo(Math.cos(a) * 19, Math.sin(a) * 19); ctx.stroke() }
+    for (const a of [Math.PI / 4, Math.PI * 1.25]) { ctx.beginPath(); ctx.moveTo(Math.cos(a) * 5, Math.sin(a) * 5); ctx.lineTo(Math.cos(a) * 19, Math.sin(a) * 19); ctx.stroke() }
     ctx.fillStyle = '#f5eaff'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill(); ctx.restore(); return
   }
   if (type === 'plasmaBlaster' || type === 'plasmaRod') {
