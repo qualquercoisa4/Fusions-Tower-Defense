@@ -47,6 +47,7 @@ export interface Enemy {
   alive: boolean
   cocooning: boolean
   cocoonTimer: number
+  carriedBy?: number
 }
 
 export interface Tower {
@@ -142,6 +143,26 @@ type Projectile = (
       hitIds: number[]
       color: string
       size: number
+      shatterOnHit?: boolean; fragmentDamage?: number; fragmentCount?: number
+    }
+  | {
+      kind: 'slingshot'
+      x: number; y: number; dirX: number; dirY: number; speed: number; traveled: number
+      damage: number; hitIds: number[]; hitLimit: number; bouncesLeft: number; color: string; size: number
+    }
+  | {
+      kind: 'fragment'
+      x: number; y: number; dirX: number; dirY: number; speed: number; traveled: number
+      maxDistance: number; damage: number; color: string; size: number
+    }
+  | {
+      kind: 'syringe'
+      x: number; y: number; tx: number; ty: number; speed: number; damage: number; radius: number; color: string; size: number
+    }
+  | {
+      kind: 'snowball'
+      x: number; y: number; dirX: number; dirY: number; traveled: number; pathDistance: number
+      speed: number; damage: number; splash: number; carriedIds: number[]; carrierId: number; color: string; size: number
     }
   | {
       kind: 'homing'
@@ -189,6 +210,12 @@ interface PlasmaPool {
   usedEnemyIds: number[]
 }
 
+interface ElectricTrap {
+  x: number; y: number; radius: number; t: number; duration: number; tickTimer: number; damage: number
+}
+interface PortalPair {
+  blueDistance: number; purpleDistance: number; t: number; duration: number; usedEnemyIds: number[]
+}
 interface PlasmaBeam {
   x1: number
   y1: number
@@ -233,6 +260,8 @@ export interface GameState {
   lightningFlashes: LightningFlash[]
   plasmaPools: PlasmaPool[]
   plasmaBeams: PlasmaBeam[]
+  electricTraps: ElectricTrap[]
+  portalPairs: PortalPair[]
   money: number
   lives: number
   wave: number
@@ -262,6 +291,8 @@ export function createGame(): GameState {
     lightningFlashes: [],
     plasmaPools: [],
     plasmaBeams: [],
+    electricTraps: [],
+    portalPairs: [],
     money: 500,
     lives: 100,
     wave: 0,
@@ -530,6 +561,16 @@ function pointOnPath(distance: number) {
   const k = span > 0 ? (d - REVERSE_PATH_LENGTHS[i - 1]) / span : 0
   return { x: PATH[i - 1].x + (PATH[i].x - PATH[i - 1].x) * k, y: PATH[i - 1].y + (PATH[i].y - PATH[i - 1].y) * k }
 }
+function pathWaypointIndex(distance: number) {
+  let i = 1
+  while (i < REVERSE_PATH_LENGTHS.length - 1 && REVERSE_PATH_LENGTHS[i] < distance) i++
+  return i
+}
+function placeEnemyOnPath(enemy: Enemy, distance: number) {
+  const clamped = Math.max(0, Math.min(REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1], distance))
+  const point = pointOnPath(clamped)
+  enemy.dist = clamped; enemy.x = point.x; enemy.y = point.y; enemy.wp = pathWaypointIndex(clamped)
+}
 function projectToPath(x: number, y: number) {
   let best = { distance: 0, x: PATH[0].x, y: PATH[0].y, error: Infinity }
   for (let i = 1; i < PATH.length; i++) {
@@ -548,17 +589,61 @@ function findReversePathTarget(s: GameState, t: Tower, range: number) {
     .sort((a, b) => b.dist - a.dist)[0] ?? null
 }
 
+function launchPathBoulder(s: GameState, t: Tower, def = TOWERS[t.type]) {
+  const projection = projectToPath(t.x, t.y)
+  const point = pointOnPath(projection.distance)
+  const towardStart = pointOnPath(Math.max(0, projection.distance - 3))
+  const angle = Math.atan2(towardStart.y - point.y, towardStart.x - point.x)
+  const rock = t.type === 'rockLauncher', giant = t.type === 'boulderCannon'
+  s.projectiles.push({
+    kind: 'boulder', x: point.x, y: point.y, dirX: Math.cos(angle), dirY: Math.sin(angle),
+    traveled: 0, pathDistance: projection.distance, maxDistance: projection.distance + 20,
+    speed: def.projectileSpeed, damage: def.damage, damageDecay: rock ? 10 : 20,
+    sizeDecay: rock ? 0.38 : 0.82, hitLimit: rock ? 13 : giant ? 1 : 10, hitIds: [],
+    color: def.color, size: giant ? 17 : rock ? 7 : 12, shatterOnHit: giant,
+    fragmentDamage: giant ? 26 : undefined, fragmentCount: giant ? 8 : undefined,
+    sourceType: t.type, sourceTowerId: t.id,
+  })
+}
+
 function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
   t.recoil = 1
 
-  if (t.type === 'boulderLauncher' || t.type === 'rockLauncher') {
-    const count = 1
-    for (let i = 0; i < count; i++) {
-      const projection = projectToPath(t.x, t.y)
-      const angle = Math.atan2(projection.y - t.y, projection.x - t.x) + (count === 2 ? (i === 0 ? -0.075 : 0.075) : 0)
-      const dirX = Math.cos(angle), dirY = Math.sin(angle)
-      s.projectiles.push({ kind: 'boulder', x: t.x + dirX * 18, y: t.y + dirY * 18, dirX, dirY, traveled: 0, pathDistance: projection.distance, maxDistance: projection.distance + 20, speed: def.projectileSpeed, damage: def.damage, damageDecay: t.type === 'rockLauncher' ? 10 : 20, sizeDecay: t.type === 'rockLauncher' ? 0.38 : 0.82, hitLimit: t.type === 'rockLauncher' ? 13 : 10, hitIds: [], color: def.color, size: t.type === 'rockLauncher' ? 7 : 12, sourceType: t.type, sourceTowerId: t.id })
-    }
+  if (t.type === 'boulderLauncher' || t.type === 'rockLauncher' || t.type === 'boulderCannon') {
+    launchPathBoulder(s, t, def)
+    return
+  }
+  if (t.type === 'slingshot') {
+    const angle = Math.atan2(target.y - t.y, target.x - t.x)
+    s.projectiles.push({ kind: 'slingshot', x: t.x + Math.cos(angle) * 18, y: t.y + Math.sin(angle) * 18,
+      dirX: Math.cos(angle), dirY: Math.sin(angle), speed: def.projectileSpeed, traveled: 0,
+      damage: def.damage, hitIds: [], hitLimit: 5, bouncesLeft: 3, color: def.color, size: 7,
+      sourceType: t.type, sourceTowerId: t.id })
+    return
+  }
+  if (t.type === 'snowballLauncher') {
+    const projection = projectToPath(t.x, t.y), point = pointOnPath(projection.distance)
+    const towardStart = pointOnPath(Math.max(0, projection.distance - 3))
+    const angle = Math.atan2(towardStart.y - point.y, towardStart.x - point.x)
+    s.projectiles.push({ kind: 'snowball', x: point.x, y: point.y, dirX: Math.cos(angle), dirY: Math.sin(angle),
+      traveled: 0, pathDistance: projection.distance, speed: def.projectileSpeed, damage: def.damage,
+      splash: def.splash, carriedIds: [], carrierId: s.nextId++, color: def.color, size: 12,
+      sourceType: t.type, sourceTowerId: t.id })
+    return
+  }
+  if (t.type === 'electricSyringe') {
+    s.projectiles.push({ kind: 'syringe', x: t.x, y: t.y, tx: target.x, ty: target.y,
+      speed: def.projectileSpeed, damage: def.damage, radius: def.splash, color: def.color, size: 7,
+      sourceType: t.type, sourceTowerId: t.id })
+    return
+  }
+  if (t.type === 'portalGun') {
+    const total = REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1]
+    const blueDistance = Math.max(0, Math.min(total - 160, target.dist + 20))
+    s.portalPairs.push({ blueDistance, purpleDistance: blueDistance + 160, t: 0, duration: 2, usedEnemyIds: [] })
+    const blue = pointOnPath(blueDistance), purple = pointOnPath(blueDistance + 160)
+    s.explosions.push({ x: blue.x, y: blue.y, r: 25, t: 0, dur: 0.45, color: '#38bdf8' })
+    s.explosions.push({ x: purple.x, y: purple.y, r: 25, t: 0, dur: 0.45, color: '#c084fc' })
     return
   }
 
