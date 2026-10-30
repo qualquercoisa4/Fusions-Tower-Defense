@@ -496,16 +496,15 @@ export const ROWS = 12
 export const WIDTH = CELL * COLS
 export const HEIGHT = CELL * ROWS
 
-// Percurso sinuoso no estilo original, com um único cruzamento central.
+// Percurso sinuoso com exatamente um cruzamento: a descida em x=3
+// atravessa uma única vez o primeiro trecho horizontal.
 const WAYPOINT_CELLS: [number, number][] = [
   [-1, 6],
-  [15, 6],
-  [15, 9],
-  [4, 9],
-  [4, 3],
-  [13, 3],
-  [13, 10],
-  [18, 10],
+  [16, 6],
+  [16, 2],
+  [3, 2],
+  [3, 9],
+  [17, 9],
 ]
 
 // Oito espaços de farms: dois em cada canto/extremidade do tabuleiro.
