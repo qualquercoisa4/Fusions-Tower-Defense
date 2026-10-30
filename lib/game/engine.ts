@@ -506,7 +506,7 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
   if (t.type === 'plasmaCannon') {
     for (const angle of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
       const dirX = Math.cos(angle), dirY = Math.sin(angle)
-      s.projectiles.push({ kind: 'homing', x: t.x + dirX * 17, y: t.y + dirY * 17, dirX, dirY, traveled: 0, maxDistance: def.range + 35, speed: def.projectileSpeed, turnRate: 4.8, acquireAfter: 25, targetId: null, hitIds: [], hitLimit: 2, damage: def.damage, color: def.color, size: 4, sourceType: t.type, sourceTowerId: t.id })
+      s.projectiles.push({ kind: 'homing', x: t.x + dirX * 17, y: t.y + dirY * 17, dirX, dirY, traveled: 0, maxDistance: def.range * 4 + 220, speed: def.projectileSpeed, turnRate: 5.6, acquireAfter: 18, targetId: null, hitIds: [], hitLimit: 4, damage: def.damage, color: def.color, size: 4, sourceType: t.type, sourceTowerId: t.id })
     }
     return
   }
@@ -1013,7 +1013,7 @@ export function update(s: GameState, dt: number) {
         p.targetId = null
         if (p.traveled >= p.acquireAfter) {
           let nearest: Enemy | null = null
-          let nearestDistance = 170
+          let nearestDistance = p.sourceType === 'plasmaCannon' ? 340 : 170
           for (const enemy of s.enemies) {
             if (!enemy.alive || p.hitIds.includes(enemy.id)) continue
             const distance = Math.hypot(enemy.x - p.x, enemy.y - p.y)
