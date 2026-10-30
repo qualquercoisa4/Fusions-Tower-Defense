@@ -71,6 +71,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
       else if (e.key === '5') selectBuild('incomeFarm')
       else if (e.key === '6') selectBuild('buffer')
       else if (e.key === '7') selectBuild('teleporter')
+      else if (e.key === '8') selectBuild('boulderLauncher')
       else if (e.key === ' ') {
         e.preventDefault()
         startWave(s)
@@ -275,7 +276,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
                       <Coins className="size-3" aria-hidden />
                       {def.cost}
                     </span>
-                    <kbd className="text-[10px] text-slate-500">{i < 4 ? `[${i + 1}]` : i === 4 ? '[5]' : i === 5 ? '[6]' : '[7]'}</kbd>
+                    <kbd className="text-[10px] text-slate-500">{`[${i + 1}]`}</kbd>
                   </button>
                 )
               })}
@@ -289,6 +290,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
                 { result: 'cryoMortar', recipe: 'Mortar + Icicles' },
                 { result: 'tripleShooter', recipe: 'Dual Shooter + Dual Shooter' },
                 { result: 'economyHouse', recipe: 'Tax Manager + Tax Manager' },
+                { result: 'rockLauncher', recipe: 'Boulder Launcher + Boulder Launcher' },
               ] as const).map(({ result, recipe }) => (
                 <div key={result} className="flex items-center gap-2 rounded-md border border-slate-700/80 bg-slate-900/50 p-2">
                   <SpriteIcon tower={result} label={TOWERS[result].name} />
@@ -314,7 +316,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
                   </div>
                 </div>
                 <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                  {['incomeFarm','incomeTax','economyHouse'].includes(selected.type) ? <><dt className="text-slate-400">Dinheiro/sinal</dt><dd>{selected.type === 'incomeFarm' ? 30 : selected.type === 'incomeTax' ? 70 : 80}</dd><dt className="text-slate-400">Sinais por round</dt><dd>{selected.type === 'incomeFarm' ? 5 : selected.type === 'incomeTax' ? 7 : 8}</dd><dt className="text-slate-400">Total por round</dt><dd>{selected.type === 'incomeFarm' ? 150 : selected.type === 'incomeTax' ? 490 : 640}</dd>{selected.type === 'economyHouse' && <><dt className="text-slate-400">Bônus por abate</dt><dd>+10%</dd></>}</> : ['buffer','commsLanHouse','electricalStation'].includes(selected.type) ? <><dt className="text-slate-400">Alcance de suporte</dt><dd>{selDef.range}</dd><dt className="text-slate-400">Bônus de dano</dt><dd>{selected.type === 'commsLanHouse' ? '+20%' : selected.type === 'buffer' ? '+10%' : '+5%'}</dd><dt className="text-slate-400">Bônus de alcance</dt><dd>{selected.type === 'commsLanHouse' ? '+10%' : selected.type === 'buffer' ? '+6%' : '+3%'}</dd><dt className="text-slate-400">Bônus de cadência</dt><dd>{selected.type === 'commsLanHouse' ? '+20%' : selected.type === 'buffer' ? '+10%' : '+5%'}</dd>{selected.type === 'electricalStation' && <><dt className="text-slate-400">Renda próxima</dt><dd>+50%</dd></>}</> : <><dt className="text-slate-400">{selected.type === 'lightning' ? 'Dano total' : selected.type === 'tesla' || selected.type === 'raygun' ? 'Dano/pulso' : 'Dano'}</dt><dd>{selDef.damage}</dd><dt className="text-slate-400">Alcance</dt><dd>{selDef.range}</dd><dt className="text-slate-400">{selected.type === 'lightning' || selected.type === 'tesla' ? 'Pulsos/s' : 'Disparos/s'}</dt><dd>{selected.type === 'tesla' ? `${(1 / 0.12).toFixed(1)} máx.` : selDef.fireRate}</dd><dt className="text-slate-400">{selected.type === 'raygun' ? 'Aura' : 'Área'}</dt><dd>{selDef.splash || '—'}</dd>{selected.type === 'ice' && <><dt className="text-slate-400">Lentidão em área</dt><dd>35% por 0,45 s</dd><dt className="text-slate-400">Congelamento</dt><dd>0,5 s</dd><dt className="text-slate-400">Perfuração</dt><dd>8 inimigos</dd></>}</>}
+                  {['incomeFarm','incomeTax','economyHouse'].includes(selected.type) ? <><dt className="text-slate-400">Dinheiro/sinal</dt><dd>{selected.type === 'incomeFarm' ? 30 : selected.type === 'incomeTax' ? 70 : 80}</dd><dt className="text-slate-400">Sinais por round</dt><dd>{selected.type === 'incomeFarm' ? 5 : selected.type === 'incomeTax' ? 7 : 8}</dd><dt className="text-slate-400">Total por round</dt><dd>{selected.type === 'incomeFarm' ? 150 : selected.type === 'incomeTax' ? 490 : 640}</dd>{selected.type === 'economyHouse' && <><dt className="text-slate-400">Bônus por abate</dt><dd>+10%</dd></>}</> : ['buffer','commsLanHouse','electricalStation'].includes(selected.type) ? <><dt className="text-slate-400">Alcance de suporte</dt><dd>{selDef.range}</dd><dt className="text-slate-400">Bônus de dano</dt><dd>{selected.type === 'commsLanHouse' ? '+20%' : selected.type === 'buffer' ? '+10%' : '+5%'}</dd><dt className="text-slate-400">Bônus de alcance</dt><dd>{selected.type === 'commsLanHouse' ? '+10%' : selected.type === 'buffer' ? '+6%' : '+3%'}</dd><dt className="text-slate-400">Bônus de cadência</dt><dd>{selected.type === 'commsLanHouse' ? '+20%' : selected.type === 'buffer' ? '+10%' : '+5%'}</dd>{selected.type === 'electricalStation' && <><dt className="text-slate-400">Renda próxima</dt><dd>+50%</dd></>}</> : <><dt className="text-slate-400">{selected.type === 'lightning' ? 'Dano total' : selected.type === 'tesla' || selected.type === 'raygun' ? 'Dano/pulso' : 'Dano'}</dt><dd>{selDef.damage}</dd><dt className="text-slate-400">Alcance</dt><dd>{selDef.range}</dd><dt className="text-slate-400">{selected.type === 'lightning' || selected.type === 'tesla' ? 'Pulsos/s' : 'Disparos/s'}</dt><dd>{selected.type === 'tesla' ? `${(1 / 0.12).toFixed(1)} máx.` : selDef.fireRate}</dd><dt className="text-slate-400">{selected.type === 'raygun' ? 'Aura' : 'Área'}</dt><dd>{selDef.splash || '—'}</dd>{selected.type === 'boulderLauncher' && <><dt className="text-slate-400">Perfuração</dt><dd>10 inimigos</dd><dt className="text-slate-400">Redução por impacto</dt><dd>−20 de dano e tamanho menor</dd></>}{selected.type === 'rockLauncher' && <><dt className="text-slate-400">Pedras por disparo</dt><dd>2</dd><dt className="text-slate-400">Perfuração</dt><dd>Até 13 inimigos por pedra</dd><dt className="text-slate-400">Redução por impacto</dt><dd>−10 de dano e tamanho menor</dd></>}{selected.type === 'ice' && <><dt className="text-slate-400">Lentidão em área</dt><dd>35% por 0,45 s</dd><dt className="text-slate-400">Congelamento</dt><dd>0,5 s</dd><dt className="text-slate-400">Perfuração</dt><dd>8 inimigos</dd></>}</>}
                 </dl>
                 <div>
                   <label htmlFor={`target-mode-${selected.id}`} className="mb-1 block text-xs text-slate-400">
