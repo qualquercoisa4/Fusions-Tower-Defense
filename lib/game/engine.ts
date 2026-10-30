@@ -1904,6 +1904,29 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   ctx.stroke()
   ctx.setLineDash([])
 
+  for (const trap of s.electricTraps) {
+    const pulse = 0.78 + Math.sin(s.time * 14) * 0.12
+    ctx.save(); ctx.globalAlpha = pulse; ctx.fillStyle = 'rgba(34,211,238,0.12)'; ctx.strokeStyle = '#67e8f9'; ctx.lineWidth = 2
+    ctx.shadowColor = '#22d3ee'; ctx.shadowBlur = 15
+    ctx.beginPath(); ctx.arc(trap.x, trap.y, trap.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+    ctx.shadowBlur = 0; ctx.strokeStyle = '#cffafe'; ctx.lineWidth = 2
+    ctx.beginPath(); ctx.moveTo(trap.x - 7, trap.y); ctx.lineTo(trap.x + 7, trap.y); ctx.moveTo(trap.x, trap.y - 7); ctx.lineTo(trap.x, trap.y + 7); ctx.stroke()
+    ctx.restore()
+  }
+
+  for (const pair of s.portalPairs) {
+    const blue = pointOnPath(pair.blueDistance), purple = pointOnPath(pair.purpleDistance)
+    const fade = Math.max(0.25, 1 - pair.t / pair.duration)
+    for (const item of [{ point: blue, color: '#38bdf8', rotation: s.time * 2 }, { point: purple, color: '#c084fc', rotation: -s.time * 2 }]) {
+      ctx.save(); ctx.globalAlpha = fade; ctx.translate(item.point.x, item.point.y); ctx.rotate(item.rotation)
+      ctx.shadowColor = item.color; ctx.shadowBlur = 18; ctx.strokeStyle = item.color; ctx.lineWidth = 4
+      ctx.beginPath(); ctx.ellipse(0, 0, 10, 20, 0, 0, Math.PI * 2); ctx.stroke()
+      ctx.strokeStyle = '#f5f3ff'; ctx.lineWidth = 1.3
+      ctx.beginPath(); ctx.ellipse(0, 0, 5, 14, 0, 0, Math.PI * 2); ctx.stroke()
+      ctx.restore()
+    }
+  }
+
   for (const pool of s.plasmaPools) {
     const fade = Math.max(0.18, 1 - pool.t / pool.duration)
     ctx.save(); ctx.globalAlpha = fade * 0.8; ctx.fillStyle = '#a855f7'; ctx.shadowColor = '#c084fc'; ctx.shadowBlur = 16
