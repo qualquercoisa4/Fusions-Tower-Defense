@@ -1163,6 +1163,8 @@ export function update(s: GameState, dt: number) {
           const clone = { ...original, color: '#c084fc', teleporterClone: true } as Projectile
           if (clone.kind === 'energy') clone.hitTimers = { ...clone.hitTimers }
           if ('hitIds' in clone) clone.hitIds = [...clone.hitIds]
+          if (clone.ghostCheckedIds) clone.ghostCheckedIds = [...clone.ghostCheckedIds]
+          if (clone.ghostEvadedIds) clone.ghostEvadedIds = [...clone.ghostEvadedIds]
           if (clone.kind === 'snowball') { clone.carriedIds = [...clone.carriedIds]; clone.carrierId = s.nextId++ }
           s.projectiles.push(clone)
           const px = 'x' in original ? original.x : original.sx + (original.tx - original.sx) * (original.t / original.duration)
@@ -1364,8 +1366,18 @@ export function update(s: GameState, dt: number) {
       const d = Math.hypot(dx, dy)
       const step = p.speed * dt
       if (d <= step + 4) {
-        if (p.splash > 0) explode(s, p.tx, p.ty, p.splash, p.damage, p.color, p.sourceType)
-        else if (target) damageEnemy(s, target, p.damage, p.sourceType)
+        if (p.splash > 0) explode(s, p.tx, p.ty, p.splash, p.damage, p.color, p.sourceType, p.sourceTowerId, true)
+        else if (target) {
+          if (projectilePassesGhost(p, target)) {
+            const length = Math.max(1, d)
+            const dirX = dx / length, dirY = dy / length
+            p.targetId = -1
+            p.tx = p.x + dirX * 620
+            p.ty = p.y + dirY * 620
+            return true
+          }
+          damageEnemy(s, target, p.damage, p.sourceType, p.sourceTowerId, true)
+        }
         return false
       }
       p.x += (dx / d) * step
@@ -1373,7 +1385,7 @@ export function update(s: GameState, dt: number) {
       return true
     }
     if (p.kind === 'homing') {
-      let target = p.targetId === null ? null : s.enemies.find(enemy => enemy.id === p.targetId && enemy.alive && !p.hitIds.includes(enemy.id)) ?? null
+      let target = p.targetId === null ? null : s.enemies.find(enemy => enemy.id === p.targetId && enemy.alive && !p.hitIds.includes(enemy.id) && !p.ghostEvadedIds?.includes(enemy.id)) ?? null
       if (!target) {
         p.targetId = null
         if (p.traveled >= p.acquireAfter) {
@@ -1398,10 +1410,10 @@ export function update(s: GameState, dt: number) {
       }
       const step = p.speed * dt
       p.x += p.dirX * step; p.y += p.dirY * step; p.traveled += step
-      const hit = s.enemies.filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'teleporter') && !p.hitIds.includes(enemy.id) && Math.hypot(enemy.x - p.x, enemy.y - p.y) <= ENEMIES[enemy.type].radius + p.size + 2).sort((a,b) => Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0]
+      const hit = s.enemies.filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'teleporter') && !p.hitIds.includes(enemy.id) && Math.hypot(enemy.x - p.x, enemy.y - p.y) <= ENEMIES[enemy.type].radius + p.size + 2 && !projectilePassesGhost(p, enemy)).sort((a,b) => Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0]
       if (hit) {
         p.hitIds.push(hit.id)
-        damageEnemy(s, hit, p.damage, p.sourceType)
+        damageEnemy(s, hit, p.damage, p.sourceType, p.sourceTowerId, true)
         p.targetId = null
         if (p.hitIds.length >= p.hitLimit) return false
       }
@@ -1418,10 +1430,10 @@ export function update(s: GameState, dt: number) {
         if (p.bouncesLeft <= 0) return false
         p.y = Math.max(8, Math.min(HEIGHT - 8, p.y)); p.dirY *= -1; p.bouncesLeft--
       }
-      const hit = s.enemies.filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'slingshot') && !p.hitIds.includes(enemy.id) && Math.hypot(enemy.x-p.x, enemy.y-p.y) <= ENEMIES[enemy.type].radius + p.size + 2)
+      const hit = s.enemies.filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'slingshot') && !p.hitIds.includes(enemy.id) && Math.hypot(enemy.x-p.x, enemy.y-p.y) <= ENEMIES[enemy.type].radius + p.size + 2 && !projectilePassesGhost(p, enemy))
         .sort((a,b) => Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0]
       if (hit) {
-        p.hitIds.push(hit.id); damageEnemy(s, hit, p.damage, 'slingshot')
+        p.hitIds.push(hit.id); damageEnemy(s, hit, p.damage, p.sourceType ?? 'slingshot', p.sourceTowerId, true)
         s.explosions.push({ x: hit.x, y: hit.y, r: 9, t: 0, dur: 0.14, color: p.color })
         if (p.hitIds.length >= p.hitLimit) return false
       }
@@ -1430,10 +1442,10 @@ export function update(s: GameState, dt: number) {
     if (p.kind === 'fragment') {
       const step = p.speed * dt
       p.x += p.dirX * step; p.y += p.dirY * step; p.traveled += step
-      const hit = s.enemies.filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'boulderCannon') && Math.hypot(enemy.x-p.x, enemy.y-p.y) <= ENEMIES[enemy.type].radius + p.size + 1)
+      const hit = s.enemies.filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'boulderCannon') && Math.hypot(enemy.x-p.x, enemy.y-p.y) <= ENEMIES[enemy.type].radius + p.size + 1 && !projectilePassesGhost(p, enemy))
         .sort((a,b) => Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0]
       if (hit) {
-        damageEnemy(s, hit, p.damage, 'boulderCannon')
+        damageEnemy(s, hit, p.damage, 'boulderCannon', p.sourceTowerId, true)
         s.explosions.push({ x: hit.x, y: hit.y, r: 7, t: 0, dur: 0.12, color: p.color })
         return false
       }
@@ -1461,7 +1473,7 @@ export function update(s: GameState, dt: number) {
         if (carried) placeEnemyOnPath(carried, p.pathDistance + (i - (p.carriedIds.length - 1) / 2) * 7)
       }
       const dx = p.x - old.x, dy = p.y - old.y, lenSq = dx * dx + dy * dy
-      const hit = s.enemies.filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, 'snowballLauncher') && enemy.carriedBy == null && !p.carriedIds.includes(enemy.id))
+      const hit = s.enemies.filter(enemy => enemy.alive && enemy.type !== 'flyBug' && canTowerTargetEnemy(enemy, 'snowballLauncher') && enemy.carriedBy == null && !p.carriedIds.includes(enemy.id) && !projectilePassesGhost(p, enemy))
         .map(enemy => {
           const along = lenSq > 0 ? Math.max(0, Math.min(1, ((enemy.x-old.x)*dx+(enemy.y-old.y)*dy)/lenSq)) : 0
           return { enemy, along, distance: Math.hypot(enemy.x-(old.x+along*dx), enemy.y-(old.y+along*dy)) }
@@ -1481,7 +1493,7 @@ export function update(s: GameState, dt: number) {
             placeEnemyOnPath(carried, p.pathDistance + (i - (count - 1) / 2) * 18)
           }
         }
-        explode(s, p.x, p.y, p.splash, p.damage, p.color, 'snowballLauncher')
+        explode(s, p.x, p.y, p.splash, p.damage, p.color, 'snowballLauncher', p.sourceTowerId, true)
         freezeInRadius(s, p.x, p.y, p.splash, 1)
         for (const enemy of s.enemies) {
           if (!enemy.alive || Math.hypot(enemy.x-p.x,enemy.y-p.y) > p.splash + ENEMIES[enemy.type].radius) continue
@@ -1501,13 +1513,13 @@ export function update(s: GameState, dt: number) {
       const dx = p.x - old.x, dy = p.y - old.y, lenSq = dx * dx + dy * dy
       let hit: Enemy | null = null, hitAlong = Infinity
       for (const enemy of s.enemies) {
-        if (!enemy.alive || p.hitIds.includes(enemy.id) || !canTowerTargetEnemy(enemy, p.sourceType ?? 'boulderLauncher')) continue
+        if (!enemy.alive || p.hitIds.includes(enemy.id) || !canTowerTargetEnemy(enemy, p.sourceType ?? 'boulderLauncher') || projectilePassesGhost(p, enemy)) continue
         const along = lenSq > 0 ? Math.max(0, Math.min(1, ((enemy.x - old.x) * dx + (enemy.y - old.y) * dy) / lenSq)) : 0
         const nearX = old.x + along * dx, nearY = old.y + along * dy
         if (Math.hypot(enemy.x - nearX, enemy.y - nearY) <= ENEMIES[enemy.type].radius + p.size && along < hitAlong) { hit = enemy; hitAlong = along }
       }
       if (hit) {
-        p.hitIds.push(hit.id); damageEnemy(s, hit, p.damage, p.sourceType)
+        p.hitIds.push(hit.id); damageEnemy(s, hit, p.damage, p.sourceType, p.sourceTowerId, true)
         s.explosions.push({ x: hit.x, y: hit.y, r: p.size + 5, t: 0, dur: 0.16, color: p.color })
         if (p.shatterOnHit) {
           for (let i = 0; i < (p.fragmentCount ?? 8); i++) {
@@ -1531,13 +1543,13 @@ export function update(s: GameState, dt: number) {
       p.y += p.dirY * step
       p.traveled += step
       for (const enemy of s.enemies) {
-        if (!enemy.alive) continue
+        if (!enemy.alive || !canTowerTargetEnemy(enemy, p.sourceType ?? 'teleporter')) continue
         const distance = Math.hypot(enemy.x - p.x, enemy.y - p.y)
-        if (distance <= p.aura + ENEMIES[enemy.type].radius) {
+        if (distance <= p.aura + ENEMIES[enemy.type].radius && !projectilePassesGhost(p, enemy)) {
           const remaining = p.hitTimers[enemy.id] ?? 0
           if (remaining <= 0) {
             // Aura damage is applied in small electric pulses while an enemy is inside it.
-            damageEnemy(s, enemy, p.damage / 4, p.sourceType)
+            damageEnemy(s, enemy, p.damage / 4, p.sourceType, p.sourceTowerId, true)
             p.hitTimers[enemy.id] = 0.18
             s.explosions.push({ x: enemy.x, y: enemy.y, r: 9, t: 0, dur: 0.12, color: p.color })
           } else {
@@ -1560,13 +1572,14 @@ export function update(s: GameState, dt: number) {
           enemy.alive &&
           canTowerTargetEnemy(enemy, p.sourceType ?? 'retarder') &&
           !p.hitIds.includes(enemy.id) &&
-          Math.hypot(enemy.x - p.x, enemy.y - p.y) <= ENEMIES[enemy.type].radius + p.size + 2,
+          Math.hypot(enemy.x - p.x, enemy.y - p.y) <= ENEMIES[enemy.type].radius + p.size + 2 &&
+          !projectilePassesGhost(p, enemy),
       )
       if (hit) {
         p.hitIds.push(hit.id)
         if (p.freezeDuration > 0) applyFreeze(hit, p.freezeDuration)
         if (p.slowDuration > 0) applySlow(hit, p.slowDuration, p.slowFactor, p.sourceType)
-        damageEnemy(s, hit, p.damage, p.sourceType)
+        damageEnemy(s, hit, p.damage, p.sourceType, p.sourceTowerId, true)
 
         if (p.splitOnHit) {
           for (let i = 0; i < 3; i++) {
@@ -1604,7 +1617,7 @@ export function update(s: GameState, dt: number) {
 
         if (p.hitIds.length >= p.hitLimit) {
           if (p.explodeAtLimit) {
-            explode(s, p.x, p.y, p.splash, p.damage, p.color, p.sourceType)
+            explode(s, p.x, p.y, p.splash, p.damage, p.color, p.sourceType, p.sourceTowerId, true)
             freezeInRadius(s, p.x, p.y, p.splash, p.splashFreezeDuration)
           }
           return false
@@ -1614,14 +1627,14 @@ export function update(s: GameState, dt: number) {
       const stillInBounds =
         p.traveled < p.maxDistance && p.x >= -20 && p.x <= WIDTH + 20 && p.y >= -20 && p.y <= HEIGHT + 20
       if (!stillInBounds && p.explodeAtLimit) {
-        explode(s, p.x, p.y, p.splash, p.damage, p.color, p.sourceType)
+        explode(s, p.x, p.y, p.splash, p.damage, p.color, p.sourceType, p.sourceTowerId, true)
         freezeInRadius(s, p.x, p.y, p.splash, p.splashFreezeDuration)
       }
       return stillInBounds
     }
     p.t += dt
     if (p.t >= p.duration) {
-      explode(s, p.tx, p.ty, p.splash, p.damage, p.color, p.sourceType)
+      explode(s, p.tx, p.ty, p.splash, p.damage, p.color, p.sourceType, p.sourceTowerId, true)
       if (p.cryo) {
         freezeInRadius(s,p.tx,p.ty,p.splash,0.5)
         for(let i=0;i<8;i++) { const a=i*Math.PI/4; spawned.push({kind:'ice',x:p.tx,y:p.ty,dirX:Math.cos(a),dirY:Math.sin(a),traveled:0,maxDistance:125,speed:290,damage:p.damage*.45,color:p.teleporterClone?'#c084fc':'#a5f3fc',size:4,freezeDuration:0,slowDuration:0,slowFactor:1,hitLimit:4,hitIds:[],splitOnHit:false,explodeAtLimit:false,splash:0,splashFreezeDuration:0,sourceType:p.sourceType??'cryoMortar',sourceTowerId:p.sourceTowerId,teleporterClone:p.teleporterClone}) }
@@ -1683,13 +1696,36 @@ export function update(s: GameState, dt: number) {
 
 /* ---------- Rendering ---------- */
 
-export function drawBug(ctx: CanvasRenderingContext2D, type: EnemyType, x: number, y: number, angle: number, anim: number, cocooning = false, airborne = false, helmet = false) {
+export function drawBug(ctx: CanvasRenderingContext2D, type: EnemyType, x: number, y: number, angle: number, anim: number, cocooning = false, airborne = false, helmet = false, segmentHp?: number[], burrowing = false) {
   const def = ENEMIES[type]
   const r = def.radius
   ctx.save()
   ctx.translate(x, y)
+  if (burrowing) {
+    ctx.fillStyle = 'rgba(120,113,108,0.58)'
+    ctx.strokeStyle = '#d6d3d1'
+    ctx.lineWidth = 1.5
+    ctx.beginPath(); ctx.ellipse(0, 3, r * 1.5, r * 0.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+    ctx.fillStyle = '#a8a29e'
+    for (const [dx, dy, size] of [[-r, -3, 2.5], [r * 0.7, -5, 2], [r * 1.2, 3, 1.8]] as const) {
+      ctx.beginPath(); ctx.arc(dx, dy, size, 0, Math.PI * 2); ctx.fill()
+    }
+    ctx.restore()
+    return
+  }
   if(airborne){ctx.scale(1.3,1.3);ctx.shadowColor='#c084fc';ctx.shadowBlur=12}
   ctx.rotate(angle)
+  if (type === 'dirtBug' && segmentHp) {
+    segmentHp.forEach((hp, index) => {
+      if (hp <= 0) return
+      const offset = -r * (1.7 + index * 1.05)
+      ctx.fillStyle = index % 2 ? '#78716c' : '#a8a29e'
+      ctx.strokeStyle = '#44403c'; ctx.lineWidth = 1.5
+      ctx.beginPath(); ctx.ellipse(offset, 0, r * 0.62, r * 0.52, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+      ctx.strokeStyle = '#d6d3d1'; ctx.lineWidth = 1
+      ctx.beginPath(); ctx.arc(offset, 0, r * 0.45, -0.8, 0.8); ctx.stroke()
+    })
+  }
   if (type === 'ghostBug') ctx.globalAlpha = 0.58
   if (type === 'flyBug') {
     ctx.fillStyle = 'rgba(224,242,254,0.78)'
@@ -2258,7 +2294,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 
   for (const e of s.enemies) {
-    drawBug(ctx, e.type, e.x, e.y-(e.type==='flyBug'?10:e.airborneTimer>0?14:0), e.angle, e.anim, e.cocooning, e.airborneTimer>0 || e.type==='flyBug', e.helmet)
+    drawBug(ctx, e.type, e.x, e.y-(e.type==='flyBug'?10:e.airborneTimer>0?14:0), e.angle, e.anim, e.cocooning, e.airborneTimer>0 || e.type==='flyBug', e.helmet, e.segmentHp, e.burrowTimer > 0)
     if (e.plasmaDotTimer > 0) {
       ctx.save(); ctx.strokeStyle = '#d8b4fe'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.8; ctx.beginPath(); ctx.arc(e.x, e.y, ENEMIES[e.type].radius + 7, s.time * 2, s.time * 2 + Math.PI * 1.5); ctx.stroke(); ctx.restore()
     }
