@@ -21,6 +21,11 @@ export type TowerType =
   | 'cryoMortar'
   | 'tripleShooter'
   | 'economyHouse'
+  | 'teleporter'
+  | 'plasmaCannon'
+  | 'plasmaBlaster'
+  | 'plasmaRod'
+  | 'plasmaHypothermia'
 export type EnemyType = 'grunt' | 'tank' | 'runner' | 'vessel' | 'jumper' | 'healer' | 'bugPrince' | 'swarmBug' | 'splitter' | 'shadowBug' | 'spitter' | 'bulb' | 'bugQueen'
 
 export type TargetMode = 'first' | 'last' | 'strongest' | 'weakest' | 'closest'
@@ -200,6 +205,36 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     accent: '#075985',
     description: 'Dispara um projétil perfurante que congela até 3 inimigos por 1 segundo. Prioriza inimigos ainda não congelados.',
   },
+  teleporter: {
+    name: 'Teleporter', tier: 0, damage: 16, range: 150, fireRate: 0.85, splash: 0,
+    style: 'energy', projectileSpeed: 370, inaccuracy: 0, cost: 330,
+    color: '#c084fc', accent: '#6b21a8',
+    description: 'Dispara projéteis de plasma perfurantes que perseguem inimigos. Ocasionalmente duplica um projétil de uma torre aliada próxima, deixando-o roxo e com uma aura dimensional.',
+  },
+  plasmaCannon: {
+    name: 'Plasma Cannon', tier: 1, damage: 9, range: 150, fireRate: 0.95, splash: 0,
+    style: 'bullet', projectileSpeed: 390, inaccuracy: 0, cost: 0,
+    color: '#d8b4fe', accent: '#7e22ce',
+    description: 'Dispara quatro projéteis de plasma em direções diferentes. Eles avançam primeiro em linha reta e depois perseguem suavemente os inimigos, com uma curva rápida e menos agressiva.',
+  },
+  plasmaBlaster: {
+    name: 'Plasma Blaster', tier: 1, damage: 100, range: 180, fireRate: 0.12, splash: 0,
+    style: 'beam', projectileSpeed: 0, inaccuracy: 0, cost: 0,
+    color: '#e9d5ff', accent: '#7e22ce',
+    description: 'Carrega um laser de linha reta que causa 100 de dano total, com perfuração infinita. O dano é dividido igualmente entre todos os inimigos atingidos. Cadência extremamente baixa.',
+  },
+  plasmaRod: {
+    name: 'Plasma Rod', tier: 1, damage: 20, range: 170, fireRate: 0.95, splash: 0,
+    style: 'beam', projectileSpeed: 0, inaccuracy: 0, cost: 0,
+    color: '#c084fc', accent: '#6b21a8',
+    description: 'Dispara raios finos de plasma em linha reta. Atinge todos os inimigos alinhados, com dano menor e disparos mais frequentes que o Plasma Blaster.',
+  },
+  plasmaHypothermia: {
+    name: 'Plasma Hypothermia', tier: 1, damage: 4, range: 150, fireRate: 0.28, splash: 28,
+    style: 'support', projectileSpeed: 0, inaccuracy: 0, cost: 0,
+    color: '#a855f7', accent: '#581c87',
+    description: 'Cria poças de plasma na pista. Cada poça pode afetar até 5 insetos, retardando-os e causando dano contínuo fraco, semelhante a veneno.',
+  },
   icicles: {
     name: 'Icicles',
     tier: 1,
@@ -280,7 +315,7 @@ export const TOWERS: Record<TowerType, TowerDef> = {
   },
 }
 
-export const BUILDABLE: TowerType[] = ['shooter', 'cannon', 'lightning', 'retarder', 'incomeFarm', 'buffer']
+export const BUILDABLE: TowerType[] = ['shooter', 'cannon', 'lightning', 'retarder', 'incomeFarm', 'buffer', 'teleporter']
 
 const FUSIONS: Record<string, TowerType> = {
   'cannon+shooter': 'mortar',
@@ -293,6 +328,10 @@ const FUSIONS: Record<string, TowerType> = {
   'cannon+retarder': 'snowballer',
   'lightning+retarder': 'thunderstorm',
   'retarder+retarder': 'ice',
+  'shooter+teleporter': 'plasmaCannon',
+  'cannon+teleporter': 'plasmaBlaster',
+  'lightning+teleporter': 'plasmaRod',
+  'retarder+teleporter': 'plasmaHypothermia',
   'buffer+buffer': 'commsLanHouse',
   'incomeFarm+incomeFarm': 'incomeTax',
   'buffer+incomeFarm': 'electricalStation',
@@ -317,6 +356,10 @@ export const FUSION_LIST: { a: TowerType; b: TowerType; result: TowerType }[] = 
   { a: 'cannon', b: 'retarder', result: 'snowballer' },
   { a: 'lightning', b: 'retarder', result: 'thunderstorm' },
   { a: 'retarder', b: 'retarder', result: 'ice' },
+  { a: 'shooter', b: 'teleporter', result: 'plasmaCannon' },
+  { a: 'cannon', b: 'teleporter', result: 'plasmaBlaster' },
+  { a: 'lightning', b: 'teleporter', result: 'plasmaRod' },
+  { a: 'retarder', b: 'teleporter', result: 'plasmaHypothermia' },
   { a: 'buffer', b: 'buffer', result: 'commsLanHouse' },
   { a: 'incomeFarm', b: 'incomeFarm', result: 'incomeTax' },
   { a: 'incomeFarm', b: 'buffer', result: 'electricalStation' },

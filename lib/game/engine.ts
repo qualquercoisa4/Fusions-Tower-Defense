@@ -27,6 +27,8 @@ export interface Enemy {
   frozenTimer: number
   slowTimer: number
   slowFactor: number
+  plasmaDotTimer: number
+  plasmaDotTick: number
   jumpCooldown: number
   airborneTimer: number
   healCooldown: number
@@ -65,9 +67,10 @@ export interface Tower {
   incomeSignalsLeft: number
   incomeWave: number
   disabledTimer: number
+  supportCooldown: number
 }
 
-type Projectile =
+type Projectile = (
   | {
       kind: 'direct'
       x: number
@@ -121,6 +124,25 @@ type Projectile =
       sourceType?: TowerType
     }
   | {
+      kind: 'homing'
+      x: number
+      y: number
+      dirX: number
+      dirY: number
+      traveled: number
+      maxDistance: number
+      speed: number
+      turnRate: number
+      acquireAfter: number
+      targetId: number | null
+      hitIds: number[]
+      hitLimit: number
+      damage: number
+      color: string
+      size: number
+      sourceType?: TowerType
+    }
+  | {
       kind: 'arc'
       sx: number
       sy: number
@@ -136,6 +158,27 @@ type Projectile =
       color: string
       size: number
     }
+) & { sourceTowerId?: number; teleporterClone?: boolean; sourceType?: TowerType }
+
+interface PlasmaPool {
+  x: number
+  y: number
+  radius: number
+  t: number
+  duration: number
+  usedEnemyIds: number[]
+}
+
+interface PlasmaBeam {
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+  width: number
+  t: number
+  duration: number
+  color: string
+}
 
 interface LightningStrike {
   x: number
@@ -168,6 +211,8 @@ export interface GameState {
   explosions: Explosion[]
   strikes: LightningStrike[]
   lightningFlashes: LightningFlash[]
+  plasmaPools: PlasmaPool[]
+  plasmaBeams: PlasmaBeam[]
   money: number
   lives: number
   wave: number
@@ -195,6 +240,8 @@ export function createGame(): GameState {
     explosions: [],
     strikes: [],
     lightningFlashes: [],
+    plasmaPools: [],
+    plasmaBeams: [],
     money: 500,
     lives: 100,
     wave: 0,
@@ -224,7 +271,7 @@ export function spawnDebugEnemy(s: GameState, type: EnemyType) {
   const queenArmor = s.bugQueenDefeated && s.seenEnemyTypes.includes(type)
   const hp = Math.max(1, Math.round((def.hp * (boss ? 1 : hpScale(Math.max(1, s.wave))) / 1.5) * (helmet ? 1.25 : 1) * (queenArmor ? 1.25 : 1)))
   if (!boss && !s.seenEnemyTypes.includes(type)) s.seenEnemyTypes.push(type)
-  s.enemies.push({ id: s.nextId++, type, x: PATH[0].x, y: PATH[0].y, hp, maxHp: hp, reviveHp: hp, frozenTimer: 0, slowTimer: 0, slowFactor: 1, jumpCooldown: 1.25, airborneTimer: 0, healCooldown: 2, bossThreshold: 1, spawnCooldown: type === 'spitter' ? 0.8 : 3.5, helmet, queenArmor, splitGeneration: 0, bulbOn: false, bulbTimer: 3, attackCooldown: 3, wp: 1, dist: 0, angle: 0, anim: Math.random() * 10, alive: true, cocooning: false, cocoonTimer: 0 })
+  s.enemies.push({ id: s.nextId++, type, x: PATH[0].x, y: PATH[0].y, hp, maxHp: hp, reviveHp: hp, frozenTimer: 0, slowTimer: 0, slowFactor: 1, plasmaDotTimer: 0, plasmaDotTick: 0, jumpCooldown: 1.25, airborneTimer: 0, healCooldown: 2, bossThreshold: 1, spawnCooldown: type === 'spitter' ? 0.8 : 3.5, helmet, queenArmor, splitGeneration: 0, bulbOn: false, bulbTimer: 3, attackCooldown: 3, wp: 1, dist: 0, angle: 0, anim: Math.random() * 10, alive: true, cocooning: false, cocoonTimer: 0 })
   s.status = 'playing'
 }
 
@@ -261,6 +308,7 @@ export function placeTower(s: GameState, type: TowerType, col: number, row: numb
     incomeSignalsLeft: 0,
     incomeWave: -1,
     disabledTimer: 0,
+    supportCooldown: type === 'teleporter' ? 2.2 : 0,
   })
   return true
 }
@@ -449,6 +497,26 @@ function findChainTargets(s: GameState, first: Enemy, linkRange = 76) {
 function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
   t.recoil = 1
 
+  if (t.type === 'teleporter') {
+    const dirX = Math.cos(t.angle), dirY = Math.sin(t.angle)
+    s.projectiles.push({ kind: 'homing', x: t.x + dirX * 17, y: t.y + dirY * 17, dirX, dirY, traveled: 0, maxDistance: def.range + 35, speed: def.projectileSpeed, turnRate: 12, acquireAfter: 0, targetId: target.id, hitIds: [], hitLimit: 4, damage: def.damage, color: def.color, size: 4.5, sourceType: t.type, sourceTowerId: t.id })
+    return
+  }
+
+  if (t.type === 'plasmaCannon') {
+    for (const angle of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+      const dirX = Math.cos(angle), dirY = Math.sin(angle)
+      s.projectiles.push({ kind: 'homing', x: t.x + dirX * 17, y: t.y + dirY * 17, dirX, dirY, traveled: 0, maxDistance: def.range + 35, speed: def.projectileSpeed, turnRate: 4.8, acquireAfter: 25, targetId: null, hitIds: [], hitLimit: 2, damage: def.damage, color: def.color, size: 4, sourceType: t.type, sourceTowerId: t.id })
+    }
+    return
+  }
+
+  if (t.type === 'plasmaHypothermia') {
+    s.plasmaPools.push({ x: target.x, y: target.y, radius: def.splash, t: 0, duration: 4.8, usedEnemyIds: [] })
+    s.explosions.push({ x: target.x, y: target.y, r: def.splash, t: 0, dur: 0.38, color: def.color })
+    return
+  }
+
   if (t.type === 'retarder' || t.type === 'icicles' || t.type === 'snowballer' || t.type === 'ice') {
     const dirX = Math.cos(t.angle)
     const dirY = Math.sin(t.angle)
@@ -474,6 +542,7 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
       splash: def.splash,
       splashFreezeDuration: t.type === 'snowballer' ? 1 : 0,
       sourceType: t.type,
+      sourceTowerId: t.id,
     })
     return
   }
@@ -515,6 +584,7 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
       damage: def.damage,
       color: def.color,
       size: 7,
+      sourceTowerId: t.id,
     })
     return
   }
@@ -523,7 +593,7 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
     const offsets = t.type === 'tripleShooter' ? [-7, 0, 7] : t.type === 'dual' ? [-4, 4] : [0]
     for (const side of offsets) {
       const px = Math.cos(t.angle + Math.PI / 2) * side, py = Math.sin(t.angle + Math.PI / 2) * side
-      s.projectiles.push({kind:'direct',x:t.x+Math.cos(t.angle)*18+px,y:t.y+Math.sin(t.angle)*18+py,tx:target.x,ty:target.y,targetId:target.id,speed:def.projectileSpeed,damage:def.damage,splash:def.splash,color:def.color,size:def.style==='shell'?5:3,sourceType:t.type})
+      s.projectiles.push({kind:'direct',x:t.x+Math.cos(t.angle)*18+px,y:t.y+Math.sin(t.angle)*18+py,tx:target.x,ty:target.y,targetId:target.id,speed:def.projectileSpeed,damage:def.damage,splash:def.splash,color:def.color,size:def.style==='shell'?5:3,sourceType:t.type,sourceTowerId:t.id})
     }
     return
   }
@@ -548,6 +618,7 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
     cryo: t.type === 'cryoMortar',
     color: def.color,
     size: def.style === 'mortar' ? 6 : 7,
+    sourceTowerId: t.id,
   })
 }
 
@@ -576,6 +647,8 @@ export function update(s: GameState, dt: number) {
         frozenTimer: 0,
         slowTimer: 0,
         slowFactor: 1,
+        plasmaDotTimer: 0,
+        plasmaDotTick: 0,
         jumpCooldown: 1.25,
         airborneTimer: 0,
         healCooldown: 2,
@@ -612,6 +685,15 @@ export function update(s: GameState, dt: number) {
     e.bulbTimer -= dt
     e.slowTimer = Math.max(0, e.slowTimer - dt)
     if (e.slowTimer <= 0) e.slowFactor = 1
+    if (e.plasmaDotTimer > 0) {
+      e.plasmaDotTimer = Math.max(0, e.plasmaDotTimer - dt)
+      e.plasmaDotTick -= dt
+      if (e.plasmaDotTick <= 0) {
+        damageEnemy(s, e, 2, 'plasmaHypothermia')
+        e.plasmaDotTick = 0.5
+      }
+      if (!e.alive) continue
+    }
     if (e.cocooning) {
       e.cocoonTimer -= dt
       if (e.cocoonTimer <= 0) {
@@ -701,6 +783,29 @@ export function update(s: GameState, dt: number) {
     if(t.disabledTimer>0){t.beamTargets=[];continue}
     t.cooldown -= dt
     t.recoil = Math.max(0, t.recoil - dt * 5)
+    if (t.type === 'teleporter') {
+      t.supportCooldown = Math.max(0, t.supportCooldown - dt)
+      if (t.supportCooldown <= 0) {
+        const nearbyIds = new Set(s.towers.filter(other => other.id !== t.id && TOWERS[other.type].tier <= 3 && Math.hypot(other.x - t.x, other.y - t.y) <= baseDef.range).map(other => other.id))
+        const available = s.projectiles.filter(projectile => projectile.sourceTowerId !== undefined && nearbyIds.has(projectile.sourceTowerId) && !projectile.teleporterClone)
+        if (available.length) {
+          const sourceIds = [...new Set(available.map(projectile => projectile.sourceTowerId!))]
+          const selectedSource = sourceIds[Math.floor(Math.random() * sourceIds.length)]
+          const options = available.filter(projectile => projectile.sourceTowerId === selectedSource)
+          const original = options[Math.floor(Math.random() * options.length)]
+          const clone = { ...original, color: '#c084fc', teleporterClone: true } as Projectile
+          if (clone.kind === 'energy') clone.hitTimers = { ...clone.hitTimers }
+          if ('hitIds' in clone) clone.hitIds = [...clone.hitIds]
+          s.projectiles.push(clone)
+          const px = 'x' in original ? original.x : original.sx + (original.tx - original.sx) * (original.t / original.duration)
+          const py = 'y' in original ? original.y : original.sy + (original.ty - original.sy) * (original.t / original.duration)
+          s.explosions.push({ x: px, y: py, r: 17, t: 0, dur: 0.28, color: '#c084fc' })
+          t.supportCooldown = 3.6
+        } else {
+          t.supportCooldown = 0.25
+        }
+      }
+    }
     if (t.type === 'incomeFarm' || t.type === 'incomeTax' || t.type === 'economyHouse') {
       if (s.waveActive && t.incomeWave === s.wave && t.incomeSignalsLeft > 0 && t.cooldown <= 0) {
         const baseIncome = t.type === 'incomeFarm' ? 30 : t.type === 'incomeTax' ? 70 : 80
@@ -740,6 +845,31 @@ export function update(s: GameState, dt: number) {
           ) ?? null
         : null
     const target = lockedTeslaTarget ?? foundTarget
+
+    if (t.type === 'plasmaBlaster' || t.type === 'plasmaRod') {
+      t.beamTargets = []
+      if (!target) continue
+      t.angle = Math.atan2(target.y - t.y, target.x - t.x)
+      if (t.cooldown <= 0) {
+        const dirX = Math.cos(t.angle), dirY = Math.sin(t.angle)
+        const hitWidth = t.type === 'plasmaBlaster' ? 9 : 5
+        const lineTargets = s.enemies.filter(enemy => {
+          if (!enemy.alive) return false
+          const dx = enemy.x - t.x, dy = enemy.y - t.y
+          const along = dx * dirX + dy * dirY
+          const across = Math.abs(dx * dirY - dy * dirX)
+          return along > 0 && along <= def.range && across <= hitWidth
+        }).sort((a, b) => Math.hypot(a.x - t.x, a.y - t.y) - Math.hypot(b.x - t.x, b.y - t.y))
+        if (lineTargets.length) {
+          const perEnemyDamage = t.type === 'plasmaBlaster' ? def.damage / lineTargets.length : def.damage
+          for (const enemy of lineTargets) damageEnemy(s, enemy, perEnemyDamage, t.type)
+        }
+        s.plasmaBeams.push({ x1: t.x, y1: t.y, x2: t.x + dirX * def.range, y2: t.y + dirY * def.range, width: t.type === 'plasmaBlaster' ? 8 : 3.2, t: 0, duration: t.type === 'plasmaBlaster' ? 0.46 : 0.2, color: def.color })
+        t.cooldown = 1 / def.fireRate
+        t.recoil = 0.5
+      }
+      continue
+    }
 
     if (t.type === 'ice') {
       for (const enemy of s.enemies) if (enemy.alive && Math.hypot(enemy.x-t.x,enemy.y-t.y)<=def.range) applySlow(enemy,0.45,0.65)
@@ -839,6 +969,21 @@ export function update(s: GameState, dt: number) {
     }
   }
 
+  for (const pool of s.plasmaPools) {
+    pool.t += dt
+    for (const enemy of s.enemies) {
+      if (!enemy.alive || pool.usedEnemyIds.length >= 5 || pool.usedEnemyIds.includes(enemy.id)) continue
+      if (Math.hypot(enemy.x - pool.x, enemy.y - pool.y) <= pool.radius + ENEMIES[enemy.type].radius) {
+        pool.usedEnemyIds.push(enemy.id)
+        applySlow(enemy, 2.4, 0.6)
+        enemy.plasmaDotTimer = Math.max(enemy.plasmaDotTimer, 2.5)
+        enemy.plasmaDotTick = 0
+        s.explosions.push({ x: enemy.x, y: enemy.y, r: 12, t: 0, dur: 0.22, color: '#c084fc' })
+      }
+    }
+  }
+  s.plasmaPools = s.plasmaPools.filter(pool => pool.t < pool.duration && pool.usedEnemyIds.length < 5)
+
   const spawned: Projectile[] = []
   s.projectiles = s.projectiles.filter((p) => {
     if (p.kind === 'direct') {
@@ -859,6 +1004,41 @@ export function update(s: GameState, dt: number) {
       p.x += (dx / d) * step
       p.y += (dy / d) * step
       return true
+    }
+    if (p.kind === 'homing') {
+      let target = p.targetId === null ? null : s.enemies.find(enemy => enemy.id === p.targetId && enemy.alive && !p.hitIds.includes(enemy.id)) ?? null
+      if (!target) {
+        p.targetId = null
+        if (p.traveled >= p.acquireAfter) {
+          let nearest: Enemy | null = null
+          let nearestDistance = 170
+          for (const enemy of s.enemies) {
+            if (!enemy.alive || p.hitIds.includes(enemy.id)) continue
+            const distance = Math.hypot(enemy.x - p.x, enemy.y - p.y)
+            if (distance < nearestDistance) { nearest = enemy; nearestDistance = distance }
+          }
+          target = nearest
+          if (target) p.targetId = target.id
+        }
+      }
+      if (target) {
+        const desired = Math.atan2(target.y - p.y, target.x - p.x)
+        const current = Math.atan2(p.dirY, p.dirX)
+        let delta = Math.atan2(Math.sin(desired - current), Math.cos(desired - current))
+        delta = Math.max(-p.turnRate * dt, Math.min(p.turnRate * dt, delta))
+        const nextAngle = current + delta
+        p.dirX = Math.cos(nextAngle); p.dirY = Math.sin(nextAngle)
+      }
+      const step = p.speed * dt
+      p.x += p.dirX * step; p.y += p.dirY * step; p.traveled += step
+      const hit = s.enemies.filter(enemy => enemy.alive && !p.hitIds.includes(enemy.id) && Math.hypot(enemy.x - p.x, enemy.y - p.y) <= ENEMIES[enemy.type].radius + p.size + 2).sort((a,b) => Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0]
+      if (hit) {
+        p.hitIds.push(hit.id)
+        damageEnemy(s, hit, p.damage, p.sourceType)
+        p.targetId = null
+        if (p.hitIds.length >= p.hitLimit) return false
+      }
+      return p.traveled < p.maxDistance && p.x >= -24 && p.x <= WIDTH + 24 && p.y >= -24 && p.y <= HEIGHT + 24
     }
     if (p.kind === 'energy') {
       const step = p.speed * dt
@@ -928,6 +1108,9 @@ export function update(s: GameState, dt: number) {
               explodeAtLimit: false,
               splash: 0,
               splashFreezeDuration: 0,
+              sourceType: p.sourceType,
+              sourceTowerId: p.sourceTowerId,
+              teleporterClone: p.teleporterClone,
             })
           }
           return false
@@ -955,7 +1138,7 @@ export function update(s: GameState, dt: number) {
       explode(s, p.tx, p.ty, p.splash, p.damage, p.color)
       if (p.cryo) {
         freezeInRadius(s,p.tx,p.ty,p.splash,0.5)
-        for(let i=0;i<8;i++) { const a=i*Math.PI/4; spawned.push({kind:'ice',x:p.tx,y:p.ty,dirX:Math.cos(a),dirY:Math.sin(a),traveled:0,maxDistance:125,speed:290,damage:p.damage*.45,color:'#a5f3fc',size:4,freezeDuration:0,slowDuration:0,slowFactor:1,hitLimit:4,hitIds:[],splitOnHit:false,explodeAtLimit:false,splash:0,splashFreezeDuration:0,sourceType:'cryoMortar'}) }
+        for(let i=0;i<8;i++) { const a=i*Math.PI/4; spawned.push({kind:'ice',x:p.tx,y:p.ty,dirX:Math.cos(a),dirY:Math.sin(a),traveled:0,maxDistance:125,speed:290,damage:p.damage*.45,color:p.teleporterClone?'#c084fc':'#a5f3fc',size:4,freezeDuration:0,slowDuration:0,slowFactor:1,hitLimit:4,hitIds:[],splitOnHit:false,explodeAtLimit:false,splash:0,splashFreezeDuration:0,sourceType:p.sourceType??'cryoMortar',sourceTowerId:p.sourceTowerId,teleporterClone:p.teleporterClone}) }
       }
       if (p.cluster) {
         for (let i = 0; i < 3; i++) {
@@ -973,8 +1156,11 @@ export function update(s: GameState, dt: number) {
             damage: 16,
             splash: 32,
             cluster: false,
-            color: '#fb7185',
+            color: p.teleporterClone ? '#c084fc' : '#fb7185',
             size: 4,
+            sourceType: p.sourceType,
+            sourceTowerId: p.sourceTowerId,
+            teleporterClone: p.teleporterClone,
           })
         }
       }
@@ -984,6 +1170,7 @@ export function update(s: GameState, dt: number) {
   })
   s.projectiles.push(...spawned)
 
+  s.plasmaBeams = s.plasmaBeams.filter(beam => { beam.t += dt; return beam.t < beam.duration })
   s.explosions = s.explosions.filter((x) => {
     x.t += dt
     return x.t < x.dur
@@ -1174,6 +1361,30 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
       ctx.arc(cx, cy, 2, 0, Math.PI * 2)
       ctx.fill()
     }
+  }
+
+  if (type === 'teleporter') {
+    ctx.rotate(angle); ctx.strokeStyle = '#c084fc'; ctx.lineWidth = 3; ctx.shadowColor = '#c084fc'; ctx.shadowBlur = 13
+    ctx.beginPath(); ctx.ellipse(2, 0, 13, 8, 0, 0, Math.PI * 2); ctx.stroke()
+    ctx.beginPath(); ctx.ellipse(3, 0, 7, 12, 0.4, 0, Math.PI * 2); ctx.stroke()
+    ctx.shadowBlur = 0; ctx.fillStyle = '#e9d5ff'; ctx.beginPath(); ctx.arc(4, 0, 4.5 + recoil * 1.5, 0, Math.PI * 2); ctx.fill(); ctx.restore(); return
+  }
+  if (type === 'plasmaCannon') {
+    ctx.fillStyle = def.accent; ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.fill()
+    ctx.strokeStyle = def.color; ctx.lineWidth = 5; ctx.lineCap = 'round'
+    for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) { ctx.beginPath(); ctx.moveTo(Math.cos(a) * 5, Math.sin(a) * 5); ctx.lineTo(Math.cos(a) * 19, Math.sin(a) * 19); ctx.stroke() }
+    ctx.fillStyle = '#f5eaff'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill(); ctx.restore(); return
+  }
+  if (type === 'plasmaBlaster' || type === 'plasmaRod') {
+    ctx.rotate(angle); ctx.fillStyle = def.accent; ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.fill()
+    ctx.strokeStyle = def.color; ctx.lineCap = 'round'; ctx.lineWidth = type === 'plasmaBlaster' ? 8 : 4; ctx.shadowColor = def.color; ctx.shadowBlur = 11
+    ctx.beginPath(); ctx.moveTo(2, 0); ctx.lineTo(21 - recoil * 3, 0); ctx.stroke(); ctx.shadowBlur = 0
+    ctx.fillStyle = '#f5eaff'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill(); ctx.restore(); return
+  }
+  if (type === 'plasmaHypothermia') {
+    ctx.fillStyle = def.accent; ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = def.color; ctx.lineWidth = 2.5; ctx.shadowColor = def.color; ctx.shadowBlur = 8
+    for (const [dx, dy, r] of [[-7,-3,5],[5,-5,4],[4,6,6]] as const) { ctx.beginPath(); ctx.arc(dx, dy, r, 0, Math.PI * 2); ctx.stroke() }
+    ctx.restore(); return
   }
 
   if (type === 'mortar' || type === 'cryoMortar') {
@@ -1376,6 +1587,14 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   ctx.stroke()
   ctx.setLineDash([])
 
+  for (const pool of s.plasmaPools) {
+    const fade = Math.max(0.18, 1 - pool.t / pool.duration)
+    ctx.save(); ctx.globalAlpha = fade * 0.8; ctx.fillStyle = '#a855f7'; ctx.shadowColor = '#c084fc'; ctx.shadowBlur = 16
+    ctx.beginPath(); ctx.ellipse(pool.x, pool.y, pool.radius * 1.12, pool.radius * 0.72, Math.sin(s.time * 1.3) * 0.12, 0, Math.PI * 2); ctx.fill()
+    ctx.shadowBlur = 0; ctx.strokeStyle = '#e9d5ff'; ctx.lineWidth = 1.5
+    ctx.beginPath(); ctx.ellipse(pool.x, pool.y, pool.radius * 0.88, pool.radius * 0.55, 0, s.time * 0.7, s.time * 0.7 + Math.PI * 1.5); ctx.stroke(); ctx.restore()
+  }
+
   const selected = s.towers.find((t) => t.id === s.selectedId)
 
   if (s.hover && s.buildType) {
@@ -1441,8 +1660,19 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
     ctx.restore()
   }
 
+  for (const beam of s.plasmaBeams) {
+    const alpha = Math.max(0, 1 - beam.t / beam.duration)
+    ctx.save(); ctx.globalAlpha = alpha; ctx.lineCap = 'round'; ctx.strokeStyle = beam.color; ctx.shadowColor = beam.color; ctx.shadowBlur = beam.width * 2.5; ctx.lineWidth = beam.width
+    ctx.beginPath(); ctx.moveTo(beam.x1, beam.y1); ctx.lineTo(beam.x2, beam.y2); ctx.stroke()
+    ctx.strokeStyle = '#f5eaff'; ctx.shadowBlur = 0; ctx.lineWidth = Math.max(1, beam.width * 0.32)
+    ctx.beginPath(); ctx.moveTo(beam.x1, beam.y1); ctx.lineTo(beam.x2, beam.y2); ctx.stroke(); ctx.restore()
+  }
+
   for (const e of s.enemies) {
     drawBug(ctx, e.type, e.x, e.y-(e.airborneTimer>0?14:0), e.angle, e.anim, e.cocooning, e.airborneTimer>0, e.helmet)
+    if (e.plasmaDotTimer > 0) {
+      ctx.save(); ctx.strokeStyle = '#d8b4fe'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.8; ctx.beginPath(); ctx.arc(e.x, e.y, ENEMIES[e.type].radius + 7, s.time * 2, s.time * 2 + Math.PI * 1.5); ctx.stroke(); ctx.restore()
+    }
     if (e.frozenTimer > 0 || e.slowTimer > 0) {
       ctx.save()
       ctx.strokeStyle = e.frozenTimer > 0 ? '#7dd3fc' : '#a5f3fc'
@@ -1464,7 +1694,14 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 
   for (const p of s.projectiles) {
-    if (p.kind === 'energy') {
+    if (p.teleporterClone) {
+      const vx = 'x' in p ? p.x : p.sx + (p.tx - p.sx) * (p.t / p.duration)
+      const vy = 'y' in p ? p.y : p.sy + (p.ty - p.sy) * (p.t / p.duration)
+      ctx.save(); ctx.globalAlpha = 0.32; ctx.fillStyle = '#c084fc'; ctx.shadowColor = '#c084fc'; ctx.shadowBlur = 16; ctx.beginPath(); ctx.arc(vx, vy, ('size' in p ? p.size : 5) + 7, 0, Math.PI * 2); ctx.fill(); ctx.restore()
+    }
+    if (p.kind === 'homing') {
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(Math.atan2(p.dirY, p.dirX)); ctx.shadowColor = p.color; ctx.shadowBlur = 13; ctx.fillStyle = p.color; ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(-4, -3.5); ctx.lineTo(-2, 0); ctx.lineTo(-4, 3.5); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#f5eaff'; ctx.beginPath(); ctx.arc(0, 0, 1.5, 0, Math.PI * 2); ctx.fill(); ctx.restore()
+    } else if (p.kind === 'energy') {
       ctx.save()
       ctx.globalAlpha = 0.13
       ctx.fillStyle = p.color
