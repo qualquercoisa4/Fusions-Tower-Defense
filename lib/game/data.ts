@@ -562,4 +562,4 @@ export function buildWave(n:number):{type:EnemyType;delay:number}[] {
   return queue
 }
 
-export const hpScale = (wave: number) => wave >= 25 ? 1 : 1 + 0.18 * (wave - 1) + 0.01 * (wave - 1) ** 2
+export const hpScale = (_wave: number) => 1
