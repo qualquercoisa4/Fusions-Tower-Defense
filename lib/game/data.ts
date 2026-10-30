@@ -496,13 +496,16 @@ export const ROWS = 12
 export const WIDTH = CELL * COLS
 export const HEIGHT = CELL * ROWS
 
-// Caminho mediano: duas linhas longas ligadas por um único retorno.
+// Percurso sinuoso no estilo original, com um único cruzamento central.
 const WAYPOINT_CELLS: [number, number][] = [
-  [-1, 3],
-  [16, 3],
-  [16, 8],
-  [1, 8],
-  [-1, 8],
+  [-1, 6],
+  [15, 6],
+  [15, 9],
+  [4, 9],
+  [4, 3],
+  [13, 3],
+  [13, 10],
+  [18, 10],
 ]
 
 // Oito espaços de farms: dois em cada canto/extremidade do tabuleiro.
