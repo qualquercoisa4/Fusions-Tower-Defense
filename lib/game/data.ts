@@ -491,38 +491,26 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
 }
 
 export const CELL = 48
-export const COLS = 16
-export const ROWS = 10
+export const COLS = 18
+export const ROWS = 12
 export const WIDTH = CELL * COLS
 export const HEIGHT = CELL * ROWS
 
-// Caminho compacto e sinuoso para o tabuleiro original de 16 x 10.
-// A rota cruza o mapa várias vezes, mas deixa os quatro cantos livres para farms.
+// Caminho mediano: duas linhas longas ligadas por um único retorno.
 const WAYPOINT_CELLS: [number, number][] = [
-  [-1, 5],
-  [2, 5],
-  [2, 2],
-  [9, 2],
-  [9, 5],
-  [5, 5],
-  [5, 8],
-  [13, 8],
-  [13, 3],
-  [7, 3],
-  [7, 1],
-  [15, 1],
-  [15, 6],
-  [11, 6],
-  [11, 9],
-  [16, 9],
+  [-1, 3],
+  [16, 3],
+  [16, 8],
+  [1, 8],
+  [-1, 8],
 ]
 
 // Oito espaços de farms: dois em cada canto/extremidade do tabuleiro.
 export const FARM_CELLS = new Set([
   '0,0', '1,0',
-  '0,9', '1,9',
-  '14,0', '15,0',
-  '14,9', '15,9',
+  '0,11', '1,11',
+  '16,0', '17,0',
+  '16,11', '17,11',
 ])
 
 export const PATH = WAYPOINT_CELLS.map(([c, r]) => ({
