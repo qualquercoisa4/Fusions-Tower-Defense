@@ -124,6 +124,23 @@ type Projectile = (
       sourceType?: TowerType
     }
   | {
+      kind: 'boulder'
+      x: number
+      y: number
+      dirX: number
+      dirY: number
+      traveled: number
+      maxDistance: number
+      speed: number
+      damage: number
+      damageDecay: number
+      sizeDecay: number
+      hitLimit: number
+      hitIds: number[]
+      color: string
+      size: number
+    }
+  | {
       kind: 'homing'
       x: number
       y: number
@@ -496,6 +513,16 @@ function findChainTargets(s: GameState, first: Enemy, linkRange = 76) {
 
 function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
   t.recoil = 1
+
+  if (t.type === 'boulderLauncher' || t.type === 'rockLauncher') {
+    const count = t.type === 'rockLauncher' ? 2 : 1
+    for (let i = 0; i < count; i++) {
+      const angle = t.angle + (count === 2 ? (i === 0 ? -0.075 : 0.075) : 0)
+      const dirX = Math.cos(angle), dirY = Math.sin(angle)
+      s.projectiles.push({ kind: 'boulder', x: t.x + dirX * 18, y: t.y + dirY * 18, dirX, dirY, traveled: 0, maxDistance: def.range + 38, speed: def.projectileSpeed, damage: def.damage, damageDecay: t.type === 'rockLauncher' ? 10 : 20, sizeDecay: t.type === 'rockLauncher' ? 0.38 : 0.82, hitLimit: t.type === 'rockLauncher' ? 13 : 10, hitIds: [], color: def.color, size: t.type === 'rockLauncher' ? 7 : 12, sourceType: t.type, sourceTowerId: t.id })
+    }
+    return
+  }
 
   if (t.type === 'teleporter') {
     const dirX = Math.cos(t.angle), dirY = Math.sin(t.angle)
@@ -1007,7 +1034,10 @@ export function update(s: GameState, dt: number) {
       p.y += (dy / d) * step
       return true
     }
-    if (p.kind === 'homing') {
+    if (p.kind === 'boulder') {
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(Math.atan2(p.dirY, p.dirX)); ctx.fillStyle = p.color; ctx.strokeStyle = '#e7e5e4'; ctx.lineWidth = 1.5; ctx.shadowColor = p.color; ctx.shadowBlur = 8
+      ctx.beginPath(); ctx.moveTo(p.size, 0); ctx.lineTo(p.size * 0.55, -p.size * 0.72); ctx.lineTo(-p.size * 0.7, -p.size * 0.85); ctx.lineTo(-p.size, 0); ctx.lineTo(-p.size * 0.45, p.size * 0.75); ctx.lineTo(p.size * 0.65, p.size * 0.62); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore()
+    } else if (p.kind === 'homing') {
       let target = p.targetId === null ? null : s.enemies.find(enemy => enemy.id === p.targetId && enemy.alive && !p.hitIds.includes(enemy.id)) ?? null
       if (!target) {
         p.targetId = null
@@ -1039,6 +1069,26 @@ export function update(s: GameState, dt: number) {
         damageEnemy(s, hit, p.damage, p.sourceType)
         p.targetId = null
         if (p.hitIds.length >= p.hitLimit) return false
+      }
+      return p.traveled < p.maxDistance && p.x >= -24 && p.x <= WIDTH + 24 && p.y >= -24 && p.y <= HEIGHT + 24
+    }
+    if (p.kind === 'boulder') {
+      const oldX = p.x, oldY = p.y
+      const step = p.speed * dt
+      p.x += p.dirX * step; p.y += p.dirY * step; p.traveled += step
+      const dx = p.x - oldX, dy = p.y - oldY, lenSq = dx * dx + dy * dy
+      let hit: Enemy | null = null, hitAlong = Infinity
+      for (const enemy of s.enemies) {
+        if (!enemy.alive || p.hitIds.includes(enemy.id)) continue
+        const along = lenSq > 0 ? Math.max(0, Math.min(1, ((enemy.x - oldX) * dx + (enemy.y - oldY) * dy) / lenSq)) : 0
+        const nearX = oldX + along * dx, nearY = oldY + along * dy
+        if (Math.hypot(enemy.x - nearX, enemy.y - nearY) <= ENEMIES[enemy.type].radius + p.size && along < hitAlong) { hit = enemy; hitAlong = along }
+      }
+      if (hit) {
+        p.hitIds.push(hit.id); damageEnemy(s, hit, p.damage, p.sourceType)
+        s.explosions.push({ x: hit.x, y: hit.y, r: p.size + 5, t: 0, dur: 0.16, color: p.color })
+        p.damage = Math.max(0, p.damage - p.damageDecay); p.size = Math.max(0, p.size - p.sizeDecay)
+        if (p.damage <= 0 || p.size <= 0 || p.hitIds.length >= p.hitLimit) return false
       }
       return p.traveled < p.maxDistance && p.x >= -24 && p.x <= WIDTH + 24 && p.y >= -24 && p.y <= HEIGHT + 24
     }
@@ -1365,6 +1415,13 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
     }
   }
 
+  if (type === 'boulderLauncher' || type === 'rockLauncher') {
+    ctx.rotate(angle); ctx.fillStyle = def.accent; ctx.fillRect(-5, -5, 21, 10)
+    ctx.fillStyle = def.color; ctx.strokeStyle = '#e7e5e4'; ctx.lineWidth = 1.5
+    const r = type === 'boulderLauncher' ? 10 : 7
+    ctx.beginPath(); ctx.arc(14, 0, r + recoil, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+    ctx.fillStyle = '#f5f5f4'; ctx.beginPath(); ctx.arc(11, -3, r * 0.25, 0, Math.PI * 2); ctx.fill(); ctx.restore(); return
+  }
   if (type === 'teleporter') {
     ctx.rotate(angle); ctx.strokeStyle = '#c084fc'; ctx.lineWidth = 3; ctx.shadowColor = '#c084fc'; ctx.shadowBlur = 13
     ctx.beginPath(); ctx.ellipse(2, 0, 13, 8, 0, 0, Math.PI * 2); ctx.stroke()
