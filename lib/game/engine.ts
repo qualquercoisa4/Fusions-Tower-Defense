@@ -899,6 +899,7 @@ export function update(s: GameState, dt: number) {
       e.airborneTimer=.52;e.jumpCooldown=1.25;e.anim=0
     }
     if (e.frozenTimer > 0) continue
+    const previousDist = e.dist
     if (e.type === 'jumper') {
       // Each jump covers up to 70 world units over 0.52s, smoothly following
       // the waypoint path instead of teleporting. Crossing a waypoint never stalls it.
@@ -917,9 +918,18 @@ export function update(s: GameState, dt: number) {
         }
         if(e.wp>=PATH.length&&e.alive){e.alive=false;s.lives-=def.damage}
       }
+      if (e.alive && e.dist > previousDist) {
+        const portal = s.portalPairs.find(pair => !pair.usedEnemyIds.includes(e.id) && previousDist < pair.blueDistance && e.dist >= pair.blueDistance)
+        if (portal) {
+          portal.usedEnemyIds.push(e.id)
+          placeEnemyOnPath(e, portal.purpleDistance)
+          const blue = pointOnPath(portal.blueDistance), purple = pointOnPath(portal.purpleDistance)
+          s.explosions.push({ x: blue.x, y: blue.y, r: 20, t: 0, dur: 0.3, color: '#38bdf8' })
+          s.explosions.push({ x: purple.x, y: purple.y, r: 23, t: 0, dur: 0.35, color: '#c084fc' })
+        }
+      }
       continue
     }
-    const previousDist = e.dist
     let step = def.speed * (e.splitGeneration > 0 ? 2 : 1) * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
     while (step > 0 && e.alive) {
       const target = PATH[e.wp]
