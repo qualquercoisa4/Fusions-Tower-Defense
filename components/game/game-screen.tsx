@@ -23,6 +23,8 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
   const speedRef = useRef(1)
   const [, setTick] = useState(0)
   const [speed, setSpeed] = useState(1)
+  const [autoNextWave, setAutoNextWave] = useState(false)
+  const autoNextWaveRef = useRef(false)
   const [debugOpen, setDebugOpen] = useState(false)
   const [debugTowerType, setDebugTowerType] = useState<TowerType | ''>('')
   const [debugEnemyType, setDebugEnemyType] = useState<EnemyType>('grunt')
@@ -45,6 +47,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
       const dt = Math.min(0.05, (now - last) / 1000)
       last = now
       for (let i = 0; i < speedRef.current; i++) update(game.current, dt)
+      if (autoNextWaveRef.current && game.current.wave > 0 && !game.current.waveActive && game.current.status === 'playing') startWave(game.current)
       render(ctx, game.current)
       hudTimer += dt
       if (hudTimer > 0.1) {
@@ -385,6 +388,15 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
             )}
           </section>
 
+          <label className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-200">
+            <input
+              type="checkbox"
+              checked={autoNextWave}
+              onChange={(event) => { autoNextWaveRef.current = event.target.checked; setAutoNextWave(event.target.checked) }}
+              className="accent-emerald-400"
+            />
+            Iniciar próxima onda automaticamente
+          </label>
           <div className="flex gap-2">
             <button
               onClick={() => {
