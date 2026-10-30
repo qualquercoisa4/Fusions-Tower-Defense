@@ -68,6 +68,8 @@ export interface Tower {
   incomeWave: number
   disabledTimer: number
   supportCooldown: number
+  burstTimer: number
+  burstShotsRemaining: number
 }
 
 type Projectile = (
@@ -327,6 +329,8 @@ export function placeTower(s: GameState, type: TowerType, col: number, row: numb
     incomeWave: -1,
     disabledTimer: 0,
     supportCooldown: type === 'teleporter' ? 2.2 : 0,
+    burstTimer: 0,
+    burstShotsRemaining: 0,
   })
   return true
 }
@@ -548,7 +552,7 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
   t.recoil = 1
 
   if (t.type === 'boulderLauncher' || t.type === 'rockLauncher') {
-    const count = t.type === 'rockLauncher' ? 2 : 1
+    const count = 1
     for (let i = 0; i < count; i++) {
       const projection = projectToPath(t.x, t.y)
       const angle = Math.atan2(projection.y - t.y, projection.x - t.x) + (count === 2 ? (i === 0 ? -0.075 : 0.075) : 0)
@@ -843,6 +847,7 @@ export function update(s: GameState, dt: number) {
     t.disabledTimer = Math.max(0,t.disabledTimer-dt)
     if(t.disabledTimer>0){t.beamTargets=[];continue}
     t.cooldown -= dt
+    if (t.type === 'rockLauncher' && t.burstShotsRemaining > 0) t.burstTimer = Math.max(0, t.burstTimer - dt)
     if (t.type === 'plasmaBlaster') t.recoil = Math.min(1, t.recoil + dt * baseDef.fireRate)
     else t.recoil = Math.max(0, t.recoil - dt * 5)
     if (t.type === 'teleporter') {
@@ -938,9 +943,22 @@ export function update(s: GameState, dt: number) {
 
     if (t.type === 'ice') {
       for (const enemy of s.enemies) if (enemy.alive && Math.hypot(enemy.x-t.x,enemy.y-t.y)<=def.range) applySlow(enemy,0.45,0.65)
-      if (!target || t.cooldown > 0) continue
+      if (t.type === 'rockLauncher' && t.burstShotsRemaining > 0) {
+      if (target && t.burstTimer <= 0) {
+        t.angle = Math.atan2(target.y - t.y, target.x - t.x)
+        fire(s, t, target, def)
+        t.burstShotsRemaining = 0
+        t.burstTimer = 0
+      }
+      continue
+    }
+    if (!target || t.cooldown > 0) continue
       t.angle = Math.atan2(target.y-t.y,target.x-t.x)
       fire(s,t,target,def)
+      if (t.type === 'rockLauncher') {
+        t.burstShotsRemaining = 1
+        t.burstTimer = 0.5
+      }
       t.cooldown = 1 / def.fireRate
       continue
     }
