@@ -242,6 +242,7 @@ interface PlasmaBeam {
   duration: number
   color: string
   style?: 'flame' | 'grow'
+  delay?: number
 }
 
 interface LightningStrike {
