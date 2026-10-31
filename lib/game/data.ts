@@ -376,16 +376,16 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     description: 'Dispara quatro pedras pequenas em sequência pelo caminho. Cada pedra causa 80% do dano da Rock Launcher, perfura até 10 inimigos e perde dano e tamanho a cada impacto.',
   },
   flamethrower: {
-    name: 'Flamethrower', tier: 2, damage: 6.2, range: 145, fireRate: 10.5, splash: 0,
-    style: 'beam', projectileSpeed: 0, inaccuracy: 0, cost: 0,
+    name: 'Flamethrower', tier: 2, damage: 24, range: 145, fireRate: 3.8, splash: 0,
+    style: 'projectile', projectileSpeed: 245, inaccuracy: 0, cost: 0,
     color: '#fb923c', accent: '#9a3412',
-    description: 'Lança uma corrente contínua de chamas. O fogo atravessa até 10 inimigos, diminuindo de tamanho e perdendo dano a cada alvo atingido.',
+    description: 'Lança projéteis de fogo que atravessam até 10 inimigos. A cada impacto, o fogo perde dano e tamanho; também encolhe e fica transparente enquanto viaja.',
   },
   hyperLaser: {
-    name: 'HyperLaser', tier: 2, damage: 7, range: 180, fireRate: 1, splash: 0,
+    name: 'HyperLaser', tier: 2, damage: 7, range: 180, fireRate: 3.2, splash: 0,
     style: 'beam', projectileSpeed: 0, inaccuracy: 0, cost: 0,
     color: '#d8b4fe', accent: '#6b21a8',
-    description: 'Dispara raios de plasma em intervalos aleatórios de 0,5 a 5 segundos. Cada raio cresce a partir da torre, permanece conectado a ela e atravessa todos os inimigos alinhados, causando pouco dano por alvo.',
+    description: 'Varre uma abertura com cinco raios de plasma em sequência, partindo da torre e abrindo em leque. Os raios atravessam todos os inimigos alinhados.'
   },
   electricalStation: {
     name: 'Electrical Station', tier: 1, damage: 0, range: 112, fireRate: 1, splash: 0, style: 'support',
