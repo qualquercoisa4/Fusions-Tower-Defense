@@ -235,6 +235,7 @@ interface PlasmaBeam {
   t: number
   duration: number
   color: string
+  style?: 'flame' | 'grow'
 }
 
 interface LightningStrike {
@@ -697,13 +698,13 @@ function launchPathBoulder(s: GameState, t: Tower, def = TOWERS[t.type]) {
   const point = pointOnPath(projection.distance)
   const towardStart = pointOnPath(Math.max(0, projection.distance - 3))
   const angle = Math.atan2(towardStart.y - point.y, towardStart.x - point.x)
-  const rock = t.type === 'rockLauncher', giant = t.type === 'boulderCannon'
+  const rock = t.type === 'rockLauncher', pebble = t.type === 'pebblesLauncher', giant = t.type === 'boulderCannon'
   s.projectiles.push({
     kind: 'boulder', x: point.x, y: point.y, dirX: Math.cos(angle), dirY: Math.sin(angle),
     traveled: 0, pathDistance: projection.distance, maxDistance: projection.distance + 20,
-    speed: def.projectileSpeed, damage: def.damage, damageDecay: rock ? 10 : 20,
-    sizeDecay: rock ? 0.38 : 0.82, hitLimit: rock ? 13 : giant ? 1 : 10, hitIds: [],
-    color: def.color, size: giant ? 17 : rock ? 7 : 12, shatterOnHit: giant,
+    speed: def.projectileSpeed, damage: def.damage, damageDecay: rock || pebble ? 10 : 20,
+    sizeDecay: rock ? 0.38 : pebble ? 0.55 : 0.82, hitLimit: rock ? 13 : pebble ? 10 : giant ? 1 : 10, hitIds: [],
+    color: def.color, size: giant ? 17 : rock ? 7 : pebble ? 5 : 12, shatterOnHit: giant,
     fragmentDamage: giant ? 26 : undefined, fragmentCount: giant ? 8 : undefined,
     sourceType: t.type, sourceTowerId: t.id,
   })
@@ -712,7 +713,7 @@ function launchPathBoulder(s: GameState, t: Tower, def = TOWERS[t.type]) {
 function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
   t.recoil = 1
 
-  if (t.type === 'boulderLauncher' || t.type === 'rockLauncher' || t.type === 'boulderCannon') {
+  if (t.type === 'boulderLauncher' || t.type === 'rockLauncher' || t.type === 'boulderCannon' || t.type === 'pebblesLauncher') {
     launchPathBoulder(s, t, def)
     return
   }
@@ -1160,12 +1161,12 @@ export function update(s: GameState, dt: number) {
     t.overclockTimer = Math.max(0, t.overclockTimer - dt)
     if(t.disabledTimer>0){t.beamTargets=[];continue}
     t.cooldown -= dt
-    if (t.type === 'rockLauncher' && t.burstShotsRemaining > 0) {
+    if ((t.type === 'rockLauncher' || t.type === 'pebblesLauncher') && t.burstShotsRemaining > 0) {
       t.burstTimer = Math.max(0, t.burstTimer - dt)
       if (t.burstTimer <= 0) {
         launchPathBoulder(s, t, baseDef)
-        t.burstShotsRemaining = 0
-        t.burstTimer = 0
+        t.burstShotsRemaining--
+        t.burstTimer = t.burstShotsRemaining > 0 ? 0.12 : 0
       }
       continue
     }
@@ -1290,6 +1291,58 @@ export function update(s: GameState, dt: number) {
         : null
     const target = lockedTeslaTarget ?? foundTarget
 
+    if (t.type === 'flamethrower') {
+      t.beamTargets = []
+      if (!target) continue
+      t.angle = Math.atan2(target.y - t.y, target.x - t.x)
+      if (t.cooldown <= 0) {
+        const dirX = Math.cos(t.angle), dirY = Math.sin(t.angle)
+        const lineTargets = s.enemies.filter(enemy => {
+          if (!enemy.alive || !canTowerTargetEnemy(enemy, t.type)) return false
+          const dx = enemy.x - t.x, dy = enemy.y - t.y
+          const along = dx * dirX + dy * dirY
+          const across = Math.abs(dx * dirY - dy * dirX)
+          return along > 0 && along <= def.range && across <= 24
+        }).sort((a, b) => Math.hypot(a.x - t.x, a.y - t.y) - Math.hypot(b.x - t.x, b.y - t.y))
+        let flameDamage = def.damage
+        for (const enemy of lineTargets.slice(0, 10)) {
+          damageEnemy(s, enemy, flameDamage, t.type, t.id)
+          flameDamage *= 0.88
+        }
+        s.plasmaBeams.push({
+          x1: t.x, y1: t.y, x2: t.x + dirX * def.range, y2: t.y + dirY * def.range,
+          width: 22, t: 0, duration: 0.12, color: def.color, style: 'flame',
+        })
+        t.cooldown = 1 / def.fireRate
+        t.recoil = 1
+      }
+      continue
+    }
+
+    if (t.type === 'hyperLaser') {
+      t.beamTargets = []
+      if (!target) continue
+      t.angle = Math.atan2(target.y - t.y, target.x - t.x)
+      if (t.cooldown <= 0) {
+        const dirX = Math.cos(t.angle), dirY = Math.sin(t.angle)
+        const lineTargets = s.enemies.filter(enemy => {
+          if (!enemy.alive || !canTowerTargetEnemy(enemy, t.type)) return false
+          const dx = enemy.x - t.x, dy = enemy.y - t.y
+          const along = dx * dirX + dy * dirY
+          const across = Math.abs(dx * dirY - dy * dirX)
+          return along > 0 && along <= def.range && across <= 6
+        }).sort((a, b) => Math.hypot(a.x - t.x, a.y - t.y) - Math.hypot(b.x - t.x, b.y - t.y))
+        for (const enemy of lineTargets) damageEnemy(s, enemy, def.damage, t.type, t.id)
+        s.plasmaBeams.push({
+          x1: t.x, y1: t.y, x2: t.x + dirX * def.range, y2: t.y + dirY * def.range,
+          width: 5, t: 0, duration: 0.5, color: def.color, style: 'grow',
+        })
+        t.cooldown = 0.5 + Math.random() * 4.5
+        t.recoil = 1
+      }
+      continue
+    }
+
     if (t.type === 'plasmaBlaster' || t.type === 'plasmaRod') {
       t.beamTargets = []
       if (!target) continue
@@ -1406,6 +1459,7 @@ export function update(s: GameState, dt: number) {
     if (t.cooldown <= 0) {
       fire(s, t, target, def)
       if (t.type === 'rockLauncher') { t.burstShotsRemaining = 1; t.burstTimer = 0.5 }
+      if (t.type === 'pebblesLauncher') { t.burstShotsRemaining = 3; t.burstTimer = 0.12 }
       t.cooldown = 1 / def.fireRate
     }
   }
@@ -2014,6 +2068,31 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
     ctx.beginPath(); ctx.moveTo(-7, -10); ctx.quadraticCurveTo(3, 0, -7, 10); ctx.stroke()
     ctx.restore(); return
   }
+  if (type === 'flamethrower') {
+    ctx.rotate(angle)
+    ctx.fillStyle = def.accent
+    ctx.fillRect(-10, -8, 24, 16)
+    ctx.fillStyle = def.color
+    ctx.beginPath(); ctx.moveTo(12, -7); ctx.lineTo(23, 0); ctx.lineTo(12, 7); ctx.closePath(); ctx.fill()
+    ctx.fillStyle = '#fef3c7'; ctx.beginPath(); ctx.arc(17, 0, 3 + recoil * 2, 0, Math.PI * 2); ctx.fill()
+    ctx.restore(); return
+  }
+  if (type === 'hyperLaser') {
+    ctx.fillStyle = def.accent
+    ctx.fillRect(-8, -13, 16, 26)
+    ctx.strokeStyle = def.color; ctx.lineWidth = 3
+    ctx.beginPath(); ctx.moveTo(0, -18); ctx.lineTo(0, -8); ctx.moveTo(-7, 3); ctx.lineTo(0, 10); ctx.lineTo(7, 3); ctx.stroke()
+    ctx.fillStyle = '#f5eaff'; ctx.beginPath(); ctx.arc(0, -2, 4 + recoil * 2, 0, Math.PI * 2); ctx.fill()
+    ctx.restore(); return
+  }
+  if (type === 'pebblesLauncher') {
+    ctx.rotate(angle); ctx.fillStyle = def.accent; ctx.fillRect(-7, -7, 22, 14)
+    ctx.fillStyle = def.color; ctx.strokeStyle = '#f5f5f4'; ctx.lineWidth = 1
+    for (const [ox, oy] of [[12, -5], [18, -2], [12, 4], [19, 6]] as const) {
+      ctx.beginPath(); ctx.arc(ox, oy, 3 + recoil * 0.35, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+    }
+    ctx.restore(); return
+  }
   if (type === 'boulderLauncher' || type === 'rockLauncher' || type === 'boulderCannon' || type === 'snowballLauncher') {
     ctx.rotate(angle); ctx.fillStyle = def.accent; ctx.fillRect(-5, -5, 21, 10)
     ctx.fillStyle = def.color; ctx.strokeStyle = '#e7e5e4'; ctx.lineWidth = 1.5
@@ -2406,11 +2485,25 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 
   for (const beam of s.plasmaBeams) {
-    const alpha = Math.max(0, 1 - beam.t / beam.duration)
-    ctx.save(); ctx.globalAlpha = alpha; ctx.lineCap = 'round'; ctx.strokeStyle = beam.color; ctx.shadowColor = beam.color; ctx.shadowBlur = beam.width * 2.5; ctx.lineWidth = beam.width
-    ctx.beginPath(); ctx.moveTo(beam.x1, beam.y1); ctx.lineTo(beam.x2, beam.y2); ctx.stroke()
-    ctx.strokeStyle = '#f5eaff'; ctx.shadowBlur = 0; ctx.lineWidth = Math.max(1, beam.width * 0.32)
-    ctx.beginPath(); ctx.moveTo(beam.x1, beam.y1); ctx.lineTo(beam.x2, beam.y2); ctx.stroke(); ctx.restore()
+    const progress = Math.min(1, beam.t / beam.duration)
+    const alpha = Math.max(0, 1 - progress)
+    const endX = beam.style === 'grow' ? beam.x1 + (beam.x2 - beam.x1) * progress : beam.x2
+    const endY = beam.style === 'grow' ? beam.y1 + (beam.y2 - beam.y1) * progress : beam.y2
+    ctx.save(); ctx.globalAlpha = beam.style === 'flame' ? 0.82 : alpha; ctx.lineCap = 'round'
+    if (beam.style === 'flame') {
+      ctx.strokeStyle = '#f97316'; ctx.shadowColor = '#fb923c'; ctx.shadowBlur = 20; ctx.lineWidth = beam.width
+      ctx.beginPath(); ctx.moveTo(beam.x1, beam.y1); ctx.lineTo(endX, endY); ctx.stroke()
+      ctx.strokeStyle = '#fbbf24'; ctx.shadowBlur = 10; ctx.lineWidth = beam.width * 0.52
+      ctx.beginPath(); ctx.moveTo(beam.x1, beam.y1); ctx.lineTo(endX, endY); ctx.stroke()
+      ctx.strokeStyle = '#fff7ed'; ctx.shadowBlur = 0; ctx.lineWidth = beam.width * 0.18
+      ctx.beginPath(); ctx.moveTo(beam.x1, beam.y1); ctx.lineTo(endX, endY); ctx.stroke()
+    } else {
+      ctx.strokeStyle = beam.color; ctx.shadowColor = beam.color; ctx.shadowBlur = beam.width * 2.5; ctx.lineWidth = beam.width
+      ctx.beginPath(); ctx.moveTo(beam.x1, beam.y1); ctx.lineTo(endX, endY); ctx.stroke()
+      ctx.strokeStyle = '#f5eaff'; ctx.shadowBlur = 0; ctx.lineWidth = Math.max(1, beam.width * 0.32)
+      ctx.beginPath(); ctx.moveTo(beam.x1, beam.y1); ctx.lineTo(endX, endY); ctx.stroke()
+    }
+    ctx.restore()
   }
 
   for (const e of s.enemies) {
