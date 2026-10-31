@@ -99,6 +99,12 @@ type Projectile = (
       sourceType?: TowerType
     }
   | {
+      kind: 'fire'
+      x: number; y: number; dirX: number; dirY: number; traveled: number; maxDistance: number
+      speed: number; damage: number; damageDecay: number; sizeDecay: number; hitLimit: number
+      hitIds: number[]; color: string; size: number; alpha: number
+    }
+  | {
       kind: 'energy'
       x: number
       y: number
@@ -1297,21 +1303,12 @@ export function update(s: GameState, dt: number) {
       t.angle = Math.atan2(target.y - t.y, target.x - t.x)
       if (t.cooldown <= 0) {
         const dirX = Math.cos(t.angle), dirY = Math.sin(t.angle)
-        const lineTargets = s.enemies.filter(enemy => {
-          if (!enemy.alive || !canTowerTargetEnemy(enemy, t.type)) return false
-          const dx = enemy.x - t.x, dy = enemy.y - t.y
-          const along = dx * dirX + dy * dirY
-          const across = Math.abs(dx * dirY - dy * dirX)
-          return along > 0 && along <= def.range && across <= 24
-        }).sort((a, b) => Math.hypot(a.x - t.x, a.y - t.y) - Math.hypot(b.x - t.x, b.y - t.y))
-        let flameDamage = def.damage
-        for (const enemy of lineTargets.slice(0, 10)) {
-          damageEnemy(s, enemy, flameDamage, t.type, t.id)
-          flameDamage *= 0.88
-        }
-        s.plasmaBeams.push({
-          x1: t.x, y1: t.y, x2: t.x + dirX * def.range, y2: t.y + dirY * def.range,
-          width: 22, t: 0, duration: 0.12, color: def.color, style: 'flame',
+        s.projectiles.push({
+          kind: 'fire', x: t.x + dirX * 19, y: t.y + dirY * 19, dirX, dirY,
+          traveled: 0, maxDistance: def.range, speed: def.projectileSpeed,
+          damage: def.damage, damageDecay: 0.88, sizeDecay: 0.82, hitLimit: 10,
+          hitIds: [], color: def.color, size: 13, alpha: 1,
+          sourceType: t.type, sourceTowerId: t.id,
         })
         t.cooldown = 1 / def.fireRate
         t.recoil = 1
@@ -1324,20 +1321,25 @@ export function update(s: GameState, dt: number) {
       if (!target) continue
       t.angle = Math.atan2(target.y - t.y, target.x - t.x)
       if (t.cooldown <= 0) {
-        const dirX = Math.cos(t.angle), dirY = Math.sin(t.angle)
-        const lineTargets = s.enemies.filter(enemy => {
-          if (!enemy.alive || !canTowerTargetEnemy(enemy, t.type)) return false
-          const dx = enemy.x - t.x, dy = enemy.y - t.y
-          const along = dx * dirX + dy * dirY
-          const across = Math.abs(dx * dirY - dy * dirX)
-          return along > 0 && along <= def.range && across <= 6
-        }).sort((a, b) => Math.hypot(a.x - t.x, a.y - t.y) - Math.hypot(b.x - t.x, b.y - t.y))
-        for (const enemy of lineTargets) damageEnemy(s, enemy, def.damage, t.type, t.id)
-        s.plasmaBeams.push({
-          x1: t.x, y1: t.y, x2: t.x + dirX * def.range, y2: t.y + dirY * def.range,
-          width: 5, t: 0, duration: 0.5, color: def.color, style: 'grow',
+        // Five rays sweep outward from the tower in a fan, like a scanning emitter.
+        const fanAngles = [-0.9, -0.45, 0, 0.45, 0.9]
+        fanAngles.forEach((offset, index) => {
+          const angle = t.angle + offset
+          const dirX = Math.cos(angle), dirY = Math.sin(angle)
+          const lineTargets = s.enemies.filter(enemy => {
+            if (!enemy.alive || !canTowerTargetEnemy(enemy, t.type)) return false
+            const dx = enemy.x - t.x, dy = enemy.y - t.y
+            const along = dx * dirX + dy * dirY
+            const across = Math.abs(dx * dirY - dy * dirX)
+            return along > 0 && along <= def.range && across <= 7
+          })
+          for (const enemy of lineTargets) damageEnemy(s, enemy, def.damage, t.type, t.id)
+          s.plasmaBeams.push({
+            x1: t.x, y1: t.y, x2: t.x + dirX * def.range, y2: t.y + dirY * def.range,
+            width: 4.5, t: 0, delay: index * 0.045, duration: 0.22, color: def.color, style: 'grow',
+          })
         })
-        t.cooldown = 0.5 + Math.random() * 4.5
+        t.cooldown = 1 / def.fireRate
         t.recoil = 1
       }
       continue
@@ -1509,6 +1511,29 @@ export function update(s: GameState, dt: number) {
       p.x += (dx / d) * step
       p.y += (dy / d) * step
       return true
+    }
+    if (p.kind === 'fire') {
+      const oldX = p.x, oldY = p.y
+      const step = p.speed * dt
+      p.x += p.dirX * step; p.y += p.dirY * step; p.traveled += step
+      p.alpha = Math.max(0, p.alpha - dt * 1.35)
+      p.size = Math.max(0.5, p.size - dt * 5.5)
+      const hits = s.enemies.filter(enemy => {
+        if (!enemy.alive || p.hitIds.includes(enemy.id) || !canTowerTargetEnemy(enemy, p.sourceType ?? 'flamethrower')) return false
+        const dx = p.x - oldX, dy = p.y - oldY, lenSq = dx * dx + dy * dy
+        const along = lenSq > 0 ? Math.max(0, Math.min(1, ((enemy.x - oldX) * dx + (enemy.y - oldY) * dy) / lenSq)) : 0
+        const nearX = oldX + along * dx, nearY = oldY + along * dy
+        return Math.hypot(enemy.x - nearX, enemy.y - nearY) <= ENEMIES[enemy.type].radius + p.size
+      }).sort((a, b) => Math.hypot(a.x - oldX, a.y - oldY) - Math.hypot(b.x - oldX, b.y - oldY))
+      for (const enemy of hits) {
+        if (p.hitIds.length >= p.hitLimit || p.size <= 0.8 || p.alpha <= 0.05) break
+        p.hitIds.push(enemy.id)
+        if (!projectilePassesGhost(p, enemy)) damageEnemy(s, enemy, p.damage, p.sourceType, p.sourceTowerId, true)
+        p.damage *= p.damageDecay
+        p.size *= p.sizeDecay
+        p.alpha *= 0.84
+      }
+      return p.traveled < p.maxDistance && p.alpha > 0.04 && p.size > 0.8 && p.hitIds.length < p.hitLimit
     }
     if (p.kind === 'homing') {
       let target = p.targetId === null ? null : s.enemies.find(enemy => enemy.id === p.targetId && enemy.alive && !p.hitIds.includes(enemy.id) && !p.ghostEvadedIds?.includes(enemy.id)) ?? null
@@ -1795,7 +1820,7 @@ export function update(s: GameState, dt: number) {
   })
   s.projectiles.push(...spawned)
 
-  s.plasmaBeams = s.plasmaBeams.filter(beam => { beam.t += dt; return beam.t < beam.duration })
+  s.plasmaBeams = s.plasmaBeams.filter(beam => { beam.t += dt; return beam.t < beam.duration + (beam.delay ?? 0) })
   s.explosions = s.explosions.filter((x) => {
     x.t += dt
     return x.t < x.dur
@@ -2485,7 +2510,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 
   for (const beam of s.plasmaBeams) {
-    const progress = Math.min(1, beam.t / beam.duration)
+    const progress = Math.min(1, Math.max(0, (beam.t - (beam.delay ?? 0)) / beam.duration))
     const alpha = Math.max(0, 1 - progress)
     const endX = beam.style === 'grow' ? beam.x1 + (beam.x2 - beam.x1) * progress : beam.x2
     const endY = beam.style === 'grow' ? beam.y1 + (beam.y2 - beam.y1) * progress : beam.y2
@@ -2546,6 +2571,28 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
       const vx = 'x' in p ? p.x : p.sx + (p.tx - p.sx) * (p.t / p.duration)
       const vy = 'y' in p ? p.y : p.sy + (p.ty - p.sy) * (p.t / p.duration)
       ctx.save(); ctx.globalAlpha = 0.32; ctx.fillStyle = '#c084fc'; ctx.shadowColor = '#c084fc'; ctx.shadowBlur = 16; ctx.beginPath(); ctx.arc(vx, vy, ('size' in p ? p.size : 5) + 7, 0, Math.PI * 2); ctx.fill(); ctx.restore()
+    }
+    if (p.kind === 'fire') {
+      ctx.save()
+      ctx.globalAlpha = p.alpha
+      ctx.translate(p.x, p.y)
+      ctx.rotate(Math.atan2(p.dirY, p.dirX))
+      ctx.shadowColor = '#f97316'; ctx.shadowBlur = 16 * p.alpha
+      const gradient = ctx.createLinearGradient(-p.size * 1.8, 0, p.size * 1.4, 0)
+      gradient.addColorStop(0, 'rgba(239,68,68,0)')
+      gradient.addColorStop(0.35, '#f97316')
+      gradient.addColorStop(0.72, '#facc15')
+      gradient.addColorStop(1, '#fff7ed')
+      ctx.fillStyle = gradient
+      ctx.beginPath()
+      ctx.moveTo(p.size * 1.5, 0)
+      ctx.quadraticCurveTo(p.size * 0.2, -p.size * 0.9, -p.size * 1.7, -p.size * 0.2)
+      ctx.quadraticCurveTo(-p.size * 0.7, 0, -p.size * 1.7, p.size * 0.2)
+      ctx.quadraticCurveTo(p.size * 0.2, p.size * 0.9, p.size * 1.5, 0)
+      ctx.fill()
+      ctx.fillStyle = '#fff7ed'
+      ctx.beginPath(); ctx.ellipse(p.size * 0.25, 0, p.size * 0.65, p.size * 0.32, 0, 0, Math.PI * 2); ctx.fill()
+      ctx.restore()
     }
     if (p.kind === 'boulder' || p.kind === 'snowball') {
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(Math.atan2(p.dirY, p.dirX)); ctx.fillStyle = p.color; ctx.strokeStyle = '#e7e5e4'; ctx.lineWidth = 1.5; ctx.shadowColor = p.color; ctx.shadowBlur = 8
