@@ -1271,7 +1271,7 @@ export function update(s: GameState, dt: number) {
       }
       continue
     }
-    const foundTarget = (['boulderLauncher', 'rockLauncher', 'boulderCannon', 'snowballLauncher', 'electricSyringe', 'portalGun'].includes(t.type))
+    const foundTarget = (['boulderLauncher', 'rockLauncher', 'pebblesLauncher', 'boulderCannon', 'snowballLauncher', 'electricSyringe', 'portalGun'].includes(t.type))
       ? findReversePathTarget(s, t, def.range)
       : findTarget(
           s,
@@ -2491,11 +2491,21 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
     const endY = beam.style === 'grow' ? beam.y1 + (beam.y2 - beam.y1) * progress : beam.y2
     ctx.save(); ctx.globalAlpha = beam.style === 'flame' ? 0.82 : alpha; ctx.lineCap = 'round'
     if (beam.style === 'flame') {
-      ctx.strokeStyle = '#f97316'; ctx.shadowColor = '#fb923c'; ctx.shadowBlur = 20; ctx.lineWidth = beam.width
+      const dx = endX - beam.x1, dy = endY - beam.y1
+      for (let segment = 0; segment < 10; segment++) {
+        const from = segment / 10, to = (segment + 1) / 10
+        const taper = 1 - segment * 0.075
+        ctx.strokeStyle = segment % 2 ? '#f97316' : '#fb923c'
+        ctx.shadowColor = '#fb923c'; ctx.shadowBlur = 18 * taper
+        ctx.lineWidth = beam.width * taper
+        ctx.beginPath()
+        ctx.moveTo(beam.x1 + dx * from, beam.y1 + dy * from)
+        ctx.lineTo(beam.x1 + dx * to, beam.y1 + dy * to)
+        ctx.stroke()
+      }
+      ctx.strokeStyle = '#fbbf24'; ctx.shadowBlur = 8; ctx.lineWidth = beam.width * 0.34
       ctx.beginPath(); ctx.moveTo(beam.x1, beam.y1); ctx.lineTo(endX, endY); ctx.stroke()
-      ctx.strokeStyle = '#fbbf24'; ctx.shadowBlur = 10; ctx.lineWidth = beam.width * 0.52
-      ctx.beginPath(); ctx.moveTo(beam.x1, beam.y1); ctx.lineTo(endX, endY); ctx.stroke()
-      ctx.strokeStyle = '#fff7ed'; ctx.shadowBlur = 0; ctx.lineWidth = beam.width * 0.18
+      ctx.strokeStyle = '#fff7ed'; ctx.shadowBlur = 0; ctx.lineWidth = beam.width * 0.12
       ctx.beginPath(); ctx.moveTo(beam.x1, beam.y1); ctx.lineTo(endX, endY); ctx.stroke()
     } else {
       ctx.strokeStyle = beam.color; ctx.shadowColor = beam.color; ctx.shadowBlur = beam.width * 2.5; ctx.lineWidth = beam.width
