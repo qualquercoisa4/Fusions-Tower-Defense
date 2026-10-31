@@ -1258,12 +1258,12 @@ export function update(s: GameState, dt: number) {
           }).sort((a, b) => Math.hypot(a.x - t.x, a.y - t.y) - Math.hypot(b.x - t.x, b.y - t.y))
           if (lineTargets.length) {
             t.essence = Math.max(0, t.essence - SOULSTORM_ESSENCE_REQUIRED)
-            const damagePerEnemy = baseDef.damage / lineTargets.length
+            const damagePerEnemy = def.damage / lineTargets.length
             for (const enemy of lineTargets) damageEnemy(s, enemy, damagePerEnemy, t.type, t.id)
             s.lightningFlashes.push({ points: [{ x: t.x, y: t.y }, { x: t.x + dirX * beamLength, y: t.y + dirY * beamLength }], t: 0, dur: 0.48, color: baseDef.color })
             s.explosions.push({ x: t.x, y: t.y, r: 38, t: 0, dur: 0.42, color: baseDef.color })
             t.beamTargets = lineTargets.map(enemy => enemy.id)
-            t.cooldown = 0.7
+            t.cooldown = 0.7 / overclockMultiplier
             t.recoil = 1
           }
         }
