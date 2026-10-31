@@ -1308,7 +1308,7 @@ export function update(s: GameState, dt: number) {
           kind: 'fire', x: t.x + dirX * 19, y: t.y + dirY * 19, dirX, dirY,
           traveled: 0, maxDistance: def.range, speed: def.projectileSpeed,
           damage: def.damage, damageDecay: 0.88, sizeDecay: 0.82, hitLimit: 10,
-          hitIds: [], color: def.color, size: 13, alpha: 1,
+          hitIds: [], color: def.color, size: 8, alpha: 1,
           sourceType: t.type, sourceTowerId: t.id,
         })
         t.cooldown = 1 / def.fireRate
