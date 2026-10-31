@@ -376,10 +376,10 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     description: 'Dispara quatro pedras pequenas em sequência pelo caminho. Cada pedra causa 80% do dano da Rock Launcher, perfura até 10 inimigos e perde dano e tamanho a cada impacto.',
   },
   flamethrower: {
-    name: 'Flamethrower', tier: 2, damage: 24, range: 145, fireRate: 3.8, splash: 0,
-    style: 'projectile', projectileSpeed: 245, inaccuracy: 0, cost: 0,
+    name: 'Flamethrower', tier: 2, damage: 1.2, range: 145, fireRate: 22, splash: 0,
+    style: 'projectile', projectileSpeed: 280, inaccuracy: 0, cost: 0,
     color: '#fb923c', accent: '#9a3412',
-    description: 'Lança projéteis de fogo que atravessam até 10 inimigos. A cada impacto, o fogo perde dano e tamanho; também encolhe e fica transparente enquanto viaja.',
+    description: 'Dispara uma sequência rapidíssima de pequenas chamas. Cada projétil causa pouco dano, atravessa até 10 inimigos e perde dano, tamanho e transparência ao longo do percurso.',
   },
   hyperLaser: {
     name: 'HyperLaser', tier: 2, damage: 7, range: 180, fireRate: 3.2, splash: 0,
