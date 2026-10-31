@@ -1201,7 +1201,7 @@ export function update(s: GameState, dt: number) {
       t.supportCooldown = Math.max(0, t.supportCooldown - dt)
       if (t.supportCooldown <= 0) {
         const candidates = s.towers.filter(other =>
-          other.id !== t.id && TOWERS[other.type].damage > 0 && other.type !== 'teleporter' &&
+          other.id !== t.id && TOWERS[other.type].damage > 0 &&
           Math.hypot(other.x - t.x, other.y - t.y) <= baseDef.range,
         )
         if (candidates.length) {
