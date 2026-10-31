@@ -35,6 +35,9 @@ export type TowerType =
   | 'electricSyringe'
   | 'snowballLauncher'
   | 'portalGun'
+  | 'pebblesLauncher'
+  | 'flamethrower'
+  | 'hyperLaser'
 export type EnemyType =
   | 'grunt' | 'tank' | 'runner' | 'vessel' | 'jumper' | 'healer'
   | 'bugPrince' | 'swarmBug' | 'splitter' | 'shadowBug' | 'spitter' | 'bulb' | 'bugQueen'
@@ -366,6 +369,24 @@ export const TOWERS: Record<TowerType, TowerDef> = {
   economyHouse: { name: 'Economy House', tier: 2, damage: 0, range: 118, fireRate: 1, splash: 0, style: 'support', projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#fbbf24', accent: '#78350f', description: 'Gera 80 créditos por sinal, 8 sinais por onda, e aumenta em 10% o dinheiro recebido por inimigos derrotados.' },
   commsBuilding: { name: 'Comms Building', tier: 2, damage: 0, range: 145, fireRate: 1, splash: 0, style: 'support', projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#2dd4bf', accent: '#134e4a', description: 'Concede bônus médios de 15% ao dano, alcance e velocidade de ataque das torres próximas. A cada 12 segundos, ativa Overclock em uma torre aliada aleatória no alcance por 4 segundos, dobrando sua velocidade de ataque e alcance.' },
   soulstorm: { name: 'Soulstorm', tier: 2, damage: 300, range: 170, fireRate: 1, splash: 0, style: 'beam', projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#a78bfa', accent: '#4c1d95', description: 'Acumula Essência sempre que uma torre elétrica elimina um inimigo. Ao atingir 10 eliminações, dispara um raio de alcance e perfuração infinitos que distribui 300 de dano total entre todos os inimigos alinhados.' },
+  pebblesLauncher: {
+    name: 'Pebbles Launcher', tier: 2, damage: 100, range: 170, fireRate: 0.1, splash: 0,
+    style: 'shell', projectileSpeed: 70, inaccuracy: 0, cost: 0,
+    color: '#a3a3a3', accent: '#57534e',
+    description: 'Dispara quatro pedras pequenas em sequência pelo caminho. Cada pedra causa 80% do dano da Rock Launcher, perfura até 10 inimigos e perde dano e tamanho a cada impacto.',
+  },
+  flamethrower: {
+    name: 'Flamethrower', tier: 2, damage: 6.2, range: 145, fireRate: 10.5, splash: 0,
+    style: 'beam', projectileSpeed: 0, inaccuracy: 0, cost: 0,
+    color: '#fb923c', accent: '#9a3412',
+    description: 'Lança uma corrente contínua de chamas. O fogo atravessa até 10 inimigos, diminuindo de tamanho e perdendo dano a cada alvo atingido.',
+  },
+  hyperLaser: {
+    name: 'HyperLaser', tier: 2, damage: 7, range: 180, fireRate: 1, splash: 0,
+    style: 'beam', projectileSpeed: 0, inaccuracy: 0, cost: 0,
+    color: '#d8b4fe', accent: '#6b21a8',
+    description: 'Dispara raios de plasma em intervalos aleatórios de 0,5 a 5 segundos. Cada raio cresce a partir da torre, permanece conectado a ela e atravessa todos os inimigos alinhados, causando pouco dano por alvo.',
+  },
   electricalStation: {
     name: 'Electrical Station', tier: 1, damage: 0, range: 112, fireRate: 1, splash: 0, style: 'support',
     projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#a78bfa', accent: '#4c1d95',
@@ -404,6 +425,9 @@ const FUSIONS: Record<string, TowerType> = {
   'incomeTax+incomeTax': 'economyHouse',
   'commsLanHouse+commsLanHouse': 'commsBuilding',
   'plasmaRod+tesla': 'soulstorm',
+  'rockLauncher+rockLauncher': 'pebblesLauncher',
+  'cluster+dual': 'flamethrower',
+  'plasmaBlaster+plasmaRod': 'hyperLaser',
 }
 
 export function fusionResult(a: TowerType, b: TowerType): TowerType | undefined {
@@ -440,6 +464,9 @@ export const FUSION_LIST: { a: TowerType; b: TowerType; result: TowerType }[] = 
   { a: 'incomeTax', b: 'incomeTax', result: 'economyHouse' },
   { a: 'commsLanHouse', b: 'commsLanHouse', result: 'commsBuilding' },
   { a: 'plasmaRod', b: 'tesla', result: 'soulstorm' },
+  { a: 'rockLauncher', b: 'rockLauncher', result: 'pebblesLauncher' },
+  { a: 'dual', b: 'cluster', result: 'flamethrower' },
+  { a: 'plasmaRod', b: 'plasmaBlaster', result: 'hyperLaser' },
 ]
 
 export const TOWER_ELEMENTS: Partial<Record<TowerType, ElementClass>> = {
@@ -452,6 +479,7 @@ export const TOWER_ELEMENTS: Partial<Record<TowerType, ElementClass>> = {
   rockLauncher: 'earth', slingshot: 'earth', boulderCannon: 'earth',
   portalGun: 'plasma', plasmaCannon: 'plasma', plasmaBlaster: 'plasma', plasmaRod: 'plasma', plasmaHypothermia: 'plasma',
   soulstorm: 'electricity',
+  pebblesLauncher: 'earth', flamethrower: 'fire', hyperLaser: 'plasma',
 }
 
 export interface EnemyDef {
