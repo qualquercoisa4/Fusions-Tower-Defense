@@ -77,6 +77,8 @@ export interface Tower {
   incomeWave: number
   disabledTimer: number
   supportCooldown: number
+  essence: number
+  overclockTimer: number
   burstTimer: number
   burstShotsRemaining: number
 }
@@ -346,6 +348,9 @@ export function spawnDebugEnemy(s: GameState, type: EnemyType) {
 }
 
 const INCOME_TOWERS: TowerType[] = ['incomeFarm', 'incomeTax', 'economyHouse']
+export const SOULSTORM_ESSENCE_REQUIRED = 10
+const COMMS_BUILDING_OVERCLOCK_DURATION = 4
+const COMMS_BUILDING_OVERCLOCK_INTERVAL = 12
 
 export const isBuildable = (s: GameState, col: number, row: number, type?: TowerType) => {
   const cell = `${col},${row}`
@@ -382,10 +387,18 @@ export function placeTower(s: GameState, type: TowerType, col: number, row: numb
     incomeWave: -1,
     disabledTimer: 0,
     supportCooldown: type === 'teleporter' ? 2.2 : 0,
+    essence: 0,
+    overclockTimer: 0,
     burstTimer: 0,
     burstShotsRemaining: 0,
   })
   return true
+}
+
+export function getFusionCost(a: Tower, b: Tower): number {
+  const result = fusionResult(a.type, b.type)
+  if (!result) return 0
+  return Math.ceil((a.invested + b.invested) * (TOWERS[result].tier * 1.2))
 }
 
 export function fuseTowers(s: GameState, sourceId: number, targetId: number) {
@@ -394,7 +407,7 @@ export function fuseTowers(s: GameState, sourceId: number, targetId: number) {
   if (!a || !b || a === b) return false
   const result = fusionResult(a.type, b.type)
   if (!result) return false
-  const fusionCost = Math.ceil((a.invested + b.invested) * 1.1)
+  const fusionCost = getFusionCost(a, b)
   if (s.money < fusionCost) return false
   s.money -= fusionCost
   s.towers = s.towers.filter((t) => t !== a)
@@ -566,6 +579,13 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType
       }
     }
     e.alive = false
+    if (sourceType && TOWER_ELEMENTS[sourceType] === 'electricity') {
+      for (const tower of s.towers) {
+        if (tower.type === 'soulstorm') {
+          tower.essence = Math.min(SOULSTORM_ESSENCE_REQUIRED, tower.essence + 1)
+        }
+      }
+    }
     s.money += Math.floor(ENEMIES[e.type].reward * (s.towers.some(tower => tower.type === 'economyHouse') ? 1.1 : 1))
     s.explosions.push({ x: e.x, y: e.y, r: ENEMIES[e.type].radius * 1.6, t: 0, dur: 0.35, color: ENEMIES[e.type].color })
   }
@@ -1137,6 +1157,7 @@ export function update(s: GameState, dt: number) {
   for (const t of s.towers) {
     const baseDef = TOWERS[t.type]
     t.disabledTimer = Math.max(0,t.disabledTimer-dt)
+    t.overclockTimer = Math.max(0, t.overclockTimer - dt)
     if(t.disabledTimer>0){t.beamTargets=[];continue}
     t.cooldown -= dt
     if (t.type === 'rockLauncher' && t.burstShotsRemaining > 0) {
@@ -1148,7 +1169,7 @@ export function update(s: GameState, dt: number) {
       }
       continue
     }
-    if (t.type === 'plasmaBlaster') t.recoil = Math.min(1, t.recoil + dt * baseDef.fireRate)
+    if (t.type === 'plasmaBlaster') t.recoil = Math.min(1, t.recoil + dt * baseDef.fireRate * (t.overclockTimer > 0 ? 2 : 1))
     else t.recoil = Math.max(0, t.recoil - dt * 5)
     if (t.type === 'teleporter') {
       t.supportCooldown = Math.max(0, t.supportCooldown - dt)
@@ -1176,6 +1197,24 @@ export function update(s: GameState, dt: number) {
         }
       }
     }
+    if (t.type === 'commsBuilding') {
+      t.supportCooldown = Math.max(0, t.supportCooldown - dt)
+      if (t.supportCooldown <= 0) {
+        const candidates = s.towers.filter(other =>
+          other.id !== t.id && TOWERS[other.type].damage > 0 && other.type !== 'teleporter' &&
+          Math.hypot(other.x - t.x, other.y - t.y) <= baseDef.range,
+        )
+        if (candidates.length) {
+          const chosen = candidates[Math.floor(Math.random() * candidates.length)]
+          chosen.overclockTimer = Math.max(chosen.overclockTimer, COMMS_BUILDING_OVERCLOCK_DURATION)
+          s.explosions.push({ x: chosen.x, y: chosen.y, r: 30, t: 0, dur: 0.45, color: '#facc15' })
+          t.supportCooldown = COMMS_BUILDING_OVERCLOCK_INTERVAL
+        } else {
+          t.supportCooldown = 1
+        }
+      }
+      continue
+    }
     if (t.type === 'incomeFarm' || t.type === 'incomeTax' || t.type === 'economyHouse') {
       if (s.waveActive && FARM_CELLS.has(`${t.col},${t.row}`) && t.incomeWave === s.wave && t.incomeSignalsLeft > 0 && t.cooldown <= 0) {
         const baseIncome = t.type === 'incomeFarm' ? 30 : t.type === 'incomeTax' ? 70 : 80
@@ -1187,17 +1226,50 @@ export function update(s: GameState, dt: number) {
       }
       continue
     }
-    if (t.type === 'buffer' || t.type === 'commsLanHouse' || t.type === 'electricalStation' || t.type === 'economyHouse') continue
+    if (t.type === 'buffer' || t.type === 'commsLanHouse' || t.type === 'commsBuilding' || t.type === 'electricalStation' || t.type === 'economyHouse') continue
     const buffSources = s.towers.filter(other => {
       const dist = Math.hypot(other.x-t.x,other.y-t.y)
       return dist <= TOWERS[other.type].range &&
-        ((other.type === 'buffer') || (other.type === 'commsLanHouse') || (other.type === 'electricalStation'))
+        ((other.type === 'buffer') || (other.type === 'commsLanHouse') || (other.type === 'commsBuilding') || (other.type === 'electricalStation'))
     })
     const hasComms = buffSources.some(other => other.type === 'commsLanHouse')
+    const hasCommsBuilding = buffSources.some(other => other.type === 'commsBuilding')
     const hasBuffer = buffSources.some(other => other.type === 'buffer')
     const hasStation = buffSources.some(other => other.type === 'electricalStation')
-    const buff = hasComms ? 1.2 : hasBuffer ? 1.1 : hasStation ? 1.05 : 1
-    const def = {...baseDef, damage:baseDef.damage*buff, range:baseDef.range*(1+(hasComms ? 0.1 : hasBuffer ? 0.06 : hasStation ? 0.03 : 0)), fireRate:baseDef.fireRate*buff, projectileSpeed:baseDef.projectileSpeed*buff, splash:baseDef.splash*(1+(hasComms ? 0.1 : hasBuffer ? 0.06 : hasStation ? 0.03 : 0))}
+    const buff = hasComms ? 1.2 : hasCommsBuilding ? 1.15 : hasBuffer ? 1.1 : hasStation ? 1.05 : 1
+    const rangeBuff = hasComms ? 1.1 : hasCommsBuilding ? 1.15 : hasBuffer ? 1.06 : hasStation ? 1.03 : 1
+    const overclockMultiplier = t.overclockTimer > 0 ? 2 : 1
+    const def = {...baseDef, damage:baseDef.damage*buff, range:baseDef.range*rangeBuff*overclockMultiplier, fireRate:baseDef.fireRate*buff*overclockMultiplier, projectileSpeed:baseDef.projectileSpeed*buff, splash:baseDef.splash*rangeBuff}
+    if (t.type === 'soulstorm') {
+      t.beamTargets = []
+      if (t.essence >= SOULSTORM_ESSENCE_REQUIRED && t.cooldown <= 0) {
+        const target = findTarget(s, t, Infinity, t.targetMode, enemy => canTowerTargetEnemy(enemy, t.type))
+        if (target) {
+          t.angle = Math.atan2(target.y - t.y, target.x - t.x)
+          const dirX = Math.cos(t.angle), dirY = Math.sin(t.angle)
+          const beamLength = Math.hypot(WIDTH, HEIGHT) * 2
+          const hitWidth = 12
+          const lineTargets = s.enemies.filter(enemy => {
+            if (!enemy.alive || !canTowerTargetEnemy(enemy, t.type)) return false
+            const dx = enemy.x - t.x, dy = enemy.y - t.y
+            const along = dx * dirX + dy * dirY
+            const across = Math.abs(dx * dirY - dy * dirX)
+            return along > 0 && along <= beamLength && across <= hitWidth
+          }).sort((a, b) => Math.hypot(a.x - t.x, a.y - t.y) - Math.hypot(b.x - t.x, b.y - t.y))
+          if (lineTargets.length) {
+            t.essence = Math.max(0, t.essence - SOULSTORM_ESSENCE_REQUIRED)
+            const damagePerEnemy = baseDef.damage / lineTargets.length
+            for (const enemy of lineTargets) damageEnemy(s, enemy, damagePerEnemy, t.type, t.id)
+            s.lightningFlashes.push({ points: [{ x: t.x, y: t.y }, { x: t.x + dirX * beamLength, y: t.y + dirY * beamLength }], t: 0, dur: 0.48, color: baseDef.color })
+            s.explosions.push({ x: t.x, y: t.y, r: 38, t: 0, dur: 0.42, color: baseDef.color })
+            t.beamTargets = lineTargets.map(enemy => enemy.id)
+            t.cooldown = 0.7
+            t.recoil = 1
+          }
+        }
+      }
+      continue
+    }
     const foundTarget = (['boulderLauncher', 'rockLauncher', 'boulderCannon', 'snowballLauncher', 'electricSyringe', 'portalGun'].includes(t.type))
       ? findReversePathTarget(s, t, def.range)
       : findTarget(
@@ -1890,18 +1962,33 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
     ctx.restore()
     return
   }
-  if (['buffer','commsLanHouse','electricalStation'].includes(type)) {
-    ctx.strokeStyle = def.color
-    ctx.lineWidth = 3
-    ctx.beginPath()
-    ctx.arc(0, 0, type === 'commsLanHouse' ? 13 : 10, 0, Math.PI * 2)
-    ctx.stroke()
-    ctx.beginPath()
-    ctx.moveTo(-7, 0)
-    ctx.lineTo(7, 0)
-    ctx.moveTo(0, -7)
-    ctx.lineTo(0, 7)
-    ctx.stroke()
+  if (['buffer','commsLanHouse','commsBuilding','electricalStation'].includes(type)) {
+    if (type === 'commsBuilding') {
+      ctx.fillStyle = def.accent
+      ctx.fillRect(-13, -12, 26, 24)
+      ctx.strokeStyle = def.color
+      ctx.lineWidth = 2.5
+      ctx.strokeRect(-13, -12, 26, 24)
+      ctx.beginPath()
+      ctx.moveTo(-8, -12); ctx.lineTo(-8, -18)
+      ctx.moveTo(0, -12); ctx.lineTo(0, -21)
+      ctx.moveTo(8, -12); ctx.lineTo(8, -18)
+      ctx.stroke()
+      ctx.fillStyle = '#ccfbf1'
+      ctx.fillRect(-7, -5, 14, 10)
+    } else {
+      ctx.strokeStyle = def.color
+      ctx.lineWidth = 3
+      ctx.beginPath()
+      ctx.arc(0, 0, type === 'commsLanHouse' ? 13 : 10, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.moveTo(-7, 0)
+      ctx.lineTo(7, 0)
+      ctx.moveTo(0, -7)
+      ctx.lineTo(0, 7)
+      ctx.stroke()
+    }
     ctx.restore()
     return
   }
@@ -1957,6 +2044,21 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
     ctx.strokeStyle = def.color; ctx.lineWidth = 5; ctx.lineCap = 'round'
     for (const a of [Math.PI / 4, Math.PI * 1.25]) { ctx.beginPath(); ctx.moveTo(Math.cos(a) * 5, Math.sin(a) * 5); ctx.lineTo(Math.cos(a) * 19, Math.sin(a) * 19); ctx.stroke() }
     ctx.fillStyle = '#f5eaff'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill(); ctx.restore(); return
+  }
+  if (type === 'soulstorm') {
+    ctx.shadowColor = def.color
+    ctx.shadowBlur = 16 + recoil * 10
+    ctx.strokeStyle = def.color
+    ctx.lineWidth = 3
+    ctx.beginPath(); ctx.arc(0, 0, 13 + recoil * 2, 0, Math.PI * 2); ctx.stroke()
+    ctx.fillStyle = def.accent
+    ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill()
+    ctx.strokeStyle = '#f5f3ff'
+    ctx.lineWidth = 2.4
+    for (const sign of [-1, 1]) {
+      ctx.beginPath(); ctx.moveTo(-7, sign * 8); ctx.lineTo(-2, sign * 2); ctx.lineTo(2, sign * 5); ctx.lineTo(8, -sign * 7); ctx.stroke()
+    }
+    ctx.restore(); return
   }
   if (type === 'plasmaBlaster' || type === 'plasmaRod') {
     ctx.rotate(angle); ctx.fillStyle = def.accent; ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.fill()
@@ -2247,7 +2349,25 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 
   for (const t of s.towers) {
+    if (t.overclockTimer > 0) {
+      ctx.save()
+      ctx.strokeStyle = '#facc15'
+      ctx.lineWidth = 2
+      ctx.shadowColor = '#facc15'
+      ctx.shadowBlur = 10
+      ctx.beginPath()
+      ctx.arc(t.x, t.y, 25 + Math.sin(s.time * 12) * 2, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.restore()
+    }
     drawTower(ctx, t.type, t.x, t.y, t.angle, t.recoil)
+    if (t.type === 'soulstorm') {
+      const barWidth = 34
+      ctx.fillStyle = 'rgba(15,23,42,0.95)'
+      ctx.fillRect(t.x - barWidth / 2, t.y + 23, barWidth, 4)
+      ctx.fillStyle = '#c084fc'
+      ctx.fillRect(t.x - barWidth / 2, t.y + 23, barWidth * (t.essence / SOULSTORM_ESSENCE_REQUIRED), 4)
+    }
     if (selected && t.id === selected.id) {
       ctx.strokeStyle = '#e0f2fe'
       ctx.lineWidth = 2
