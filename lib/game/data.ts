@@ -21,6 +21,8 @@ export type TowerType =
   | 'cryoMortar'
   | 'tripleShooter'
   | 'economyHouse'
+  | 'commsBuilding'
+  | 'soulstorm'
   | 'teleporter'
   | 'boulderLauncher'
   | 'rockLauncher'
@@ -362,6 +364,8 @@ export const TOWERS: Record<TowerType, TowerDef> = {
   cryoMortar: { name: 'Cryogenic Mortar', tier: 2, damage: 38, range: 190, fireRate: 0.32, splash: 58, style: 'mortar', projectileSpeed: 0, inaccuracy: 22, cost: 0, color: '#67e8f9', accent: '#164e63', description: 'Lança uma bomba de gelo que congela por 0,5 s e se divide em 8 estilhaços perfurantes em todas as direções.' },
   tripleShooter: { name: 'Triple Shooter', tier: 2, damage: 10, range: 130, fireRate: 3.45, splash: 0, style: 'bullet', projectileSpeed: 480, inaccuracy: 0, cost: 0, color: '#38bdf8', accent: '#075985', description: 'Dispara 3 balas por salva, 2,3 vezes mais rápido que o Shooter.' },
   economyHouse: { name: 'Economy House', tier: 2, damage: 0, range: 118, fireRate: 1, splash: 0, style: 'support', projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#fbbf24', accent: '#78350f', description: 'Gera 80 créditos por sinal, 8 sinais por onda, e aumenta em 10% o dinheiro recebido por inimigos derrotados.' },
+  commsBuilding: { name: 'Comms Building', tier: 2, damage: 0, range: 145, fireRate: 1, splash: 0, style: 'support', projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#2dd4bf', accent: '#134e4a', description: 'Concede bônus médios de 15% ao dano, alcance e velocidade de ataque das torres próximas. A cada 12 segundos, ativa Overclock em uma torre aliada aleatória no alcance por 4 segundos, dobrando sua velocidade de ataque e alcance.' },
+  soulstorm: { name: 'Soulstorm', tier: 2, damage: 300, range: 170, fireRate: 1, splash: 0, style: 'beam', projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#a78bfa', accent: '#4c1d95', description: 'Acumula Essência sempre que uma torre elétrica elimina um inimigo. Ao atingir 10 eliminações, dispara um raio de alcance e perfuração infinitos que distribui 300 de dano total entre todos os inimigos alinhados.' },
   electricalStation: {
     name: 'Electrical Station', tier: 1, damage: 0, range: 112, fireRate: 1, splash: 0, style: 'support',
     projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#a78bfa', accent: '#4c1d95',
@@ -398,6 +402,8 @@ const FUSIONS: Record<string, TowerType> = {
   'icicles+mortar': 'cryoMortar',
   'dual+dual': 'tripleShooter',
   'incomeTax+incomeTax': 'economyHouse',
+  'commsLanHouse+commsLanHouse': 'commsBuilding',
+  'plasmaRod+tesla': 'soulstorm',
 }
 
 export function fusionResult(a: TowerType, b: TowerType): TowerType | undefined {
@@ -432,6 +438,8 @@ export const FUSION_LIST: { a: TowerType; b: TowerType; result: TowerType }[] = 
   { a: 'mortar', b: 'icicles', result: 'cryoMortar' },
   { a: 'dual', b: 'dual', result: 'tripleShooter' },
   { a: 'incomeTax', b: 'incomeTax', result: 'economyHouse' },
+  { a: 'commsLanHouse', b: 'commsLanHouse', result: 'commsBuilding' },
+  { a: 'plasmaRod', b: 'tesla', result: 'soulstorm' },
 ]
 
 export const TOWER_ELEMENTS: Partial<Record<TowerType, ElementClass>> = {
@@ -443,6 +451,7 @@ export const TOWER_ELEMENTS: Partial<Record<TowerType, ElementClass>> = {
   icicles: 'ice', snowballer: 'ice', snowballLauncher: 'ice', thunderstorm: 'electricity', ice: 'ice', cryoMortar: 'ice',
   rockLauncher: 'earth', slingshot: 'earth', boulderCannon: 'earth',
   portalGun: 'plasma', plasmaCannon: 'plasma', plasmaBlaster: 'plasma', plasmaRod: 'plasma', plasmaHypothermia: 'plasma',
+  soulstorm: 'electricity',
 }
 
 export interface EnemyDef {
