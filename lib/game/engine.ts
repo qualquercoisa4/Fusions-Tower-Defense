@@ -2324,7 +2324,7 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
   }
   if(type==='teleporter'||type==='mimic'){
     ctx.rotate(angle);ctx.shadowColor=def.color;ctx.shadowBlur=16;ctx.strokeStyle=def.color;ctx.lineWidth=3
-    for(let i=0;i<3;i++){ctx.beginPath();ctx.ellipse(0,0,14-i*3,9+i*2,s.time?0:0.35+i*.5,0,Math.PI*2);ctx.stroke()}
+    for(let i=0;i<3;i++){ctx.beginPath();ctx.ellipse(0,0,14-i*3,9+i*2,0.35+i*.5,0,Math.PI*2);ctx.stroke()}
     ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,type==='mimic'?6:4.5+recoil,0,Math.PI*2);ctx.fill()
     if(type==='mimic'){ctx.strokeStyle='#f5d0fe';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-13,-13);ctx.lineTo(-7,-7);ctx.moveTo(13,13);ctx.lineTo(7,7);ctx.stroke()}
     ctx.restore();return
