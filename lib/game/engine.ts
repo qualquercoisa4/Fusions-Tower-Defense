@@ -227,6 +227,7 @@ type Projectile = (
       splash: number
       cluster: boolean
       cryo?: boolean
+      glacial?: boolean
       cascadeDepth?: number
       color: string
       size: number
@@ -408,11 +409,16 @@ export const towerAt = (s: GameState, col: number, row: number) =>
 
 
 export function getTowerMaxHp(type: TowerType) {
-  return 120 + TOWERS[type].tier * 100
+  return type === 'commsCenter' ? 12000 : 120 + TOWERS[type].tier * 100
 }
 
 export function damageTower(s: GameState, tower: Tower, amount: number, color = '#fb7185') {
   if (!s.towers.some(item => item.id === tower.id)) return
+  if (tower.type !== 'commsCenter') {
+    const protector = s.towers.find(other => other.type === 'commsCenter' && other.hp > 0 && Math.hypot(other.x - tower.x, other.y - tower.y) <= TOWERS.commsCenter.range)
+    if (protector) damageTower(s, protector, amount * 0.375, '#2dd4bf')
+    amount *= protector ? 0.25 : 1
+  }
   tower.hp = Math.max(0, tower.hp - amount)
   s.explosions.push({ x: tower.x, y: tower.y, r: 18 + amount * 0.12, t: 0, dur: 0.32, color })
   if (tower.hp <= 0) {
@@ -461,7 +467,7 @@ export function placeTower(s: GameState, type: TowerType, col: number, row: numb
     incomeSignalsLeft: 0,
     incomeWave: -1,
     disabledTimer: 0,
-    supportCooldown: type === 'teleporter' ? 2.2 : 0,
+    supportCooldown: type === 'teleporter' ? 2.2 : type === 'meteorShower' ? 10 : 0,
     essence: 0,
     overclockTimer: 0,
     burstTimer: 0,
@@ -552,13 +558,13 @@ function isElementImmuneToTower(enemyType: EnemyType, towerType?: TowerType) {
   return !!element && !!ENEMIES[enemyType].immunities?.includes(element)
 }
 
-function canTowerTargetEnemy(enemy: Enemy, towerType: TowerType) {
+function canTowerTargetEnemy(enemy: Enemy, towerType: TowerType, ignoreImmunity = false) {
   if (enemy.burrowTimer > 0) return false
   if (towerType === 'portalGun' && enemy.type === 'flyBug') return false
   const element = TOWER_ELEMENTS[towerType]
   if (enemy.type === 'ironBug' && element === 'normal') return true
   if (enemy.type === 'rubberBug' && element === 'electricity') return true
-  return !isElementImmuneToTower(enemy.type, towerType)
+  return ignoreImmunity || !isElementImmuneToTower(enemy.type, towerType)
 }
 
 function projectilePassesGhost(p: Projectile, enemy: Enemy) {
@@ -591,10 +597,12 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType
     }
     return
   }
-  if (isElementImmuneToTower(e.type, sourceType)) return
+  const sourceTower = sourceTowerId !== undefined ? s.towers.find(item => item.id === sourceTowerId) : undefined
+  const protectedByComms = !!sourceTower && s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && Math.hypot(other.x - sourceTower.x, other.y - sourceTower.y) <= TOWERS.commsCenter.range)
+  if (isElementImmuneToTower(e.type, sourceType) && !protectedByComms) return
   if(e.queenArmor)dmg*=0.75
   if (element && ENEMIES[e.type].weaknesses?.includes(element)) dmg *= 1.5
-  else if (element && ENEMIES[e.type].resistances?.includes(element)) dmg *= 0.5
+  else if (element && ENEMIES[e.type].resistances?.includes(element) && !protectedByComms) dmg *= 0.5
   if(e.type==='jumper'&&e.airborneTimer>0&&sourceType&&['shooter','cannon','retarder'].includes(sourceType))return
   const previousHp=e.hp
   if (e.type === 'dirtBug' && e.segmentHp) {
@@ -816,6 +824,18 @@ function launchPathBoulder(s: GameState, t: Tower, def = TOWERS[t.type]) {
 function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
   t.recoil = 1
 
+  if (t.type === 'gatlingGun') {
+    const angle = Math.atan2(target.y - t.y, target.x - t.x)
+    for (const offset of [-0.025, 0.025]) {
+      const dirX = Math.cos(angle + offset), dirY = Math.sin(angle + offset)
+      s.projectiles.push({ kind: 'direct', x: t.x + dirX * 17, y: t.y + dirY * 17, tx: target.x, ty: target.y, targetId: target.id, speed: def.projectileSpeed, damage: def.damage, splash: 0, color: def.color, size: 3.5, sourceType: t.type, sourceTowerId: t.id })
+    }
+    return
+  }
+  if (t.type === 'glacialCataclysm') {
+    s.projectiles.push({ kind: 'arc', sx: t.x, sy: t.y, tx: target.x, ty: target.y, t: 0, duration: 1.15, height: 115, damage: def.damage, splash: def.splash, cluster: false, glacial: true, color: def.color, size: 13, sourceType: t.type, sourceTowerId: t.id })
+    return
+  }
   if (t.type === 'cannonadeBomber') {
     s.projectiles.push({ kind: 'arc', sx: t.x, sy: t.y, tx: target.x, ty: target.y, t: 0, duration: 1.05, height: 100, damage: def.damage, splash: def.splash, cluster: true, cascadeDepth: 2, color: def.color, size: 10, sourceType: t.type, sourceTowerId: t.id })
     return
@@ -1303,6 +1323,18 @@ export function update(s: GameState, dt: number) {
         }
       }
     }
+    if (t.type === 'meteorShower') {
+      t.supportCooldown = Math.max(0, t.supportCooldown - dt)
+      if (t.supportCooldown <= 0) {
+        const total = REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1]
+        for (let distance = 0; distance <= total; distance += CELL * 3) {
+          const point = pointOnPath(distance)
+          s.projectiles.push({ kind: 'arc', sx: point.x, sy: point.y - 150, tx: point.x, ty: point.y, t: 0, duration: 0.7, height: 0, damage: baseDef.damage, splash: baseDef.splash, cluster: false, color: baseDef.color, size: 9, sourceType: t.type, sourceTowerId: t.id })
+        }
+        t.supportCooldown = 10
+      }
+      continue
+    }
     if (t.type === 'commsBuilding') {
       t.supportCooldown = Math.max(0, t.supportCooldown - dt)
       if (t.supportCooldown <= 0) {
@@ -1332,14 +1364,14 @@ export function update(s: GameState, dt: number) {
       }
       continue
     }
-    if (t.type === 'buffer' || t.type === 'commsLanHouse' || t.type === 'commsBuilding' || t.type === 'electricalStation' || t.type === 'economyHouse') continue
+    if (t.type === 'buffer' || t.type === 'commsLanHouse' || t.type === 'commsBuilding' || t.type === 'commsCenter' || t.type === 'meteorShower' || t.type === 'electricalStation' || t.type === 'economyHouse') continue
     const buffSources = s.towers.filter(other => {
       const dist = Math.hypot(other.x-t.x,other.y-t.y)
       return dist <= TOWERS[other.type].range &&
-        ((other.type === 'buffer') || (other.type === 'commsLanHouse') || (other.type === 'commsBuilding') || (other.type === 'electricalStation'))
+        ((other.type === 'buffer') || (other.type === 'commsLanHouse') || (other.type === 'commsBuilding') || (other.type === 'commsCenter') || (other.type === 'electricalStation'))
     })
     const hasComms = buffSources.some(other => other.type === 'commsLanHouse')
-    const hasCommsBuilding = buffSources.some(other => other.type === 'commsBuilding')
+    const hasCommsBuilding = buffSources.some(other => other.type === 'commsBuilding' || other.type === 'commsCenter')
     const hasBuffer = buffSources.some(other => other.type === 'buffer')
     const hasStation = buffSources.some(other => other.type === 'electricalStation')
     const buff = hasComms ? 1.2 : hasCommsBuilding ? 1.15 : hasBuffer ? 1.1 : hasStation ? 1.05 : 1
@@ -2065,6 +2097,8 @@ export function update(s: GameState, dt: number) {
   if (s.waveActive && !s.spawnQueue.length && !s.enemies.length) {
     s.waveActive = false
     s.money += 20 + s.wave * 5
+    const commsCenters = s.towers.filter(tower => tower.type === 'commsCenter')
+    for (const center of commsCenters) center.hp = Math.min(center.maxHp, center.hp + center.maxHp * 0.2)
     const buffers = s.towers.filter(tower => tower.type === 'buffer')
     for (const tower of s.towers) {
       if (tower.hp >= tower.maxHp) continue
