@@ -38,6 +38,10 @@ export type TowerType =
   | 'pebblesLauncher'
   | 'flamethrower'
   | 'hyperLaser'
+  | 'cannonadeBomber'
+  | 'splitHeel'
+  | 'singularity'
+  | 'mimic'
 export type EnemyType =
   | 'grunt' | 'tank' | 'runner' | 'vessel' | 'jumper' | 'healer'
   | 'bugPrince' | 'swarmBug' | 'splitter' | 'shadowBug' | 'spitter' | 'bulb' | 'bugQueen'
@@ -393,6 +397,10 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#a78bfa', accent: '#4c1d95',
     description: 'Aumenta em 50% a renda das torres de renda próximas e concede um pequeno bônus de combate. Buffs não acumulam.',
   },
+  cannonadeBomber: { name: 'Cannonade Bomber', tier: 2, damage: 58, range: 170, fireRate: 0.18, splash: 42, style: 'mortar', projectileSpeed: 0, inaccuracy: 18, cost: 0, color: '#fb7185', accent: '#881337', description: 'Lança uma bomba que se divide em 4 bombas em todas as direções. Cada uma dessas bombas também se divide em outras 4.' },
+  splitHeel: { name: 'Split Heel', tier: 2, damage: 46, range: 175, fireRate: 0.3, splash: 38, style: 'shell', projectileSpeed: 330, inaccuracy: 0, cost: 0, color: '#f97316', accent: '#7c2d12', description: 'Lança uma pedra que quica nas bordas do mapa 3 vezes. Ao terminar os quiques, divide-se em 4 pedras explosivas que detonam no primeiro inimigo atingido.' },
+  singularity: { name: 'Singularity', tier: 2, damage: 380, range: 180, fireRate: 0.12, splash: 90, style: 'energy', projectileSpeed: 220, inaccuracy: 0, cost: 0, color: '#a78bfa', accent: '#312e81', description: 'Lança um buraco negro na pista que suga até 10 inimigos. Depois explode, distribuindo 380 de dano entre os inimigos capturados.' },
+  mimic: { name: 'Mimic', tier: 2, damage: 32, range: 165, fireRate: 0.5, splash: 30, style: 'energy', projectileSpeed: 300, inaccuracy: 0, cost: 0, color: '#d8b4fe', accent: '#581c87', description: 'A cada 2 segundos, combina aleatoriamente o ataque de uma torre com o efeito de outra, criando projéteis híbridos.' },
 }
 
 export const BUILDABLE: TowerType[] = ['shooter', 'cannon', 'lightning', 'retarder', 'incomeFarm', 'buffer', 'teleporter', 'boulderLauncher']
@@ -429,6 +437,10 @@ const FUSIONS: Record<string, TowerType> = {
   'rockLauncher+rockLauncher': 'pebblesLauncher',
   'cluster+dual': 'flamethrower',
   'plasmaBlaster+plasmaRod': 'hyperLaser',
+  'cluster+cluster': 'cannonadeBomber',
+  'cluster+slingshot': 'splitHeel',
+  'plasmaCannon+portalGun': 'singularity',
+  'teleporter+teleporter': 'mimic',
 }
 
 export function fusionResult(a: TowerType, b: TowerType): TowerType | undefined {
@@ -468,6 +480,10 @@ export const FUSION_LIST: { a: TowerType; b: TowerType; result: TowerType }[] = 
   { a: 'rockLauncher', b: 'rockLauncher', result: 'pebblesLauncher' },
   { a: 'dual', b: 'cluster', result: 'flamethrower' },
   { a: 'plasmaRod', b: 'plasmaBlaster', result: 'hyperLaser' },
+  { a: 'cluster', b: 'cluster', result: 'cannonadeBomber' },
+  { a: 'cluster', b: 'slingshot', result: 'splitHeel' },
+  { a: 'plasmaCannon', b: 'portalGun', result: 'singularity' },
+  { a: 'teleporter', b: 'teleporter', result: 'mimic' },
 ]
 
 export const TOWER_ELEMENTS: Partial<Record<TowerType, ElementClass>> = {
@@ -481,6 +497,7 @@ export const TOWER_ELEMENTS: Partial<Record<TowerType, ElementClass>> = {
   portalGun: 'plasma', plasmaCannon: 'plasma', plasmaBlaster: 'plasma', plasmaRod: 'plasma', plasmaHypothermia: 'plasma',
   soulstorm: 'electricity',
   pebblesLauncher: 'earth', flamethrower: 'fire', hyperLaser: 'plasma',
+  cannonadeBomber: 'fire', splitHeel: 'fire', singularity: 'plasma', mimic: 'plasma',
 }
 
 export interface EnemyDef {
