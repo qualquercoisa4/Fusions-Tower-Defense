@@ -300,8 +300,8 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
               {debugTowerType && <div className="flex items-center gap-2"><SpriteIcon tower={debugTowerType} label={TOWERS[debugTowerType].name} /><span className="min-w-0 flex-1 text-xs text-amber-200">Toque no mapa para posicionar grátis</span><button onClick={() => setDebugTowerType('')} className="rounded border border-slate-600 px-2 py-1 text-xs">Cancelar</button></div>}
             </section>
           )}
-          <section className="rounded-lg border border-sky-500/20 bg-[#0a1226] p-3 lg:col-start-1 lg:row-start-1">
-            <h2 className="mb-2 font-display text-xs tracking-widest text-sky-300/80">CONSTRUIR</h2>
+          <section className="rounded-lg border border-rose-500/30 bg-[#0a1226] p-3 lg:col-start-1 lg:row-start-1">
+            <h2 className="mb-2 font-display text-xs tracking-widest text-rose-300">CONSTRUIR</h2>
             <div className="grid grid-cols-2 gap-2">
               {BUILDABLE.map((type, i) => {
                 const def = TOWERS[type]
@@ -313,7 +313,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
                     disabled={s.money < def.cost && !active}
                     aria-pressed={active}
                     className={`flex flex-col items-center gap-1 rounded-md border p-2 text-sm transition-colors disabled:opacity-40 ${
-                      active ? 'border-sky-300 bg-sky-500/15' : 'border-slate-700 hover:border-sky-500/50'
+                      active ? 'border-rose-300 bg-rose-500/15' : 'border-slate-700 hover:border-rose-500/50'
                     }`}
                   >
                     <SpriteIcon tower={type} label={def.name} />
@@ -361,7 +361,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
           </section>
 
           <section className="rounded-lg border border-emerald-500/25 bg-[#0a1226] p-3 min-h-40 lg:col-start-3 lg:row-start-1 lg:row-span-3">
-            <h2 className="mb-2 font-display text-xs tracking-widest text-sky-300/80">TORRE SELECIONADA</h2>
+            <h2 className="mb-2 font-display text-xs tracking-widest text-emerald-300">TORRE SELECIONADA</h2>
             {selected && selDef ? (
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-3">
