@@ -226,8 +226,8 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
     : []
 
   return (
-    <main className="min-h-dvh bg-[#050914] text-slate-100 font-sans flex flex-col">
-      <header className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-sky-500/20 bg-[#0a1226]">
+    <main className="h-dvh overflow-hidden bg-[#050914] text-slate-100 font-sans flex flex-col">
+      <header className="flex h-[58px] shrink-0 flex-wrap items-center gap-3 border-b border-sky-500/20 bg-[#0a1226] px-4 py-2">
         <button
           onClick={onExit}
           className="flex items-center gap-2 rounded-md border border-sky-500/30 px-3 py-1.5 text-sm hover:bg-sky-500/10"
@@ -244,15 +244,15 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
         </div>
       </header>
 
-      <div className="grid min-h-[calc(100dvh-58px)] flex-1 grid-cols-1 content-start gap-3 p-3 lg:grid-cols-[minmax(220px,260px)_minmax(0,1fr)_minmax(260px,300px)] lg:grid-rows-[auto_auto_auto] lg:items-start">
-        <div className="relative min-w-0 flex items-start justify-center lg:col-start-2 lg:row-start-1">
-          <div className="relative w-full max-w-none">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 overflow-hidden p-2 lg:grid-cols-[220px_minmax(0,1fr)_270px] lg:grid-rows-[minmax(0,1fr)_auto]">
+        <div className="relative flex min-h-0 min-w-0 items-center justify-center lg:col-start-2 lg:row-start-1">
+          <div className="relative flex h-full min-h-0 w-full items-center justify-center">
             <canvas
               ref={canvasRef}
               onPointerDown={handleClick}
               onPointerMove={handleMove}
               onPointerLeave={() => (game.current.hover = null)}
-              className="w-full h-auto rounded-lg border border-sky-500/30 shadow-[0_0_40px_rgba(56,189,248,0.15)] touch-none cursor-crosshair"
+              className="h-auto max-h-full w-full max-w-full rounded-lg border border-sky-500/30 object-contain shadow-[0_0_40px_rgba(56,189,248,0.15)] touch-none cursor-crosshair"
               style={{ aspectRatio: `${WIDTH} / ${HEIGHT}` }}
               aria-label="Campo de batalha"
             />
@@ -286,7 +286,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
               <h2 className="mb-2 flex items-center gap-2 font-display text-xs tracking-widest text-amber-300"><Bug className="size-4" aria-hidden /> MODO DEBUG</h2>
               <p className="mb-3 text-[11px] leading-relaxed text-slate-400">Crie qualquer torre sem gastar créditos ou invoque insetos instantaneamente. Para colocar uma torre, escolha-a e toque em uma casa livre do mapa.</p>
               <label className="mb-1 block text-xs text-slate-300" htmlFor="debug-enemy">Spawnar inseto</label>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5">
                 <select id="debug-enemy" value={debugEnemyType} onChange={(event) => setDebugEnemyType(event.target.value as EnemyType)} className="min-w-0 flex-1 rounded-md border border-slate-600 bg-[#071020] px-2 py-2 text-sm">
                   {(Object.keys(ENEMIES) as EnemyType[]).map((type) => <option key={type} value={type}>{ENEMIES[type].name}</option>)}
                 </select>
@@ -300,9 +300,9 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
               {debugTowerType && <div className="flex items-center gap-2"><SpriteIcon tower={debugTowerType} label={TOWERS[debugTowerType].name} /><span className="min-w-0 flex-1 text-xs text-amber-200">Toque no mapa para posicionar grátis</span><button onClick={() => setDebugTowerType('')} className="rounded border border-slate-600 px-2 py-1 text-xs">Cancelar</button></div>}
             </section>
           )}
-          <section className="rounded-lg border border-rose-500/30 bg-[#0a1226] p-3 lg:col-start-1 lg:row-start-1">
-            <h2 className="mb-2 font-display text-xs tracking-widest text-rose-300">CONSTRUIR</h2>
-            <div className="grid grid-cols-2 gap-2">
+          <section className="min-h-0 overflow-hidden rounded-lg border border-rose-500/30 bg-[#0a1226] p-2 lg:col-start-1 lg:row-start-1 lg:row-span-2">
+            <h2 className="mb-1 font-display text-xs tracking-widest text-rose-300">CONSTRUIR</h2>
+            <div className="grid grid-cols-2 gap-1.5">
               {BUILDABLE.map((type, i) => {
                 const def = TOWERS[type]
                 const active = s.buildType === type
@@ -312,7 +312,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
                     onClick={() => selectBuild(type)}
                     disabled={s.money < def.cost && !active}
                     aria-pressed={active}
-                    className={`flex flex-col items-center gap-1 rounded-md border p-2 text-sm transition-colors disabled:opacity-40 ${
+                    className={`flex min-h-0 flex-col items-center gap-0.5 rounded-md border p-1.5 text-xs transition-colors disabled:opacity-40 ${
                       active ? 'border-rose-300 bg-rose-500/15' : 'border-slate-700 hover:border-rose-500/50'
                     }`}
                   >
@@ -335,35 +335,10 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
             </div>
           </section>
 
-          <section className="rounded-lg border border-violet-500/20 bg-[#0a1226] p-3 lg:col-start-1 lg:row-start-2">
-            <h2 className="mb-2 font-display text-xs tracking-widest text-violet-300/90">FUSÕES TIER 2</h2>
-            <div className="flex flex-col gap-2">
-              {([
-                { result: 'cryoMortar', recipe: 'Mortar + Icicles' },
-                { result: 'tripleShooter', recipe: 'Dual Shooter + Dual Shooter' },
-                { result: 'economyHouse', recipe: 'Income Tax + Income Tax' },
-                { result: 'commsBuilding', recipe: 'Comms Lan House + Comms Lan House' },
-                { result: 'soulstorm', recipe: 'Plasma Rod + Tesla Rod' },
-                { result: 'pebblesLauncher', recipe: 'Rock Launcher + Rock Launcher' },
-                { result: 'flamethrower', recipe: 'Dual Shooter + Cluster Cannon' },
-                { result: 'hyperLaser', recipe: 'Plasma Rod + Plasma Blaster' },
-              ] as const).map(({ result, recipe }) => (
-                <div key={result} className="flex items-center gap-2 rounded-md border border-slate-700/80 bg-slate-900/50 p-2">
-                  <SpriteIcon tower={result} label={TOWERS[result].name} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2"><p className="text-sm font-medium text-slate-100">{TOWERS[result].name}</p><TowerElementIcons type={result} /></div>
-                    <p className="text-[11px] leading-snug text-slate-400">{recipe}</p>
-                  </div>
-                  <span className="text-[10px] text-violet-300">T2</span>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-emerald-500/25 bg-[#0a1226] p-3 min-h-40 lg:col-start-3 lg:row-start-1 lg:row-span-3">
-            <h2 className="mb-2 font-display text-xs tracking-widest text-emerald-300">TORRE SELECIONADA</h2>
+          <section className="min-h-0 overflow-hidden rounded-lg border border-emerald-500/25 bg-[#0a1226] p-2 lg:col-start-3 lg:row-start-1 lg:row-span-2">
+            <h2 className="mb-1 font-display text-xs tracking-widest text-emerald-300">TORRE SELECIONADA</h2>
             {selected && selDef ? (
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-3">
                   <SpriteIcon tower={selected.type} label={selDef.name} size={40} />
                   <div>
@@ -458,8 +433,8 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
             )}
           </section>
 
-          <section className="flex flex-wrap items-center gap-3 rounded-lg border border-sky-500/25 bg-[#0a1226] p-3 lg:col-start-2 lg:row-start-2">
-          <label className="flex items-center gap-2 rounded-md border border-sky-500/30 bg-sky-500/5 px-3 py-2 text-xs text-sky-200">
+          <section className="flex flex-wrap items-center justify-center gap-2 rounded-lg border border-sky-500/25 bg-[#0a1226] p-2 lg:col-start-2 lg:row-start-2">
+          <label className="flex items-center gap-2 rounded-md border border-sky-500/30 bg-sky-500/5 px-2 py-1.5 text-[11px] text-sky-200">
             <input
               type="checkbox"
               checked={autoNextWave}
@@ -475,7 +450,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
                 refresh()
               }}
               disabled={s.waveActive || s.status !== 'playing'}
-              className="flex flex-1 items-center justify-center gap-2 rounded-md bg-sky-500 px-4 py-2.5 font-display text-sm tracking-wider text-slate-950 hover:bg-sky-400 disabled:opacity-40"
+              className="flex items-center justify-center gap-2 rounded-md bg-sky-500 px-3 py-2 font-display text-xs tracking-wider text-slate-950 hover:bg-sky-400 disabled:opacity-40"
             >
               <Play className="size-4" aria-hidden />
               {s.waveActive ? 'Onda em curso' : `Onda ${s.wave + 1}`}
@@ -483,7 +458,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
             <button
               onClick={toggleSpeed}
               aria-label={`Velocidade ${speed}x`}
-              className="flex items-center gap-1 rounded-md border border-sky-500/30 px-3 font-display text-sm hover:bg-sky-500/10"
+              className="flex items-center gap-1 rounded-md border border-sky-500/30 px-2 font-display text-xs hover:bg-sky-500/10"
             >
               <FastForward className="size-4" aria-hidden />
               {speed}x
