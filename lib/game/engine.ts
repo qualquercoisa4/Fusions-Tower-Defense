@@ -591,7 +591,10 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType
     e.hp -= dmg
   }
   if (e.type === 'swarmer' && e.hp < previousHp) {
-    s.enemies.push(createEnemy(s, 'swarmBug', e.x + (Math.random() - 0.5) * 10, e.y + (Math.random() - 0.5) * 10))
+    const child = createEnemy(s, 'swarmBug', e.x + (Math.random() - 0.5) * 10, e.y + (Math.random() - 0.5) * 10)
+    const pathPosition = projectToPath(e.x, e.y)
+    placeEnemyOnPath(child, pathPosition.distance)
+    s.enemies.push(child)
     s.explosions.push({ x: e.x, y: e.y, r: 13, t: 0, dur: 0.16, color: '#fb7185' })
   }
   if(e.type==='bugPrince'||e.type==='bugQueen'){
