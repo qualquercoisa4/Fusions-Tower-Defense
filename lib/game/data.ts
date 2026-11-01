@@ -42,6 +42,7 @@ export type EnemyType =
   | 'grunt' | 'tank' | 'runner' | 'vessel' | 'jumper' | 'healer'
   | 'bugPrince' | 'swarmBug' | 'splitter' | 'shadowBug' | 'spitter' | 'bulb' | 'bugQueen'
   | 'flyBug' | 'ironBug' | 'rubberBug' | 'heatBug' | 'ghostBug' | 'dirtBug'
+  | 'swarmer' | 'buguns' | 'starbug' | 'bombug' | 'bugKing'
 
 export type ElementClass = 'normal' | 'fire' | 'electricity' | 'ice' | 'earth' | 'plasma'
 
@@ -550,6 +551,11 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   ghostBug: { name: 'Ghostbug', hp: 130, speed: 62, reward: 16, radius: 10, damage: 2, color: '#c4b5fd', dark: '#5b21b6', immunities: ['plasma'], weaknesses: ['normal', 'electricity'], description: 'Tem 20% de chance de deixar qualquer projétil atravessar seu corpo sem sofrer dano.' },
   dirtBug: { name: 'Dirtbug', hp: 205, speed: 25, reward: 20, radius: 14, damage: 3, color: '#a8a29e', dark: '#44403c', immunities: ['earth'], weaknesses: ['fire', 'plasma'], description: 'Seu corpo é dividido em segmentos, cada um com vida própria. Periodicamente escava o solo, avança algumas unidades e fica invulnerável enquanto está subterrâneo.' },
   bugQueen: { name: 'Bug Queen', hp: 72000, speed: 11, reward: 1500, radius: 32, damage: 600, color: '#f0abfc', dark: '#701a75', description: 'Chefe da onda 50: invoca novos insetos, possui quatro vezes a vida do Bug Prince e deixa um de cada tipo para trás ao morrer. Concede armadura real e +25% de vida.' },
+  swarmer: { name: 'Swarmer', hp: 260, speed: 44, reward: 22, radius: 12, damage: 3, color: '#fb7185', dark: '#9f1239', description: 'Quando recebe dano, gera um Swarm Bug. Quanto mais você ataca, maior fica o enxame.' },
+  buguns: { name: 'Buguns', hp: 520, speed: 36, reward: 32, radius: 14, damage: 4, color: '#f97316', dark: '#9a3412', description: 'Dispara dois projéteis em direções aleatórias ao mesmo tempo. Cada cuspe pode danificar uma torre.' },
+  starbug: { name: 'Starbug', hp: 900, speed: 29, reward: 48, radius: 16, damage: 5, color: '#facc15', dark: '#854d0e', description: 'Dispara cinco projéteis em uma salva radial, formando uma estrela. Cada projétil causa dano às torres.' },
+  bombug: { name: 'Bombug', hp: 1250, speed: 118, reward: 55, radius: 16, damage: 8, color: '#ef4444', dark: '#7f1d1d', description: 'Corre rapidamente pela rota. Ao ser derrotado, explode e causa dano elevado às torres próximas.' },
+  bugKing: { name: 'Bug King', hp: 240000, speed: 9, reward: 6000, radius: 40, damage: 1000, color: '#c084fc', dark: '#581c87', description: 'Chefe final da onda 75. Possui vida colossal. Ao morrer, dobra permanentemente a vida máxima de todos os tipos de insetos já encontrados e dos que surgirem depois.' },
 }
 
 export const CELL = 48
@@ -658,27 +664,56 @@ const WAVE_GROUPS: Record<number, WaveGroup[]> = {
   47: [{type:'splitter',count:11,spacing:.42},{type:'vessel',count:11,spacing:.36},{type:'healer',count:7,spacing:.3},{type:'spitter',count:6,spacing:.38},{type:'swarmBug',count:120,spacing:.037},{type:'ghostBug',count:5,spacing:.42},{type:'dirtBug',count:4,spacing:.5}],
   48: [{type:'tank',count:14,spacing:.34},{type:'bulb',count:5,spacing:.36},{type:'shadowBug',count:13,spacing:.18},{type:'jumper',count:20,spacing:.26},{type:'splitter',count:11,spacing:.4},{type:'swarmBug',count:125,spacing:.035},{type:'flyBug',count:5,spacing:.36},{type:'rubberBug',count:4,spacing:.45},{type:'ironBug',count:4,spacing:.48}],
   49: [{type:'vessel',count:12,spacing:.34},{type:'healer',count:8,spacing:.28},{type:'bulb',count:5,spacing:.34},{type:'spitter',count:7,spacing:.34},{type:'shadowBug',count:14,spacing:.17},{type:'splitter',count:12,spacing:.38},{type:'runner',count:30,spacing:.11},{type:'swarmBug',count:135,spacing:.032},{type:'heatBug',count:5,spacing:.4},{type:'ghostBug',count:4,spacing:.42},{type:'dirtBug',count:4,spacing:.45}],
+  51: [{type:'swarmer',count:7,spacing:.9},{type:'swarmBug',count:45,spacing:.055},{type:'runner',count:22,spacing:.16}],
+  52: [{type:'buguns',count:7,spacing:1.1},{type:'tank',count:8,spacing:.42},{type:'swarmer',count:5,spacing:.75}],
+  53: [{type:'starbug',count:5,spacing:1.4},{type:'swarmBug',count:65,spacing:.045},{type:'shadowBug',count:10,spacing:.23}],
+  54: [{type:'bombug',count:4,spacing:1.8},{type:'runner',count:28,spacing:.13},{type:'healer',count:5,spacing:.38}],
+  55: [{type:'swarmer',count:10,spacing:.62},{type:'buguns',count:7,spacing:.9},{type:'starbug',count:3,spacing:1.5},{type:'swarmBug',count:75,spacing:.04}],
+  56: [{type:'bombug',count:5,spacing:1.5},{type:'splitter',count:12,spacing:.38},{type:'buguns',count:8,spacing:.8},{type:'heatBug',count:5,spacing:.48}],
+  57: [{type:'starbug',count:7,spacing:1.1},{type:'swarmer',count:12,spacing:.55},{type:'shadowBug',count:14,spacing:.18},{type:'swarmBug',count:90,spacing:.035}],
+  58: [{type:'bombug',count:6,spacing:1.3},{type:'buguns',count:9,spacing:.72},{type:'starbug',count:4,spacing:1.1},{type:'healer',count:8,spacing:.3}],
+  59: [{type:'swarmer',count:18,spacing:.38},{type:'swarmBug',count:130,spacing:.028},{type:'buguns',count:8,spacing:.65},{type:'bombug',count:4,spacing:1.1}],
+  60: [{type:'swarmer',count:10,spacing:.45},{type:'buguns',count:7,spacing:.7},{type:'starbug',count:4,spacing:1.1},{type:'bombug',count:4,spacing:1.2}],
+  61: [{type:'buguns',count:10,spacing:.58},{type:'swarmer',count:14,spacing:.4},{type:'runner',count:38,spacing:.1}],
+  62: [{type:'starbug',count:8,spacing:.9},{type:'bombug',count:5,spacing:1.1},{type:'swarmBug',count:140,spacing:.025}],
+  63: [{type:'swarmer',count:18,spacing:.34},{type:'buguns',count:10,spacing:.52},{type:'starbug',count:5,spacing:.9},{type:'heatBug',count:7,spacing:.38}],
+  64: [{type:'bombug',count:7,spacing:.95},{type:'splitter',count:16,spacing:.32},{type:'buguns',count:10,spacing:.48},{type:'healer',count:8,spacing:.28}],
+  65: [{type:'swarmer',count:22,spacing:.3},{type:'starbug',count:7,spacing:.8},{type:'bombug',count:6,spacing:.85},{type:'swarmBug',count:170,spacing:.02}],
+  66: [{type:'buguns',count:12,spacing:.42},{type:'starbug',count:8,spacing:.72},{type:'shadowBug',count:18,spacing:.15},{type:'heatBug',count:8,spacing:.32}],
+  67: [{type:'bombug',count:9,spacing:.75},{type:'swarmer',count:24,spacing:.26},{type:'buguns',count:12,spacing:.4},{type:'ghostBug',count:8,spacing:.32}],
+  68: [{type:'starbug',count:10,spacing:.6},{type:'bombug',count:8,spacing:.7},{type:'swarmBug',count:190,spacing:.018},{type:'dirtBug',count:8,spacing:.32}],
+  69: [{type:'swarmer',count:28,spacing:.22},{type:'buguns',count:14,spacing:.34},{type:'starbug',count:8,spacing:.62},{type:'bombug',count:8,spacing:.62}],
+  71: [{type:'bombug',count:10,spacing:.6},{type:'swarmer',count:28,spacing:.2},{type:'starbug',count:10,spacing:.52},{type:'swarmBug',count:210,spacing:.016}],
+  72: [{type:'buguns',count:16,spacing:.28},{type:'bombug',count:10,spacing:.52},{type:'starbug',count:10,spacing:.48},{type:'heatBug',count:10,spacing:.28}],
+  73: [{type:'swarmer',count:34,spacing:.17},{type:'starbug',count:12,spacing:.42},{type:'buguns',count:16,spacing:.26},{type:'ghostBug',count:10,spacing:.28}],
+  74: [{type:'bombug',count:14,spacing:.38},{type:'swarmer',count:30,spacing:.16},{type:'starbug',count:12,spacing:.4},{type:'buguns',count:16,spacing:.24},{type:'swarmBug',count:230,spacing:.014}],
+  75: [{type:'swarmer',count:14,spacing:.3},{type:'buguns',count:10,spacing:.45},{type:'starbug',count:8,spacing:.6},{type:'bombug',count:8,spacing:.75}],
 }
 
 export function buildWave(n: number): { type: EnemyType; delay: number }[] {
   if (n === 25) return [{ type: 'bugPrince', delay: 0 }]
   if (n === 50) return [{ type: 'bugQueen', delay: 0 }]
+  if (n === 60 || n === 70 || n === 75) {
+    const boss: EnemyType = n === 60 ? 'bugPrince' : n === 70 ? 'bugQueen' : 'bugKing'
+    const escortGroups = WAVE_GROUPS[n] ?? []
+    const queue: { type: EnemyType; delay: number }[] = [{ type: boss, delay: 0 }]
+    escortGroups.forEach((group, groupIndex) => {
+      for (let i = 0; i < group.count; i++) {
+        queue.push({ type: group.type, delay: i === group.count - 1 && groupIndex < escortGroups.length - 1 ? (group.gapAfter ?? 0.35) : group.spacing })
+      }
+    })
+    return queue
+  }
 
-  const groups = WAVE_GROUPS[Math.max(1, Math.min(49, Math.floor(n)))] ?? WAVE_GROUPS[1]
+  const groups = WAVE_GROUPS[Math.max(1, Math.min(75, Math.floor(n)))] ?? WAVE_GROUPS[1]
   const queue: { type: EnemyType; delay: number }[] = []
-
   groups.forEach((group, groupIndex) => {
     for (let i = 0; i < group.count; i++) {
       const isLastInGroup = i === group.count - 1
       const isLastGroup = groupIndex === groups.length - 1
-      queue.push({
-        type: group.type,
-        // A pausa entre grupos é aplicada depois do último inseto do envio.
-        delay: isLastInGroup && !isLastGroup ? (group.gapAfter ?? 0.35) : group.spacing,
-      })
+      queue.push({ type: group.type, delay: isLastInGroup && !isLastGroup ? (group.gapAfter ?? 0.35) : group.spacing })
     }
   })
-
   return queue
 }
 
