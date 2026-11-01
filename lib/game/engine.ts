@@ -2709,6 +2709,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
         }
       }
       ctx.restore()
+      continue
     }
     if (p.teleporterClone) {
       const vx = 'x' in p ? p.x : p.sx + (p.tx - p.sx) * (p.t / p.duration)
