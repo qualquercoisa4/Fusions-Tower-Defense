@@ -2837,6 +2837,8 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
       ctx.arc(p.x, p.y, p.size * 0.65, s.time * 5, s.time * 5 + Math.PI * 1.4)
       ctx.stroke()
       ctx.restore()
+    } else if (p.kind === 'singularity') {
+      ctx.save(); ctx.globalAlpha = 0.75 + Math.sin(s.time * 9) * 0.15; ctx.shadowColor = '#a78bfa'; ctx.shadowBlur = 24; ctx.fillStyle = '#1e1b4b'; ctx.strokeStyle = '#c4b5fd'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius * (0.72 + Math.sin(s.time * 7) * 0.05), 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius * 0.42, s.time * 3, s.time * 3 + Math.PI * 1.5); ctx.stroke(); ctx.restore()
     } else if (p.kind === 'direct') {
       ctx.fillStyle = p.color
       ctx.shadowColor = p.color
