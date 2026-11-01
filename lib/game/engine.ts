@@ -68,6 +68,8 @@ export interface Tower {
   cooldown: number
   angle: number
   invested: number
+  hp: number
+  maxHp: number
   recoil: number
   beamTargets: number[]
   targetMode: TargetMode
@@ -372,6 +374,37 @@ export const isBuildable = (s: GameState, col: number, row: number, type?: Tower
 export const towerAt = (s: GameState, col: number, row: number) =>
   s.towers.find((t) => t.col === col && t.row === row)
 
+
+export function getTowerMaxHp(type: TowerType) {
+  return 120 + TOWERS[type].tier * 100
+}
+
+export function damageTower(s: GameState, tower: Tower, amount: number, color = '#fb7185') {
+  if (!s.towers.some(item => item.id === tower.id)) return
+  tower.hp = Math.max(0, tower.hp - amount)
+  s.explosions.push({ x: tower.x, y: tower.y, r: 18 + amount * 0.12, t: 0, dur: 0.32, color })
+  if (tower.hp <= 0) {
+    s.towers = s.towers.filter(item => item.id !== tower.id)
+    if (s.selectedId === tower.id) {
+      s.selectedId = null
+      s.fuseMode = false
+    }
+    s.explosions.push({ x: tower.x, y: tower.y, r: 38, t: 0, dur: 0.55, color: '#f97316' })
+  }
+}
+
+export function repairTower(s: GameState, id: number) {
+  const tower = s.towers.find(item => item.id === id)
+  if (!tower) return 0
+  const restored = Math.min(50, tower.maxHp - tower.hp)
+  const cost = Math.ceil(restored)
+  if (restored <= 0 || s.money < cost) return 0
+  s.money -= cost
+  tower.hp = Math.min(tower.maxHp, tower.hp + restored)
+  s.explosions.push({ x: tower.x, y: tower.y, r: 28, t: 0, dur: 0.42, color: '#4ade80' })
+  return restored
+}
+
 export function placeTower(s: GameState, type: TowerType, col: number, row: number, free = false) {
   const cost = free ? 0 : TOWERS[type].cost
   if ((!free && s.money < TOWERS[type].cost) || !isBuildable(s, col, row, type)) return false
@@ -386,6 +419,8 @@ export function placeTower(s: GameState, type: TowerType, col: number, row: numb
     cooldown: 0,
     angle: -Math.PI / 2,
     invested: cost,
+    hp: getTowerMaxHp(type),
+    maxHp: getTowerMaxHp(type),
     recoil: 0,
     beamTargets: [],
     targetMode: 'first',
@@ -420,6 +455,8 @@ export function fuseTowers(s: GameState, sourceId: number, targetId: number) {
   s.money -= fusionCost
   s.towers = s.towers.filter((t) => t !== a)
   b.type = result
+  b.maxHp = getTowerMaxHp(result)
+  b.hp = Math.min(b.maxHp, b.hp + a.hp)
   b.invested += a.invested + fusionCost
   b.cooldown = 0.3
   b.beamTargets = []
@@ -509,9 +546,8 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType
   if (e.type === 'ironBug' && element === 'normal' && fromProjectile && sourceTowerId && Math.random() < 0.1) {
     const tower = s.towers.find(item => item.id === sourceTowerId)
     if (tower) {
-      tower.disabledTimer = Math.max(tower.disabledTimer, 1)
+      damageTower(s, tower, 18, '#cbd5e1')
       s.lightningFlashes.push({ points: [{ x: e.x, y: e.y }, { x: tower.x, y: tower.y }], t: 0, dur: 0.24, color: '#cbd5e1' })
-      s.explosions.push({ x: tower.x, y: tower.y, r: 20, t: 0, dur: 0.35, color: '#cbd5e1' })
     }
     return
   }
@@ -1024,7 +1060,10 @@ export function update(s: GameState, dt: number) {
     }
     if(e.type==='spitter'&&e.attackCooldown<=0){
       const tower=s.towers.filter(t=>t.disabledTimer<=0).sort((a,b)=>Math.hypot(a.x-e.x,a.y-e.y)-Math.hypot(b.x-e.x,b.y-e.y))[0]
-      if(tower){tower.disabledTimer=3.5;s.explosions.push({x:tower.x,y:tower.y,r:24,t:0,dur:.35,color:'#22d3ee'})}
+      if(tower){
+        damageTower(s, tower, 24, '#22d3ee')
+        s.lightningFlashes.push({ points: [{ x: e.x, y: e.y }, { x: tower.x, y: tower.y }], t: 0, dur: 0.28, color: '#22d3ee' })
+      }
       e.attackCooldown=2.5
     }
     if (e.type === 'heatBug') {
@@ -1839,6 +1878,12 @@ export function update(s: GameState, dt: number) {
   if (s.waveActive && !s.spawnQueue.length && !s.enemies.length) {
     s.waveActive = false
     s.money += 20 + s.wave * 5
+    const buffers = s.towers.filter(tower => tower.type === 'buffer')
+    for (const tower of s.towers) {
+      if (tower.hp >= tower.maxHp) continue
+      const covered = buffers.some(buffer => Math.hypot(buffer.x - tower.x, buffer.y - tower.y) <= TOWERS.buffer.range)
+      if (covered) tower.hp = Math.min(tower.maxHp, tower.hp + 18)
+    }
   }
   if (s.lives <= 0) {
     s.lives = 0
@@ -2466,6 +2511,16 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
       ctx.restore()
     }
     drawTower(ctx, t.type, t.x, t.y, t.angle, t.recoil)
+    if (t.hp < t.maxHp) {
+      const barWidth = 36
+      ctx.fillStyle = 'rgba(15,23,42,0.92)'
+      ctx.fillRect(t.x - barWidth / 2, t.y + 23, barWidth, 5)
+      ctx.fillStyle = t.hp / t.maxHp > 0.5 ? '#4ade80' : t.hp / t.maxHp > 0.25 ? '#facc15' : '#fb7185'
+      ctx.fillRect(t.x - barWidth / 2, t.y + 23, barWidth * (t.hp / t.maxHp), 5)
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'
+      ctx.lineWidth = 0.7
+      ctx.strokeRect(t.x - barWidth / 2, t.y + 23, barWidth, 5)
+    }
     if (t.type === 'soulstorm') {
       const barWidth = 34
       ctx.fillStyle = 'rgba(15,23,42,0.95)'
