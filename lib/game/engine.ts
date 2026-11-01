@@ -299,6 +299,7 @@ export interface GameState {
   bugPrinceDefeated: boolean
   swarmCounter: number
   bugQueenDefeated: boolean
+  enemyHpMultiplier: number
 }
 
 export function createGame(): GameState {
@@ -330,30 +331,47 @@ export function createGame(): GameState {
     bugPrinceDefeated: false,
     swarmCounter: 0,
     bugQueenDefeated: false,
+    enemyHpMultiplier: 1,
   }
 }
 
 
 
-export function spawnDebugEnemy(s: GameState, type: EnemyType) {
+
+function createEnemy(s: GameState, type: EnemyType, x = PATH[0].x, y = PATH[0].y): Enemy {
   const def = ENEMIES[type]
-  const boss = type === 'bugPrince' || type === 'bugQueen'
+  const boss = type === 'bugPrince' || type === 'bugQueen' || type === 'bugKing'
   const helmet = (s.bugPrinceDefeated || s.bugQueenDefeated) && s.seenEnemyTypes.includes(type)
   const queenArmor = s.bugQueenDefeated && s.seenEnemyTypes.includes(type)
-  const hp = Math.max(1, Math.round((def.hp * (boss ? 1 : hpScale(Math.max(1, s.wave))) / 1.5) * (helmet ? 1.25 : 1) * (queenArmor ? 1.25 : 1)))
+  const hp = Math.max(1, Math.round((def.hp * (boss ? 1 : hpScale(Math.max(1, s.wave))) / 1.5) *
+    (helmet ? 1.25 : 1) * (queenArmor ? 1.25 : 1) * (type === 'bugKing' ? 1 : s.enemyHpMultiplier)))
   if (!boss && !s.seenEnemyTypes.includes(type)) s.seenEnemyTypes.push(type)
-  s.enemies.push({
-    id: s.nextId++, type, x: PATH[0].x, y: PATH[0].y, hp, maxHp: hp, reviveHp: hp,
+  return {
+    id: s.nextId++, type, x, y, hp, maxHp: hp, reviveHp: hp,
     frozenTimer: 0, slowTimer: 0, slowFactor: 1, plasmaDotTimer: 0, plasmaDotTick: 0,
     jumpCooldown: 1.25, airborneTimer: 0, healCooldown: 2, bossThreshold: 1,
-    spawnCooldown: type === 'spitter' ? 0.8 : 3.5, helmet, queenArmor, splitGeneration: 0,
-    bulbOn: false, bulbTimer: 3, attackCooldown: 3, wp: 1, dist: 0, angle: 0,
-    anim: Math.random() * 10, alive: true, cocooning: false, cocoonTimer: 0,
+    spawnCooldown: type === 'spitter' ? 1.5 : 3.5, helmet, queenArmor, splitGeneration: 0,
+    bulbOn: false, bulbTimer: 3,
+    attackCooldown: type === 'spitter' ? 1.5 : type === 'buguns' ? 2.2 : type === 'starbug' ? 2.8 : 3,
+    wp: 1, dist: 0, angle: 0, anim: Math.random() * 10, alive: true,
+    cocooning: false, cocoonTimer: 0,
     segmentHp: type === 'dirtBug' ? Array.from({ length: 4 }, () => hp / 4) : undefined,
     segmentMaxHp: type === 'dirtBug' ? hp / 4 : undefined,
     burrowTimer: 0, burrowCooldown: type === 'dirtBug' ? 2.2 + Math.random() * 1.8 : 0,
     burrowRemaining: 0, heatFuse: type === 'heatBug' ? 3.5 + Math.random() * 3 : 0,
+  }
+}
+
+function launchHostileProjectile(s: GameState, x: number, y: number, angle: number, shape: 'spit' | 'bugun' | 'star', damage: number, speed = 190) {
+  const color = shape === 'spit' ? '#67e8f9' : shape === 'bugun' ? '#fb923c' : '#fde047'
+  s.projectiles.push({
+    kind: 'hostile', x, y, dirX: Math.cos(angle), dirY: Math.sin(angle),
+    speed, traveled: 0, maxDistance: 760, damage, color, size: shape === 'star' ? 7 : 6, shape,
   })
+}
+
+export function spawnDebugEnemy(s: GameState, type: EnemyType) {
+  s.enemies.push(createEnemy(s, type))
   s.status = 'playing'
 }
 
@@ -572,6 +590,10 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType
   } else {
     e.hp -= dmg
   }
+  if (e.type === 'swarmer' && e.hp < previousHp) {
+    s.enemies.push(createEnemy(s, 'swarmBug', e.x + (Math.random() - 0.5) * 10, e.y + (Math.random() - 0.5) * 10))
+    s.explosions.push({ x: e.x, y: e.y, r: 13, t: 0, dur: 0.16, color: '#fb7185' })
+  }
   if(e.type==='bugPrince'||e.type==='bugQueen'){
     const lostThirds=Math.floor((e.maxHp-e.hp)/(e.maxHp/3))
     while(e.bossThreshold<=3&&lostThirds>=e.bossThreshold){
@@ -582,6 +604,27 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType
     if(e.hp>0&&previousHp>e.hp)s.explosions.push({x:e.x,y:e.y,r:18,t:0,dur:.15,color:'#fbbf24'})
   }
   if (e.hp <= 0) {
+    if (e.type === 'bombug') {
+      const blastRadius = 112
+      for (const tower of [...s.towers]) {
+        if (Math.hypot(tower.x - e.x, tower.y - e.y) <= blastRadius) damageTower(s, tower, 105, '#ef4444')
+      }
+      s.explosions.push({ x: e.x, y: e.y, r: blastRadius, t: 0, dur: 0.72, color: '#ef4444' })
+    }
+    if (e.type === 'bugKing') {
+      s.enemyHpMultiplier *= 2
+      for (const ally of s.enemies) {
+        if (!ally.alive || ally.id === e.id || !s.seenEnemyTypes.includes(ally.type)) continue
+        ally.maxHp = Math.ceil(ally.maxHp * 2)
+        ally.hp = Math.ceil(Math.max(1, ally.hp) * 2)
+        if (ally.segmentHp) {
+          ally.segmentHp = ally.segmentHp.map(segment => segment * 2)
+          if (ally.segmentMaxHp) ally.segmentMaxHp *= 2
+          ally.hp = ally.segmentHp.reduce((sum, segment) => sum + segment, 0)
+        }
+      }
+      s.explosions.push({ x: e.x, y: e.y, r: 190, t: 0, dur: 1.5, color: '#c084fc' })
+    }
     if(e.type==='bugPrince'||e.type==='bugQueen'){
       const queen=e.type==='bugQueen'
       if(queen)s.bugQueenDefeated=true;else s.bugPrinceDefeated=true
@@ -946,50 +989,7 @@ export function update(s: GameState, dt: number) {
     s.spawnTimer -= dt
     if (s.spawnTimer <= 0) {
       const next = s.spawnQueue.shift()!
-      const def = ENEMIES[next.type]
-      const boss = next.type === 'bugPrince' || next.type === 'bugQueen'
-      const helmet = (s.bugPrinceDefeated || s.bugQueenDefeated) && s.seenEnemyTypes.includes(next.type)
-      const queenArmor = s.bugQueenDefeated && s.seenEnemyTypes.includes(next.type)
-      const hp = Math.max(1, Math.round((def.hp * (boss ? 1 : hpScale(s.wave)) / 1.5) * (helmet ? 1.25 : 1) * (queenArmor ? 1.25 : 1)))
-      if (!boss && !s.seenEnemyTypes.includes(next.type)) s.seenEnemyTypes.push(next.type)
-      s.enemies.push({
-        id: s.nextId++,
-        type: next.type,
-        x: PATH[0].x,
-        y: PATH[0].y,
-        hp,
-        maxHp: hp,
-        reviveHp: hp,
-        frozenTimer: 0,
-        slowTimer: 0,
-        slowFactor: 1,
-        plasmaDotTimer: 0,
-        plasmaDotTick: 0,
-        jumpCooldown: 1.25,
-        airborneTimer: 0,
-        healCooldown: 2,
-        bossThreshold: 1,
-        spawnCooldown: next.type==='spitter'?0.8:3.5,
-        helmet,
-        queenArmor,
-        splitGeneration: 0,
-        bulbOn: false,
-        bulbTimer: 3,
-        attackCooldown: 3,
-        wp: 1,
-        dist: 0,
-        angle: 0,
-        anim: Math.random() * 10,
-        alive: true,
-        cocooning: false,
-        cocoonTimer: 0,
-        segmentHp: next.type === 'dirtBug' ? Array.from({ length: 4 }, () => hp / 4) : undefined,
-        segmentMaxHp: next.type === 'dirtBug' ? hp / 4 : undefined,
-        burrowTimer: 0,
-        burrowCooldown: next.type === 'dirtBug' ? 2.2 + Math.random() * 1.8 : 0,
-        burrowRemaining: 0,
-        heatFuse: next.type === 'heatBug' ? 3.5 + Math.random() * 3 : 0,
-      })
+      s.enemies.push(createEnemy(s, next.type))
       s.spawnTimer = next.delay
     }
   }
@@ -1058,13 +1058,17 @@ export function update(s: GameState, dt: number) {
       e.bulbOn=!e.bulbOn;e.bulbTimer=2.5
       s.explosions.push({x:e.x,y:e.y,r:e.bulbOn?88:30,t:0,dur:.35,color:e.bulbOn?'#fde047':'#64748b'})
     }
-    if(e.type==='spitter'&&e.attackCooldown<=0){
-      const tower=s.towers.filter(t=>t.disabledTimer<=0).sort((a,b)=>Math.hypot(a.x-e.x,a.y-e.y)-Math.hypot(b.x-e.x,b.y-e.y))[0]
-      if(tower){
-        damageTower(s, tower, 24, '#22d3ee')
-        s.lightningFlashes.push({ points: [{ x: e.x, y: e.y }, { x: tower.x, y: tower.y }], t: 0, dur: 0.28, color: '#22d3ee' })
-      }
-      e.attackCooldown=2.5
+    if (e.type === 'spitter' && e.attackCooldown <= 0) {
+      launchHostileProjectile(s, e.x, e.y, e.angle, 'spit', 28, 215)
+      e.attackCooldown = 1.5
+    }
+    if (e.type === 'buguns' && e.attackCooldown <= 0) {
+      for (let shot = 0; shot < 2; shot++) launchHostileProjectile(s, e.x, e.y, Math.random() * Math.PI * 2, 'bugun', 32, 185)
+      e.attackCooldown = 2.2
+    }
+    if (e.type === 'starbug' && e.attackCooldown <= 0) {
+      for (let shot = 0; shot < 5; shot++) launchHostileProjectile(s, e.x, e.y, e.angle + shot * (Math.PI * 2 / 5), 'star', 24, 205)
+      e.attackCooldown = 2.8
     }
     if (e.type === 'heatBug') {
       e.heatFuse -= dt
@@ -1165,7 +1169,7 @@ export function update(s: GameState, dt: number) {
       Math.hypot(other.x - e.x, other.y - e.y) <= supportRadius
     )
     const isolatedSupportSpeed = supportRadius > 0 && !hasAlliesInSupportRange ? 2.2 : 1
-    let step = def.speed * isolatedSupportSpeed * (e.splitGeneration > 0 ? 2 : 1) * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
+    let step = def.speed * isolatedSupportSpeed * (e.splitGeneration > 0 ? 2 : 1) * (e.type === 'bombug' ? 1.35 : 1) * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
     while (step > 0 && e.alive) {
       const target = PATH[e.wp]
       const dx = target.x - e.x
@@ -1523,6 +1527,30 @@ export function update(s: GameState, dt: number) {
 
   const spawned: Projectile[] = []
   s.projectiles = s.projectiles.filter((p) => {
+    if (p.kind === 'hostile') {
+      const oldX = p.x, oldY = p.y
+      const step = p.speed * dt
+      p.x += p.dirX * step
+      p.y += p.dirY * step
+      p.traveled += step
+      let hit: Tower | undefined
+      let hitAlong = Infinity
+      const dx = p.x - oldX, dy = p.y - oldY, lengthSq = dx * dx + dy * dy
+      for (const tower of s.towers) {
+        const along = lengthSq > 0 ? Math.max(0, Math.min(1, ((tower.x - oldX) * dx + (tower.y - oldY) * dy) / lengthSq)) : 0
+        const nearX = oldX + along * dx, nearY = oldY + along * dy
+        if (Math.hypot(tower.x - nearX, tower.y - nearY) <= 13 + p.size && along < hitAlong) {
+          hit = tower
+          hitAlong = along
+        }
+      }
+      if (hit) {
+        damageTower(s, hit, p.damage, p.color)
+        s.explosions.push({ x: p.x, y: p.y, r: 15, t: 0, dur: 0.22, color: p.color })
+        return false
+      }
+      return p.traveled < p.maxDistance && p.x > -20 && p.x < WIDTH + 20 && p.y > -20 && p.y < HEIGHT + 20
+    }
     if (p.kind === 'direct') {
       const target = s.enemies.find((e) => e.id === p.targetId && e.alive)
       if (target) {
@@ -2054,6 +2082,33 @@ export function drawBug(ctx: CanvasRenderingContext2D, type: EnemyType, x: numbe
   if (type === 'dirtBug') {
     ctx.fillStyle = '#78716c'; ctx.strokeStyle = '#d6d3d1'; ctx.lineWidth = 1
     ctx.beginPath(); ctx.moveTo(-r * 1.05, -r * 0.12); ctx.lineTo(-r * 0.72, -r * 0.65); ctx.lineTo(-r * 0.24, -r * 0.52); ctx.lineTo(-r * 0.1, r * 0.42); ctx.lineTo(-r * 0.72, r * 0.6); ctx.closePath(); ctx.fill(); ctx.stroke()
+  }
+  if (type === 'swarmer') {
+    ctx.strokeStyle = '#fecdd3'; ctx.lineWidth = 2
+    ctx.beginPath(); ctx.arc(-r * 0.55, 0, r * 0.9, -1.1, 1.1); ctx.stroke()
+  }
+  if (type === 'buguns') {
+    ctx.fillStyle = '#fed7aa'; ctx.beginPath(); ctx.arc(r * 0.7, -r * 0.32, r * 0.28, 0, Math.PI * 2); ctx.arc(r * 0.7, r * 0.32, r * 0.28, 0, Math.PI * 2); ctx.fill()
+  }
+  if (type === 'starbug') {
+    ctx.fillStyle = '#fef3c7'; ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 1.8
+    ctx.beginPath()
+    for (let point = 0; point < 10; point++) {
+      const radius = point % 2 === 0 ? r * 1.15 : r * 0.48
+      const angle = -Math.PI / 2 + point * Math.PI / 5
+      const px = Math.cos(angle) * radius, py = Math.sin(angle) * radius
+      if (point === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py)
+    }
+    ctx.closePath(); ctx.fill(); ctx.stroke()
+  }
+  if (type === 'bombug') {
+    ctx.strokeStyle = '#fecaca'; ctx.lineWidth = 2.5; ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 10
+    ctx.beginPath(); ctx.arc(-r * 0.55, 0, r * 0.82, 0, Math.PI * 2); ctx.stroke(); ctx.shadowBlur = 0
+  }
+  if (type === 'bugKing') {
+    ctx.fillStyle = '#e9d5ff'; ctx.strokeStyle = '#581c87'; ctx.lineWidth = 2.5
+    ctx.beginPath(); ctx.moveTo(-r * .7, -r * .5); ctx.lineTo(-r * .8, -r * 1.45); ctx.lineTo(-r * .25, -r * .95); ctx.lineTo(0, -r * 1.8); ctx.lineTo(r * .25, -r * .95); ctx.lineTo(r * .8, -r * 1.45); ctx.lineTo(r * .7, -r * .5); ctx.closePath(); ctx.fill(); ctx.stroke()
+    ctx.fillStyle = '#fef3c7'; ctx.beginPath(); ctx.arc(r * .25, -r * .35, r * .46, Math.PI, Math.PI * 2); ctx.fill(); ctx.stroke()
   }
   if(type==='splitter'){ctx.strokeStyle='#ffedd5';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-r*.7,-r*.5);ctx.lineTo(r*.2,r*.5);ctx.moveTo(-r*.7,r*.5);ctx.lineTo(r*.2,-r*.5);ctx.stroke()}
   if(type==='shadowBug'){ctx.strokeStyle='#c4b5fd';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,r*.95,0,Math.PI*2);ctx.stroke()}
@@ -2623,6 +2678,38 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 
   for (const p of s.projectiles) {
+    if (p.kind === 'hostile') {
+      ctx.save()
+      ctx.translate(p.x, p.y)
+      ctx.rotate(Math.atan2(p.dirY, p.dirX))
+      ctx.fillStyle = p.color
+      ctx.strokeStyle = '#fff7ed'
+      ctx.lineWidth = 1.2
+      ctx.shadowColor = p.color
+      ctx.shadowBlur = 9
+      if (p.shape === 'star') {
+        ctx.beginPath()
+        for (let point = 0; point < 10; point++) {
+          const radius = point % 2 === 0 ? p.size * 1.55 : p.size * 0.58
+          const angle = -Math.PI / 2 + point * Math.PI / 5
+          const x = Math.cos(angle) * radius, y = Math.sin(angle) * radius
+          if (point === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
+        }
+        ctx.closePath()
+        ctx.fill()
+        ctx.stroke()
+      } else {
+        ctx.beginPath()
+        ctx.ellipse(0, 0, p.size * 1.45, p.size * 0.85, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.stroke()
+        if (p.shape === 'spit') {
+          ctx.fillStyle = '#cffafe'
+          ctx.beginPath(); ctx.arc(p.size * 0.35, 0, p.size * 0.32, 0, Math.PI * 2); ctx.fill()
+        }
+      }
+      ctx.restore()
+    }
     if (p.teleporterClone) {
       const vx = 'x' in p ? p.x : p.sx + (p.tx - p.sx) * (p.t / p.duration)
       const vy = 'y' in p ? p.y : p.sy + (p.ty - p.sy) * (p.t / p.duration)
