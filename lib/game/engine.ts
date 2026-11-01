@@ -167,6 +167,7 @@ type Projectile = (
       kind: 'slingshot'
       x: number; y: number; dirX: number; dirY: number; speed: number; traveled: number
       damage: number; hitIds: number[]; hitLimit: number; bouncesLeft: number; color: string; size: number
+      splitOnBounceEnd?: boolean; splash?: number
     }
   | {
       kind: 'fragment'
@@ -202,6 +203,11 @@ type Projectile = (
       sourceType?: TowerType
     }
   | {
+      kind: 'singularity'
+      x: number; y: number; tx: number; ty: number; t: number; duration: number
+      damage: number; radius: number; capturedIds: number[]; color: string
+    }
+  | {
       kind: 'arc'
       sx: number
       sy: number
@@ -214,6 +220,7 @@ type Projectile = (
       splash: number
       cluster: boolean
       cryo?: boolean
+      cascadeDepth?: number
       color: string
       size: number
     }
@@ -802,8 +809,36 @@ function launchPathBoulder(s: GameState, t: Tower, def = TOWERS[t.type]) {
 function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
   t.recoil = 1
 
+  if (t.type === 'cannonadeBomber') {
+    s.projectiles.push({ kind: 'arc', sx: t.x, sy: t.y, tx: target.x, ty: target.y, t: 0, duration: 1.05, height: 100, damage: def.damage, splash: def.splash, cluster: true, cascadeDepth: 2, color: def.color, size: 10, sourceType: t.type, sourceTowerId: t.id })
+    return
+  }
   if (t.type === 'boulderLauncher' || t.type === 'rockLauncher' || t.type === 'boulderCannon' || t.type === 'pebblesLauncher') {
     launchPathBoulder(s, t, def)
+    return
+  }
+  if (t.type === 'singularity') {
+    s.projectiles.push({ kind: 'singularity', x: t.x, y: t.y, tx: target.x, ty: target.y, t: 0, duration: 1.5, damage: def.damage, radius: 72, capturedIds: [], color: def.color, sourceType: t.type, sourceTowerId: t.id })
+    return
+  }
+  if (t.type === 'mimic') {
+    const candidates = s.projectiles.filter(p => p.sourceTowerId !== t.id && p.kind !== 'hostile' && p.kind !== 'singularity')
+    const original = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : null
+    if (original) {
+      const clone = { ...original, color: '#d8b4fe', teleporterClone: true } as Projectile
+      if ('hitIds' in clone) clone.hitIds = [...clone.hitIds]
+      if (clone.kind === 'energy') clone.hitTimers = { ...clone.hitTimers }
+      if (clone.kind === 'snowball') { clone.carriedIds = [...clone.carriedIds]; clone.carrierId = s.nextId++ }
+      s.projectiles.push(clone)
+    } else {
+      const angle = Math.atan2(target.y - t.y, target.x - t.x)
+      s.projectiles.push({ kind: 'homing', x: t.x, y: t.y, dirX: Math.cos(angle), dirY: Math.sin(angle), traveled: 0, maxDistance: def.range * 2, speed: def.projectileSpeed, turnRate: 8, acquireAfter: 0, targetId: target.id, hitIds: [], hitLimit: 3, damage: def.damage, color: def.color, size: 7, sourceType: t.type, sourceTowerId: t.id })
+    }
+    return
+  }
+  if (t.type === 'splitHeel') {
+    const angle = Math.atan2(target.y - t.y, target.x - t.x)
+    s.projectiles.push({ kind: 'slingshot', x: t.x, y: t.y, dirX: Math.cos(angle), dirY: Math.sin(angle), speed: def.projectileSpeed, traveled: 0, damage: def.damage, hitIds: [], hitLimit: 99, bouncesLeft: 3, color: def.color, size: 8, splitOnBounceEnd: true, splash: def.splash, sourceType: t.type, sourceTowerId: t.id })
     return
   }
   if (t.type === 'slingshot') {
@@ -1641,15 +1676,31 @@ export function update(s: GameState, dt: number) {
       }
       return p.traveled < p.maxDistance && p.x >= -24 && p.x <= WIDTH + 24 && p.y >= -24 && p.y <= HEIGHT + 24
     }
+    if (p.kind === 'singularity') {
+      p.t += dt
+      const dx = p.tx - p.x, dy = p.ty - p.y, distance = Math.hypot(dx, dy)
+      if (distance > 5) { const step = Math.min(distance, 260 * dt); p.x += dx / distance * step; p.y += dy / distance * step; return true }
+      for (const enemy of s.enemies) {
+        if (!enemy.alive || p.capturedIds.length >= 10 || p.capturedIds.includes(enemy.id)) continue
+        if (Math.hypot(enemy.x-p.x, enemy.y-p.y) <= p.radius + ENEMIES[enemy.type].radius) { p.capturedIds.push(enemy.id); enemy.carriedBy = -999 }
+      }
+      for (const id of p.capturedIds) { const enemy=s.enemies.find(item=>item.id===id&&item.alive); if(enemy){ const dx=p.x-enemy.x,dy=p.y-enemy.y,dist=Math.hypot(dx,dy)||1; enemy.x+=dx/dist*90*dt; enemy.y+=dy/dist*90*dt } }
+      if (p.t >= p.duration) {
+        const count=p.capturedIds.length
+        for (const id of p.capturedIds) { const enemy=s.enemies.find(item=>item.id===id&&item.alive); if(enemy){enemy.carriedBy=undefined;damageEnemy(s,enemy,count?p.damage/count:0,'singularity',undefined,true)} }
+        s.explosions.push({x:p.x,y:p.y,r:p.radius*1.6,t:0,dur:.8,color:'#a78bfa'}); return false
+      }
+      return true
+    }
     if (p.kind === 'slingshot') {
       const step = p.speed * dt
       p.x += p.dirX * step; p.y += p.dirY * step; p.traveled += step
       if (p.x < 8 || p.x > WIDTH - 8) {
-        if (p.bouncesLeft <= 0) return false
+        if (p.bouncesLeft <= 0) { if (p.splitOnBounceEnd) { for(let i=0;i<4;i++){const a=i*Math.PI/2;spawned.push({kind:'fragment',x:p.x,y:p.y,dirX:Math.cos(a),dirY:Math.sin(a),speed:230,traveled:0,maxDistance:260,damage:p.damage,color:p.color,size:6,sourceType:'splitHeel',sourceTowerId:p.sourceTowerId} as Projectile)} } return false }
         p.x = Math.max(8, Math.min(WIDTH - 8, p.x)); p.dirX *= -1; p.bouncesLeft--
       }
       if (p.y < 8 || p.y > HEIGHT - 8) {
-        if (p.bouncesLeft <= 0) return false
+        if (p.bouncesLeft <= 0) { if (p.splitOnBounceEnd) { for(let i=0;i<4;i++){const a=i*Math.PI/2;spawned.push({kind:'fragment',x:p.x,y:p.y,dirX:Math.cos(a),dirY:Math.sin(a),speed:230,traveled:0,maxDistance:260,damage:p.damage,color:p.color,size:6,sourceType:'splitHeel',sourceTowerId:p.sourceTowerId} as Projectile)} } return false }
         p.y = Math.max(8, Math.min(HEIGHT - 8, p.y)); p.dirY *= -1; p.bouncesLeft--
       }
       const hit = s.enemies.filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'slingshot') && !p.hitIds.includes(enemy.id) && Math.hypot(enemy.x-p.x, enemy.y-p.y) <= ENEMIES[enemy.type].radius + p.size + 2 && !projectilePassesGhost(p, enemy))
@@ -1862,7 +1913,8 @@ export function update(s: GameState, dt: number) {
         for(let i=0;i<8;i++) { const a=i*Math.PI/4; spawned.push({kind:'ice',x:p.tx,y:p.ty,dirX:Math.cos(a),dirY:Math.sin(a),traveled:0,maxDistance:125,speed:290,damage:p.damage*.45,color:p.teleporterClone?'#c084fc':'#a5f3fc',size:4,freezeDuration:0,slowDuration:0,slowFactor:1,hitLimit:4,hitIds:[],splitOnHit:false,explodeAtLimit:false,splash:0,splashFreezeDuration:0,sourceType:p.sourceType??'cryoMortar',sourceTowerId:p.sourceTowerId,teleporterClone:p.teleporterClone}) }
       }
       if (p.cluster) {
-        for (let i = 0; i < 3; i++) {
+        const childCount = p.cascadeDepth ? 4 : 3
+        for (let i = 0; i < childCount; i++) {
           const a = Math.random() * Math.PI * 2
           const dist = 40 + Math.random() * 45
           spawned.push({
@@ -1876,7 +1928,8 @@ export function update(s: GameState, dt: number) {
             height: 28,
             damage: 16,
             splash: 32,
-            cluster: false,
+            cluster: !!p.cascadeDepth && p.cascadeDepth > 1,
+            cascadeDepth: p.cascadeDepth ? p.cascadeDepth - 1 : undefined,
             color: p.teleporterClone ? '#c084fc' : '#fb7185',
             size: 4,
             sourceType: p.sourceType,
