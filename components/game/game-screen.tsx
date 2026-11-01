@@ -282,8 +282,8 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
 
         <aside className="contents">
           {debugOpen && (
-            <section className="rounded-lg border border-amber-400/40 bg-[#171526] p-3 lg:col-start-1 lg:row-start-3">
-              <h2 className="mb-2 flex items-center gap-2 font-display text-xs tracking-widest text-amber-300"><Bug className="size-4" aria-hidden /> MODO DEBUG</h2>
+            <section className="rounded-lg border border-amber-400/40 bg-[#171526] p-2 lg:col-start-1 lg:row-start-2">
+              <h2 className="mb-1 flex items-center gap-2 font-display text-xs tracking-widest text-amber-300"><Bug className="size-4" aria-hidden /> MODO DEBUG</h2>
               <p className="mb-3 text-[11px] leading-relaxed text-slate-400">Crie qualquer torre sem gastar créditos ou invoque insetos instantaneamente. Para colocar uma torre, escolha-a e toque em uma casa livre do mapa.</p>
               <label className="mb-1 block text-xs text-slate-300" htmlFor="debug-enemy">Spawnar inseto</label>
               <div className="flex gap-1.5">
@@ -300,7 +300,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
               {debugTowerType && <div className="flex items-center gap-2"><SpriteIcon tower={debugTowerType} label={TOWERS[debugTowerType].name} /><span className="min-w-0 flex-1 text-xs text-amber-200">Toque no mapa para posicionar grátis</span><button onClick={() => setDebugTowerType('')} className="rounded border border-slate-600 px-2 py-1 text-xs">Cancelar</button></div>}
             </section>
           )}
-          <section className="min-h-0 overflow-hidden rounded-lg border border-rose-500/30 bg-[#0a1226] p-2 lg:col-start-1 lg:row-start-1 lg:row-span-2">
+          <section className="min-h-0 overflow-hidden rounded-lg border border-rose-500/30 bg-[#0a1226] p-2 lg:col-start-1 lg:row-start-1">
             <h2 className="mb-1 font-display text-xs tracking-widest text-rose-300">CONSTRUIR</h2>
             <div className="grid grid-cols-2 gap-1.5">
               {BUILDABLE.map((type, i) => {
