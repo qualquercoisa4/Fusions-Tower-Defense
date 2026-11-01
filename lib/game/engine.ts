@@ -83,6 +83,8 @@ export interface Tower {
   overclockTimer: number
   burstTimer: number
   burstShotsRemaining: number
+  meteorDistance: number
+  meteorTimer: number
 }
 
 type Projectile = (
@@ -472,6 +474,8 @@ export function placeTower(s: GameState, type: TowerType, col: number, row: numb
     overclockTimer: 0,
     burstTimer: 0,
     burstShotsRemaining: 0,
+    meteorDistance: -1,
+    meteorTimer: 0,
   })
   return true
 }
@@ -826,9 +830,12 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
 
   if (t.type === 'gatlingGun') {
     const angle = Math.atan2(target.y - t.y, target.x - t.x)
-    for (const offset of [-0.025, 0.025]) {
-      const dirX = Math.cos(angle + offset), dirY = Math.sin(angle + offset)
-      s.projectiles.push({ kind: 'direct', x: t.x + dirX * 17, y: t.y + dirY * 17, tx: target.x, ty: target.y, targetId: target.id, speed: def.projectileSpeed, damage: def.damage, splash: 0, color: def.color, size: 3.5, sourceType: t.type, sourceTowerId: t.id })
+    const perpendicularX = -Math.sin(angle), perpendicularY = Math.cos(angle)
+    for (const side of [-1, 1]) {
+      const dirX = Math.cos(angle + side * 0.12), dirY = Math.sin(angle + side * 0.12)
+      const muzzleX = t.x + Math.cos(angle) * 17 + perpendicularX * side * 5
+      const muzzleY = t.y + Math.sin(angle) * 17 + perpendicularY * side * 5
+      s.projectiles.push({ kind: 'direct', x: muzzleX, y: muzzleY, tx: target.x + perpendicularX * side * 7, ty: target.y + perpendicularY * side * 7, targetId: target.id, speed: def.projectileSpeed, damage: def.damage, splash: 0, color: def.color, size: 4.2, sourceType: t.type, sourceTowerId: t.id })
     }
     return
   }
@@ -1324,14 +1331,24 @@ export function update(s: GameState, dt: number) {
       }
     }
     if (t.type === 'meteorShower') {
-      t.supportCooldown = Math.max(0, t.supportCooldown - dt)
-      if (t.supportCooldown <= 0) {
-        const total = REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1]
-        for (let distance = 0; distance <= total; distance += CELL * 3) {
-          const point = pointOnPath(distance)
-          s.projectiles.push({ kind: 'arc', sx: point.x, sy: point.y - 150, tx: point.x, ty: point.y, t: 0, duration: 0.7, height: 0, damage: baseDef.damage, splash: baseDef.splash, cluster: false, color: baseDef.color, size: 9, sourceType: t.type, sourceTowerId: t.id })
+      if (t.meteorDistance < 0) {
+        t.supportCooldown = Math.max(0, t.supportCooldown - dt)
+        if (t.supportCooldown <= 0) {
+          t.meteorDistance = REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1]
+          t.meteorTimer = 0
         }
-        t.supportCooldown = 10
+      } else {
+        t.meteorTimer -= dt
+        if (t.meteorTimer <= 0) {
+          const point = pointOnPath(t.meteorDistance)
+          s.projectiles.push({ kind: 'arc', sx: point.x + 18, sy: point.y - 190, tx: point.x, ty: point.y, t: 0, duration: 0.62, height: 24, damage: baseDef.damage, splash: baseDef.splash, cluster: false, color: baseDef.color, size: 10, sourceType: t.type, sourceTowerId: t.id })
+          t.meteorDistance -= CELL * 2.2
+          t.meteorTimer = 0.11
+          if (t.meteorDistance < 0) {
+            t.meteorDistance = -1
+            t.supportCooldown = 10
+          }
+        }
       }
       continue
     }
@@ -2056,6 +2073,21 @@ export function update(s: GameState, dt: number) {
     p.t += dt
     if (p.t >= p.duration) {
       explode(s, p.tx, p.ty, p.splash, p.damage, p.color, p.sourceType, p.sourceTowerId, true)
+      if (p.glacial) {
+        freezeInRadius(s, p.tx, p.ty, p.splash, 0.8)
+        for (let i = 0; i < 6; i++) {
+          const angle = i * Math.PI / 3 + Math.PI / 6
+          const distance = 38 + (i % 2) * 20
+          const tx = p.tx + Math.cos(angle) * distance
+          const ty = p.ty + Math.sin(angle) * distance
+          spawned.push({
+            kind: 'arc', sx: p.tx, sy: p.ty, tx, ty, t: 0, duration: 0.42,
+            height: 42, damage: p.damage * 0.48, splash: p.splash * 0.62,
+            cluster: false, cryo: true, color: '#a5f3fc', size: 8,
+            sourceType: p.sourceType, sourceTowerId: p.sourceTowerId,
+          })
+        }
+      }
       if (p.cryo) {
         freezeInRadius(s,p.tx,p.ty,p.splash,0.5)
         for(let i=0;i<8;i++) { const a=i*Math.PI/4; spawned.push({kind:'ice',x:p.tx,y:p.ty,dirX:Math.cos(a),dirY:Math.sin(a),traveled:0,maxDistance:125,speed:290,damage:p.damage*.45,color:p.teleporterClone?'#c084fc':'#a5f3fc',size:4,freezeDuration:0,slowDuration:0,slowFactor:1,hitLimit:4,hitIds:[],splitOnHit:false,explodeAtLimit:false,splash:0,splashFreezeDuration:0,sourceType:p.sourceType??'cryoMortar',sourceTowerId:p.sourceTowerId,teleporterClone:p.teleporterClone}) }
@@ -2339,7 +2371,15 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
   ctx.strokeStyle = def.color
   ctx.lineWidth = tier === 2 ? 2.8 : 2
   ctx.beginPath()
-  if (['incomeFarm','incomeTax','economyHouse'].includes(type)) {
+  if (type === 'gatlingGun') {
+    ctx.moveTo(-20,-13); ctx.lineTo(-9,-21); ctx.lineTo(15,-17); ctx.lineTo(21,-5); ctx.lineTo(17,15); ctx.lineTo(-13,19); ctx.lineTo(-21,7); ctx.closePath()
+  } else if (type === 'commsCenter') {
+    ctx.arc(0,0,22,0,Math.PI*2)
+  } else if (type === 'meteorShower') {
+    ctx.moveTo(0,-23); ctx.lineTo(20,-9); ctx.lineTo(15,16); ctx.lineTo(-12,22); ctx.lineTo(-22,0); ctx.closePath()
+  } else if (type === 'glacialCataclysm') {
+    ctx.moveTo(0,-24); ctx.lineTo(20,-13); ctx.lineTo(23,9); ctx.lineTo(0,22); ctx.lineTo(-23,9); ctx.lineTo(-20,-13); ctx.closePath()
+  } else if (['incomeFarm','incomeTax','economyHouse'].includes(type)) {
     ctx.roundRect(-17, -17, 34, 34, 5)
   } else if (['buffer','commsLanHouse','commsBuilding','electricalStation'].includes(type)) {
     ctx.arc(0, 0, 17, 0, Math.PI * 2)
@@ -2382,6 +2422,58 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
       ctx.fillStyle='#ecfeff';ctx.beginPath();ctx.arc(0,0,3,0,Math.PI*2);ctx.fill()
     }
     ctx.restore();return
+  }
+
+  // Tier 3: quatro silhuetas deliberadamente distintas.
+  if (type === 'gatlingGun') {
+    ctx.rotate(angle)
+    ctx.fillStyle = '#1e293b'; ctx.beginPath(); ctx.roundRect(-13,-12,22,24,5); ctx.fill()
+    ctx.fillStyle = '#334155'; ctx.strokeStyle = def.color; ctx.lineWidth = 2
+    ctx.beginPath(); ctx.roundRect(-3,-10,24,20,4); ctx.fill(); ctx.stroke()
+    for (const y of [-6,6]) {
+      ctx.fillStyle = '#0f172a'; ctx.fillRect(12,y-3,16,6)
+      ctx.fillStyle = '#7dd3fc'; ctx.fillRect(23,y-2,7,4)
+    }
+    ctx.fillStyle = '#e0f2fe'; ctx.beginPath(); ctx.arc(1,0,4,0,Math.PI*2); ctx.fill()
+    ctx.restore(); return
+  }
+  if (type === 'commsCenter') {
+    ctx.fillStyle = '#134e4a'; ctx.strokeStyle = '#5eead4'; ctx.lineWidth = 2.5
+    ctx.beginPath(); ctx.roundRect(-15,-12,30,25,5); ctx.fill(); ctx.stroke()
+    ctx.fillStyle = '#99f6e4'; ctx.fillRect(-10,-7,20,13)
+    ctx.fillStyle = '#042f2e'; ctx.fillRect(-7,-4,14,7)
+    ctx.strokeStyle = '#ccfbf1'; ctx.lineWidth = 2
+    ctx.beginPath(); ctx.moveTo(0,-12); ctx.lineTo(0,-23); ctx.moveTo(-8,-19); ctx.lineTo(8,-19); ctx.stroke()
+    ctx.fillStyle = '#f0fdfa'; ctx.beginPath(); ctx.arc(0,-24,3,0,Math.PI*2); ctx.fill()
+    ctx.strokeStyle = '#2dd4bf'; ctx.lineWidth = 1.7
+    ctx.beginPath(); ctx.arc(0,-24,8,Math.PI*1.15,Math.PI*1.85); ctx.stroke()
+    ctx.beginPath(); ctx.arc(0,-24,13,Math.PI*1.2,Math.PI*1.8); ctx.stroke()
+    ctx.fillStyle = '#5eead4'
+    for (const xx of [-10,10]) { ctx.beginPath(); ctx.arc(xx,13,2.5,0,Math.PI*2); ctx.fill() }
+    ctx.restore(); return
+  }
+  if (type === 'meteorShower') {
+    ctx.rotate(-angle * 0.18)
+    ctx.strokeStyle = '#c084fc'; ctx.lineWidth = 2.5; ctx.shadowColor = '#c084fc'; ctx.shadowBlur = 12
+    ctx.beginPath(); ctx.ellipse(0,0,21,8,-0.55,0,Math.PI*2); ctx.stroke()
+    ctx.fillStyle = '#713f12'; ctx.strokeStyle = '#f0abfc'; ctx.lineWidth = 1.8
+    ctx.beginPath(); ctx.moveTo(-9,-5); ctx.lineTo(-3,-15); ctx.lineTo(7,-12); ctx.lineTo(13,-2); ctx.lineTo(6,9); ctx.lineTo(-5,8); ctx.closePath(); ctx.fill(); ctx.stroke()
+    for (const [mx,my,r] of [[-14,10,4],[13,-12,4],[15,9,3]] as const) {
+      ctx.fillStyle = '#fb923c'; ctx.beginPath(); ctx.arc(mx,my,r,0,Math.PI*2); ctx.fill()
+      ctx.strokeStyle = '#fef3c7'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(mx-r,my-r); ctx.lineTo(mx+r,my+r); ctx.stroke()
+    }
+    ctx.restore(); return
+  }
+  if (type === 'glacialCataclysm') {
+    ctx.rotate(angle)
+    ctx.fillStyle = '#164e63'; ctx.strokeStyle = '#a5f3fc'; ctx.lineWidth = 2.5
+    ctx.beginPath(); ctx.roundRect(-15,-12,25,24,5); ctx.fill(); ctx.stroke()
+    ctx.fillStyle = '#67e8f9'; ctx.beginPath(); ctx.moveTo(2,-10); ctx.lineTo(22,-7); ctx.lineTo(28,0); ctx.lineTo(22,7); ctx.lineTo(2,10); ctx.closePath(); ctx.fill(); ctx.stroke()
+    ctx.fillStyle = '#ecfeff'; ctx.beginPath(); ctx.moveTo(11,-5); ctx.lineTo(22,0); ctx.lineTo(11,5); ctx.closePath(); ctx.fill()
+    for (const [cx,cy] of [[-12,-16],[-12,16],[0,-19]] as const) {
+      ctx.fillStyle = '#cffafe'; ctx.beginPath(); ctx.moveTo(cx,cy-6); ctx.lineTo(cx+4,cy); ctx.lineTo(cx,cy+6); ctx.lineTo(cx-4,cy); ctx.closePath(); ctx.fill()
+    }
+    ctx.restore(); return
   }
 
   // Armas com silhueta própria.
