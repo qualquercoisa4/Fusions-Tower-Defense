@@ -467,7 +467,7 @@ export function placeTower(s: GameState, type: TowerType, col: number, row: numb
     incomeSignalsLeft: 0,
     incomeWave: -1,
     disabledTimer: 0,
-    supportCooldown: type === 'teleporter' ? 2.2 : type === 'meteorShower' ? 10 : 0,
+    supportCooldown: type === 'teleporter' ? 2.2 : (type === 'meteorShower' || type === 'commsCenter') ? 15 : 0,
     essence: 0,
     overclockTimer: 0,
     burstTimer: 0,
@@ -800,7 +800,7 @@ function projectToPath(x: number, y: number) {
 function findReversePathTarget(s: GameState, t: Tower, range: number) {
   const projection = projectToPath(t.x, t.y)
   if (projection.error > range) return null
-  return s.enemies.filter(e => e.alive && canTowerTargetEnemy(e, t.type) && e.dist <= projection.distance + 4)
+  return s.enemies.filter(e => e.alive && canTowerTargetEnemy(e, t.type, s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && Math.hypot(other.x - t.x, other.y - t.y) <= TOWERS.commsCenter.range)) && e.dist <= projection.distance + 4)
     .sort((a, b) => b.dist - a.dist)[0] ?? null
 }
 
@@ -1335,6 +1335,19 @@ export function update(s: GameState, dt: number) {
       }
       continue
     }
+    if (t.type === 'commsCenter') {
+      t.supportCooldown = Math.max(0, t.supportCooldown - dt)
+      if (t.supportCooldown <= 0) {
+        const candidates = s.towers.filter(other => other.id !== t.id && TOWERS[other.type].damage > 0 && Math.hypot(other.x - t.x, other.y - t.y) <= baseDef.range)
+        if (candidates.length) {
+          const chosen = candidates[Math.floor(Math.random() * candidates.length)]
+          chosen.overclockTimer = Math.max(chosen.overclockTimer, 5)
+          s.explosions.push({ x: chosen.x, y: chosen.y, r: 34, t: 0, dur: 0.55, color: '#facc15' })
+          t.supportCooldown = 15
+        } else t.supportCooldown = 1
+      }
+      continue
+    }
     if (t.type === 'commsBuilding') {
       t.supportCooldown = Math.max(0, t.supportCooldown - dt)
       if (t.supportCooldown <= 0) {
@@ -1381,14 +1394,14 @@ export function update(s: GameState, dt: number) {
     if (t.type === 'soulstorm') {
       t.beamTargets = []
       if (t.essence >= SOULSTORM_ESSENCE_REQUIRED && t.cooldown <= 0) {
-        const target = findTarget(s, t, Infinity, t.targetMode, enemy => canTowerTargetEnemy(enemy, t.type))
+        const target = findTarget(s, t, Infinity, t.targetMode, enemy => canTowerTargetEnemy(enemy, t.type, s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && Math.hypot(other.x - t.x, other.y - t.y) <= TOWERS.commsCenter.range)))
         if (target) {
           t.angle = Math.atan2(target.y - t.y, target.x - t.x)
           const dirX = Math.cos(t.angle), dirY = Math.sin(t.angle)
           const beamLength = Math.hypot(WIDTH, HEIGHT) * 2
           const hitWidth = 12
           const lineTargets = s.enemies.filter(enemy => {
-            if (!enemy.alive || !canTowerTargetEnemy(enemy, t.type)) return false
+            if (!enemy.alive || !canTowerTargetEnemy(enemy, t.type, s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && Math.hypot(other.x - t.x, other.y - t.y) <= TOWERS.commsCenter.range))) return false
             const dx = enemy.x - t.x, dy = enemy.y - t.y
             const along = dx * dirX + dy * dirY
             const across = Math.abs(dx * dirY - dy * dirX)
@@ -1415,14 +1428,14 @@ export function update(s: GameState, dt: number) {
           t,
           def.range,
           t.targetMode,
-          (enemy) => canTowerTargetEnemy(enemy, t.type) && (t.type !== 'retarder' || enemy.frozenTimer <= 0),
+          (enemy) => canTowerTargetEnemy(enemy, t.type, s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && Math.hypot(other.x - t.x, other.y - t.y) <= TOWERS.commsCenter.range)) && (t.type !== 'retarder' || enemy.frozenTimer <= 0),
         )
     const lockedTeslaTarget =
       t.type === 'tesla' && t.chargeTargetId !== null
         ? s.enemies.find(
             (e) =>
               e.id === t.chargeTargetId &&
-              e.alive && canTowerTargetEnemy(e, t.type) &&
+              e.alive && canTowerTargetEnemy(e, t.type, s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && Math.hypot(other.x - t.x, other.y - t.y) <= TOWERS.commsCenter.range)) &&
               Math.hypot(e.x - t.x, e.y - t.y) <= def.range,
           ) ?? null
         : null
@@ -1458,7 +1471,7 @@ export function update(s: GameState, dt: number) {
           const angle = t.angle + offset
           const dirX = Math.cos(angle), dirY = Math.sin(angle)
           const lineTargets = s.enemies.filter(enemy => {
-            if (!enemy.alive || !canTowerTargetEnemy(enemy, t.type)) return false
+            if (!enemy.alive || !canTowerTargetEnemy(enemy, t.type, s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && Math.hypot(other.x - t.x, other.y - t.y) <= TOWERS.commsCenter.range))) return false
             const dx = enemy.x - t.x, dy = enemy.y - t.y
             const along = dx * dirX + dy * dirY
             const across = Math.abs(dx * dirY - dy * dirX)
@@ -1485,7 +1498,7 @@ export function update(s: GameState, dt: number) {
         const dirX = Math.cos(t.angle), dirY = Math.sin(t.angle)
         const hitWidth = t.type === 'plasmaBlaster' ? 9 : 5
         const lineTargets = s.enemies.filter(enemy => {
-          if (!enemy.alive || !canTowerTargetEnemy(enemy, t.type)) return false
+          if (!enemy.alive || !canTowerTargetEnemy(enemy, t.type, s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && Math.hypot(other.x - t.x, other.y - t.y) <= TOWERS.commsCenter.range))) return false
           const dx = enemy.x - t.x, dy = enemy.y - t.y
           const along = dx * dirX + dy * dirY
           const across = Math.abs(dx * dirY - dy * dirX)
@@ -1515,7 +1528,7 @@ export function update(s: GameState, dt: number) {
         const dirY = Math.sin(t.angle)
         const lineTargets = s.enemies
           .filter((enemy) => {
-            if (!enemy.alive || !canTowerTargetEnemy(enemy, t.type)) return false
+            if (!enemy.alive || !canTowerTargetEnemy(enemy, t.type, s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && Math.hypot(other.x - t.x, other.y - t.y) <= TOWERS.commsCenter.range))) return false
             const dx = enemy.x - t.x
             const dy = enemy.y - t.y
             const along = dx * dirX + dy * dirY
