@@ -15,6 +15,7 @@ import {
   update,
   type GameState,
   getFusionCost,
+  repairTower,
   SOULSTORM_ESSENCE_REQUIRED,
 } from '@/lib/game/engine'
 import { SpriteIcon } from './sprite-icon'
@@ -243,9 +244,9 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col lg:flex-row gap-4 p-4">
-        <div className="relative flex-1 flex items-start justify-center">
-          <div className="relative w-full max-w-[960px]">
+      <div className="grid min-h-[calc(100dvh-58px)] flex-1 grid-cols-1 content-start gap-3 p-3 lg:grid-cols-[minmax(220px,260px)_minmax(0,1fr)_minmax(260px,300px)] lg:grid-rows-[auto_auto_auto] lg:items-start">
+        <div className="relative min-w-0 flex items-start justify-center lg:col-start-2 lg:row-start-1">
+          <div className="relative w-full max-w-none">
             <canvas
               ref={canvasRef}
               onPointerDown={handleClick}
@@ -279,9 +280,9 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
           </div>
         </div>
 
-        <aside className="w-full lg:w-72 flex flex-col gap-4">
+        <aside className="contents">
           {debugOpen && (
-            <section className="rounded-lg border border-amber-400/40 bg-[#171526] p-3">
+            <section className="rounded-lg border border-amber-400/40 bg-[#171526] p-3 lg:col-start-1 lg:row-start-3">
               <h2 className="mb-2 flex items-center gap-2 font-display text-xs tracking-widest text-amber-300"><Bug className="size-4" aria-hidden /> MODO DEBUG</h2>
               <p className="mb-3 text-[11px] leading-relaxed text-slate-400">Crie qualquer torre sem gastar créditos ou invoque insetos instantaneamente. Para colocar uma torre, escolha-a e toque em uma casa livre do mapa.</p>
               <label className="mb-1 block text-xs text-slate-300" htmlFor="debug-enemy">Spawnar inseto</label>
@@ -299,7 +300,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
               {debugTowerType && <div className="flex items-center gap-2"><SpriteIcon tower={debugTowerType} label={TOWERS[debugTowerType].name} /><span className="min-w-0 flex-1 text-xs text-amber-200">Toque no mapa para posicionar grátis</span><button onClick={() => setDebugTowerType('')} className="rounded border border-slate-600 px-2 py-1 text-xs">Cancelar</button></div>}
             </section>
           )}
-          <section className="rounded-lg border border-sky-500/20 bg-[#0a1226] p-3">
+          <section className="rounded-lg border border-sky-500/20 bg-[#0a1226] p-3 lg:col-start-1 lg:row-start-1">
             <h2 className="mb-2 font-display text-xs tracking-widest text-sky-300/80">CONSTRUIR</h2>
             <div className="grid grid-cols-2 gap-2">
               {BUILDABLE.map((type, i) => {
@@ -334,7 +335,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
             </div>
           </section>
 
-          <section className="rounded-lg border border-violet-500/20 bg-[#0a1226] p-3">
+          <section className="rounded-lg border border-violet-500/20 bg-[#0a1226] p-3 lg:col-start-1 lg:row-start-2">
             <h2 className="mb-2 font-display text-xs tracking-widest text-violet-300/90">FUSÕES TIER 2</h2>
             <div className="flex flex-col gap-2">
               {([
@@ -359,7 +360,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
             </div>
           </section>
 
-          <section className="rounded-lg border border-sky-500/20 bg-[#0a1226] p-3 min-h-40">
+          <section className="rounded-lg border border-emerald-500/25 bg-[#0a1226] p-3 min-h-40 lg:col-start-3 lg:row-start-1 lg:row-span-3">
             <h2 className="mb-2 font-display text-xs tracking-widest text-sky-300/80">TORRE SELECIONADA</h2>
             {selected && selDef ? (
               <div className="flex flex-col gap-3">
@@ -441,7 +442,8 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
             )}
           </section>
 
-          <label className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-200">
+          <section className="flex flex-wrap items-center gap-3 rounded-lg border border-sky-500/25 bg-[#0a1226] p-3 lg:col-start-2 lg:row-start-2">
+          <label className="flex items-center gap-2 rounded-md border border-sky-500/30 bg-sky-500/5 px-3 py-2 text-xs text-sky-200">
             <input
               type="checkbox"
               checked={autoNextWave}
@@ -471,6 +473,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
               {speed}x
             </button>
           </div>
+          </section>
         </aside>
       </div>
     </main>
