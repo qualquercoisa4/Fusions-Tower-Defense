@@ -136,8 +136,11 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
 
   const cellFromEvent = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * WIDTH
-    const y = ((e.clientY - rect.top) / rect.height) * HEIGHT
+    // Convert pointer coordinates using the canvas's actual rendered bounds.
+    // The canvas keeps the game's 3:2 aspect ratio; clamp prevents edge clicks
+    // from producing an out-of-range grid cell due to sub-pixel rounding.
+    const x = Math.max(0, Math.min(WIDTH - 0.001, ((e.clientX - rect.left) / rect.width) * WIDTH))
+    const y = Math.max(0, Math.min(HEIGHT - 0.001, ((e.clientY - rect.top) / rect.height) * HEIGHT))
     return { col: Math.floor(x / CELL), row: Math.floor(y / CELL) }
   }
 
@@ -252,8 +255,8 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
               onPointerDown={handleClick}
               onPointerMove={handleMove}
               onPointerLeave={() => (game.current.hover = null)}
-              className="h-auto max-h-full w-full max-w-full rounded-lg border border-sky-500/30 object-contain shadow-[0_0_40px_rgba(56,189,248,0.15)] touch-none cursor-crosshair"
-              style={{ aspectRatio: `${WIDTH} / ${HEIGHT}` }}
+              className="block h-auto w-full max-w-full rounded-lg border border-sky-500/30 shadow-[0_0_40px_rgba(56,189,248,0.15)] touch-none cursor-crosshair"
+              style={{ aspectRatio: `${WIDTH} / ${HEIGHT}`, width: `min(100%, calc((100dvh - 150px) * ${WIDTH / HEIGHT}))` }}
               aria-label="Campo de batalha"
             />
             {message && (
