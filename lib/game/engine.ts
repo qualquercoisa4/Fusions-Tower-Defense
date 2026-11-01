@@ -1342,7 +1342,7 @@ export function update(s: GameState, dt: number) {
         if (t.meteorTimer <= 0) {
           const point = pointOnPath(t.meteorDistance)
           s.projectiles.push({ kind: 'arc', sx: point.x + 18, sy: point.y - 190, tx: point.x, ty: point.y, t: 0, duration: 0.62, height: 24, damage: baseDef.damage, splash: baseDef.splash, cluster: false, color: baseDef.color, size: 10, sourceType: t.type, sourceTowerId: t.id })
-          t.meteorDistance -= CELL * 2.2
+          t.meteorDistance -= CELL
           t.meteorTimer = 0.11
           if (t.meteorDistance < 0) {
             t.meteorDistance = -1
