@@ -172,7 +172,7 @@ type Projectile = (
   | {
       kind: 'fragment'
       x: number; y: number; dirX: number; dirY: number; speed: number; traveled: number
-      maxDistance: number; damage: number; color: string; size: number
+      maxDistance: number; damage: number; color: string; size: number; bouncesLeft?: number
     }
   | {
       kind: 'syringe'
@@ -1694,19 +1694,52 @@ export function update(s: GameState, dt: number) {
     }
     if (p.kind === 'slingshot') {
       const step = p.speed * dt
-      p.x += p.dirX * step; p.y += p.dirY * step; p.traveled += step
+      p.x += p.dirX * step
+      p.y += p.dirY * step
+      p.traveled += step
+      let bounced = false
       if (p.x < 8 || p.x > WIDTH - 8) {
-        if (p.bouncesLeft <= 0) { if (p.splitOnBounceEnd) { for(let i=0;i<4;i++){const a=i*Math.PI/2;spawned.push({kind:'fragment',x:p.x,y:p.y,dirX:Math.cos(a),dirY:Math.sin(a),speed:230,traveled:0,maxDistance:260,damage:p.damage,color:p.color,size:6,sourceType:'splitHeel',sourceTowerId:p.sourceTowerId} as Projectile)} } return false }
-        p.x = Math.max(8, Math.min(WIDTH - 8, p.x)); p.dirX *= -1; p.bouncesLeft--; if (p.splitOnBounceEnd && p.bouncesLeft === 0) { for(let i=0;i<4;i++){const a=i*Math.PI/2;s.projectiles.push({kind:'fragment',x:p.x,y:p.y,dirX:Math.cos(a),dirY:Math.sin(a),speed:230,traveled:0,maxDistance:260,damage:p.damage,color:p.color,size:6,sourceType:'splitHeel',sourceTowerId:p.sourceTowerId} as Projectile)} return false }
+        if (p.bouncesLeft > 0) {
+          p.x = Math.max(8, Math.min(WIDTH - 8, p.x))
+          p.dirX *= -1
+          p.bouncesLeft--
+          bounced = true
+        }
       }
       if (p.y < 8 || p.y > HEIGHT - 8) {
-        if (p.bouncesLeft <= 0) { if (p.splitOnBounceEnd) { for(let i=0;i<4;i++){const a=i*Math.PI/2;spawned.push({kind:'fragment',x:p.x,y:p.y,dirX:Math.cos(a),dirY:Math.sin(a),speed:230,traveled:0,maxDistance:260,damage:p.damage,color:p.color,size:6,sourceType:'splitHeel',sourceTowerId:p.sourceTowerId} as Projectile)} } return false }
-        p.y = Math.max(8, Math.min(HEIGHT - 8, p.y)); p.dirY *= -1; p.bouncesLeft--; if (p.splitOnBounceEnd && p.bouncesLeft === 0) { for(let i=0;i<4;i++){const a=i*Math.PI/2;s.projectiles.push({kind:'fragment',x:p.x,y:p.y,dirX:Math.cos(a),dirY:Math.sin(a),speed:230,traveled:0,maxDistance:260,damage:p.damage,color:p.color,size:6,sourceType:'splitHeel',sourceTowerId:p.sourceTowerId} as Projectile)} return false }
+        if (p.bouncesLeft > 0) {
+          p.y = Math.max(8, Math.min(HEIGHT - 8, p.y))
+          p.dirY *= -1
+          p.bouncesLeft--
+          bounced = true
+        }
       }
-      const hit = s.enemies.filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'slingshot') && !p.hitIds.includes(enemy.id) && Math.hypot(enemy.x-p.x, enemy.y-p.y) <= ENEMIES[enemy.type].radius + p.size + 2 && !projectilePassesGhost(p, enemy))
-        .sort((a,b) => Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0]
+      if (p.splitOnBounceEnd && p.bouncesLeft <= 0 && bounced) {
+        for (let i = 0; i < 4; i++) {
+          const angle = i * Math.PI / 2
+          spawned.push({
+            kind: 'fragment', x: p.x, y: p.y,
+            dirX: Math.cos(angle), dirY: Math.sin(angle),
+            speed: 230, traveled: 0, maxDistance: 420,
+            damage: p.damage, color: p.color, size: 6,
+            bouncesLeft: 3, sourceType: 'splitHeel', sourceTowerId: p.sourceTowerId,
+          })
+        }
+        s.explosions.push({ x: p.x, y: p.y, r: 24, t: 0, dur: 0.24, color: p.color })
+        return false
+      }
+      if ((p.x < 8 || p.x > WIDTH - 8 || p.y < 8 || p.y > HEIGHT - 8) && p.bouncesLeft <= 0) {
+        return false
+      }
+      const hit = s.enemies
+        .filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'slingshot') &&
+          !p.hitIds.includes(enemy.id) &&
+          Math.hypot(enemy.x - p.x, enemy.y - p.y) <= ENEMIES[enemy.type].radius + p.size + 2 &&
+          !projectilePassesGhost(p, enemy))
+        .sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0]
       if (hit) {
-        p.hitIds.push(hit.id); damageEnemy(s, hit, p.damage, p.sourceType ?? 'slingshot', p.sourceTowerId, true)
+        p.hitIds.push(hit.id)
+        damageEnemy(s, hit, p.damage, p.sourceType ?? 'slingshot', p.sourceTowerId, true)
         s.explosions.push({ x: hit.x, y: hit.y, r: 9, t: 0, dur: 0.14, color: p.color })
         if (p.hitIds.length >= p.hitLimit) return false
       }
@@ -1714,9 +1747,28 @@ export function update(s: GameState, dt: number) {
     }
     if (p.kind === 'fragment') {
       const step = p.speed * dt
-      p.x += p.dirX * step; p.y += p.dirY * step; p.traveled += step
-      const hit = s.enemies.filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'boulderCannon') && Math.hypot(enemy.x-p.x, enemy.y-p.y) <= ENEMIES[enemy.type].radius + p.size + 1 && !projectilePassesGhost(p, enemy))
-        .sort((a,b) => Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0]
+      p.x += p.dirX * step
+      p.y += p.dirY * step
+      p.traveled += step
+      if (p.sourceType === 'splitHeel') {
+        if (p.x < 8 || p.x > WIDTH - 8) {
+          if ((p.bouncesLeft ?? 0) <= 0) return false
+          p.x = Math.max(8, Math.min(WIDTH - 8, p.x))
+          p.dirX *= -1
+          p.bouncesLeft = (p.bouncesLeft ?? 0) - 1
+        }
+        if (p.y < 8 || p.y > HEIGHT - 8) {
+          if ((p.bouncesLeft ?? 0) <= 0) return false
+          p.y = Math.max(8, Math.min(HEIGHT - 8, p.y))
+          p.dirY *= -1
+          p.bouncesLeft = (p.bouncesLeft ?? 0) - 1
+        }
+      }
+      const hit = s.enemies
+        .filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'boulderCannon') &&
+          Math.hypot(enemy.x - p.x, enemy.y - p.y) <= ENEMIES[enemy.type].radius + p.size + 1 &&
+          !projectilePassesGhost(p, enemy))
+        .sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0]
       if (hit) {
         if (p.sourceType === 'splitHeel') explode(s, hit.x, hit.y, 38, p.damage, p.color, p.sourceType, p.sourceTowerId, true)
         else damageEnemy(s, hit, p.damage, p.sourceType ?? 'boulderCannon', p.sourceTowerId, true)
