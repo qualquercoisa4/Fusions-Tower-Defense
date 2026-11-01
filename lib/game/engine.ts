@@ -1661,7 +1661,7 @@ export function update(s: GameState, dt: number) {
       }
       const dx = p.x - oldX, dy = p.y - oldY, lenSq = dx * dx + dy * dy
       const hits = s.enemies.filter(enemy => {
-        if (!enemy.alive || p.hitIds.includes(enemy.id) || !canTowerTargetEnemy(enemy, p.payloadType)) return false
+        if (!enemy.alive || p.hitIds.includes(enemy.id) || !canTowerTargetEnemy(enemy, p.payloadType, !!p.sourceTowerId && s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && s.towers.some(source => source.id === p.sourceTowerId && Math.hypot(other.x - source.x, other.y - source.y) <= TOWERS.commsCenter.range)))) return false
         const along = lenSq > 0 ? Math.max(0, Math.min(1, ((enemy.x - oldX) * dx + (enemy.y - oldY) * dy) / lenSq)) : 0
         return Math.hypot(enemy.x - (oldX + along * dx), enemy.y - (oldY + along * dy)) <= ENEMIES[enemy.type].radius + p.size + 2
       }).sort((a,b) => Math.hypot(a.x-oldX,a.y-oldY)-Math.hypot(b.x-oldX,b.y-oldY))
@@ -1720,7 +1720,7 @@ export function update(s: GameState, dt: number) {
       p.alpha = Math.max(0, p.alpha - dt * 1.35)
       p.size = Math.max(0.5, p.size - dt * 5.5)
       const hits = s.enemies.filter(enemy => {
-        if (!enemy.alive || p.hitIds.includes(enemy.id) || !canTowerTargetEnemy(enemy, p.sourceType ?? 'flamethrower')) return false
+        if (!enemy.alive || p.hitIds.includes(enemy.id) || !canTowerTargetEnemy(enemy, p.sourceType ?? 'flamethrower', !!p.sourceTowerId && s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && s.towers.some(source => source.id === p.sourceTowerId && Math.hypot(other.x - source.x, other.y - source.y) <= TOWERS.commsCenter.range)))) return false
         const dx = p.x - oldX, dy = p.y - oldY, lenSq = dx * dx + dy * dy
         const along = lenSq > 0 ? Math.max(0, Math.min(1, ((enemy.x - oldX) * dx + (enemy.y - oldY) * dy) / lenSq)) : 0
         const nearX = oldX + along * dx, nearY = oldY + along * dy
@@ -1744,7 +1744,7 @@ export function update(s: GameState, dt: number) {
           let nearest: Enemy | null = null
           let nearestDistance = p.sourceType === 'plasmaCannon' ? 340 : 170
           for (const enemy of s.enemies) {
-            if (!enemy.alive || p.hitIds.includes(enemy.id) || (p.sourceType && !canTowerTargetEnemy(enemy, p.sourceType))) continue
+            if (!enemy.alive || p.hitIds.includes(enemy.id) || (p.sourceType && !canTowerTargetEnemy(enemy, p.sourceType, !!p.sourceTowerId && s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && s.towers.some(source => source.id === p.sourceTowerId && Math.hypot(other.x - source.x, other.y - source.y) <= TOWERS.commsCenter.range))))) continue
             const distance = Math.hypot(enemy.x - p.x, enemy.y - p.y)
             if (distance < nearestDistance) { nearest = enemy; nearestDistance = distance }
           }
@@ -1762,7 +1762,7 @@ export function update(s: GameState, dt: number) {
       }
       const step = p.speed * dt
       p.x += p.dirX * step; p.y += p.dirY * step; p.traveled += step
-      const hit = s.enemies.filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'teleporter') && !p.hitIds.includes(enemy.id) && Math.hypot(enemy.x - p.x, enemy.y - p.y) <= ENEMIES[enemy.type].radius + p.size + 2 && !projectilePassesGhost(p, enemy)).sort((a,b) => Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0]
+      const hit = s.enemies.filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'teleporter', !!p.sourceTowerId && s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && s.towers.some(source => source.id === p.sourceTowerId && Math.hypot(other.x - source.x, other.y - source.y) <= TOWERS.commsCenter.range))) && !p.hitIds.includes(enemy.id) && Math.hypot(enemy.x - p.x, enemy.y - p.y) <= ENEMIES[enemy.type].radius + p.size + 2 && !projectilePassesGhost(p, enemy)).sort((a,b) => Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0]
       if (hit) {
         p.hitIds.push(hit.id)
         damageEnemy(s, hit, p.damage, p.sourceType, p.sourceTowerId, true)
@@ -1827,7 +1827,7 @@ export function update(s: GameState, dt: number) {
         return false
       }
       const hit = s.enemies
-        .filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'slingshot') &&
+        .filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'slingshot', !!p.sourceTowerId && s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && s.towers.some(source => source.id === p.sourceTowerId && Math.hypot(other.x - source.x, other.y - source.y) <= TOWERS.commsCenter.range))) &&
           !p.hitIds.includes(enemy.id) &&
           Math.hypot(enemy.x - p.x, enemy.y - p.y) <= ENEMIES[enemy.type].radius + p.size + 2 &&
           !projectilePassesGhost(p, enemy))
@@ -1860,7 +1860,7 @@ export function update(s: GameState, dt: number) {
         }
       }
       const hit = s.enemies
-        .filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'boulderCannon') &&
+        .filter(enemy => enemy.alive && canTowerTargetEnemy(enemy, p.sourceType ?? 'boulderCannon', !!p.sourceTowerId && s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && s.towers.some(source => source.id === p.sourceTowerId && Math.hypot(other.x - source.x, other.y - source.y) <= TOWERS.commsCenter.range))) &&
           Math.hypot(enemy.x - p.x, enemy.y - p.y) <= ENEMIES[enemy.type].radius + p.size + 1 &&
           !projectilePassesGhost(p, enemy))
         .sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0]
@@ -1934,7 +1934,7 @@ export function update(s: GameState, dt: number) {
       const dx = p.x - old.x, dy = p.y - old.y, lenSq = dx * dx + dy * dy
       let hit: Enemy | null = null, hitAlong = Infinity
       for (const enemy of s.enemies) {
-        if (!enemy.alive || p.hitIds.includes(enemy.id) || !canTowerTargetEnemy(enemy, p.sourceType ?? 'boulderLauncher') || projectilePassesGhost(p, enemy)) continue
+        if (!enemy.alive || p.hitIds.includes(enemy.id) || !canTowerTargetEnemy(enemy, p.sourceType ?? 'boulderLauncher', !!p.sourceTowerId && s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && s.towers.some(source => source.id === p.sourceTowerId && Math.hypot(other.x - source.x, other.y - source.y) <= TOWERS.commsCenter.range))) || projectilePassesGhost(p, enemy)) continue
         const along = lenSq > 0 ? Math.max(0, Math.min(1, ((enemy.x - old.x) * dx + (enemy.y - old.y) * dy) / lenSq)) : 0
         const nearX = old.x + along * dx, nearY = old.y + along * dy
         if (Math.hypot(enemy.x - nearX, enemy.y - nearY) <= ENEMIES[enemy.type].radius + p.size && along < hitAlong) { hit = enemy; hitAlong = along }
@@ -1964,7 +1964,7 @@ export function update(s: GameState, dt: number) {
       p.y += p.dirY * step
       p.traveled += step
       for (const enemy of s.enemies) {
-        if (!enemy.alive || !canTowerTargetEnemy(enemy, p.sourceType ?? 'teleporter')) continue
+        if (!enemy.alive || !canTowerTargetEnemy(enemy, p.sourceType ?? 'teleporter', !!p.sourceTowerId && s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && s.towers.some(source => source.id === p.sourceTowerId && Math.hypot(other.x - source.x, other.y - source.y) <= TOWERS.commsCenter.range)))) continue
         const distance = Math.hypot(enemy.x - p.x, enemy.y - p.y)
         if (distance <= p.aura + ENEMIES[enemy.type].radius && !projectilePassesGhost(p, enemy)) {
           const remaining = p.hitTimers[enemy.id] ?? 0
@@ -1991,7 +1991,7 @@ export function update(s: GameState, dt: number) {
       const hit = s.enemies.find(
         (enemy) =>
           enemy.alive &&
-          canTowerTargetEnemy(enemy, p.sourceType ?? 'retarder') &&
+          canTowerTargetEnemy(enemy, p.sourceType ?? 'retarder', !!p.sourceTowerId && s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && s.towers.some(source => source.id === p.sourceTowerId && Math.hypot(other.x - source.x, other.y - source.y) <= TOWERS.commsCenter.range))) &&
           !p.hitIds.includes(enemy.id) &&
           Math.hypot(enemy.x - p.x, enemy.y - p.y) <= ENEMIES[enemy.type].radius + p.size + 2 &&
           !projectilePassesGhost(p, enemy),
