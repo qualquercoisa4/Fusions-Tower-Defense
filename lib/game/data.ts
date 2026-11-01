@@ -352,7 +352,7 @@ export const TOWERS: Record<TowerType, TowerDef> = {
   buffer: {
     name: 'Buffer', tier: 0, damage: 0, range: 112, fireRate: 1, splash: 0, style: 'support',
     projectileSpeed: 0, inaccuracy: 0, cost: 340, color: '#34d399', accent: '#065f46',
-    description: 'Concede um pequeno aumento de dano, alcance e velocidade de ataque às torres próximas. Buffs iguais não acumulam.',
+    description: 'Concede um pequeno aumento de dano, alcance e velocidade de ataque às torres próximas. Também repara 18 HP das torres ao alcance ao fim de cada rodada. Buffs iguais não acumulam.',
   },
   commsLanHouse: {
     name: 'Comms Lan House', tier: 1, damage: 0, range: 125, fireRate: 1, splash: 0, style: 'support',
