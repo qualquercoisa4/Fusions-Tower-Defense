@@ -87,6 +87,13 @@ export interface Tower {
 
 type Projectile = (
   | {
+      kind: 'hybrid'
+      x: number; y: number; dirX: number; dirY: number; speed: number; traveled: number; maxDistance: number
+      damage: number; splash: number; hitIds: number[]; hitLimit: number; bouncesLeft: number
+      payloadType: TowerType; effectType: TowerType; slowDuration: number; freezeDuration: number
+      chainCount: number; color: string; size: number
+    }
+  | {
       kind: 'direct'
       x: number
       y: number
@@ -822,18 +829,28 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
     return
   }
   if (t.type === 'mimic') {
-    const candidates = s.projectiles.filter(p => p.sourceTowerId !== t.id && p.kind !== 'hostile' && p.kind !== 'singularity')
-    const original = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : null
-    if (original) {
-      const clone = { ...original, color: '#d8b4fe', teleporterClone: true } as Projectile
-      if ('hitIds' in clone) clone.hitIds = [...clone.hitIds]
-      if (clone.kind === 'energy') clone.hitTimers = { ...clone.hitTimers }
-      if (clone.kind === 'snowball') { clone.carriedIds = [...clone.carriedIds]; clone.carrierId = s.nextId++ }
-      s.projectiles.push(clone)
-    } else {
-      const angle = Math.atan2(target.y - t.y, target.x - t.x)
-      s.projectiles.push({ kind: 'homing', x: t.x, y: t.y, dirX: Math.cos(angle), dirY: Math.sin(angle), traveled: 0, maxDistance: def.range * 2, speed: def.projectileSpeed, turnRate: 8, acquireAfter: 0, targetId: target.id, hitIds: [], hitLimit: 3, damage: def.damage, color: def.color, size: 7, sourceType: t.type, sourceTowerId: t.id })
-    }
+    const payloadTypes: TowerType[] = ['shooter','cannon','dual','mortar','cluster','raygun','retarder','slingshot','rockLauncher','boulderCannon','teleporter','plasmaCannon','flamethrower','hyperLaser']
+    const effectTypes: TowerType[] = ['slingshot','retarder','icicles','snowballer','lightning','tesla','thunderstorm','teleporter','plasmaCannon','cannon','cluster','flamethrower','boulderLauncher','rockLauncher','singularity']
+    const payloadType = payloadTypes[Math.floor(Math.random() * payloadTypes.length)]
+    const effectType = effectTypes[Math.floor(Math.random() * effectTypes.length)]
+    const payload = TOWERS[payloadType]
+    const effect = TOWERS[effectType]
+    const angle = Math.atan2(target.y - t.y, target.x - t.x)
+    const splash = payload.splash > 0 ? payload.splash : (payload.style === 'mortar' || payload.style === 'cluster' ? 34 : 0)
+    const chainCount = effectType === 'lightning' || effectType === 'tesla' || effectType === 'thunderstorm' ? 2 : 0
+    const freezeDuration = effectType === 'retarder' || effectType === 'ice' ? 0.65 : 0
+    const slowDuration = effectType === 'icicles' || effectType === 'snowballer' || effectType === 'plasmaHypothermia' ? 1.8 : 0
+    s.projectiles.push({
+      kind: 'hybrid', x: t.x + Math.cos(angle) * 18, y: t.y + Math.sin(angle) * 18,
+      dirX: Math.cos(angle), dirY: Math.sin(angle), speed: Math.max(220, payload.projectileSpeed || 300),
+      traveled: 0, maxDistance: def.range * 2.4, damage: Math.max(12, payload.damage * 0.72),
+      splash, hitIds: [], hitLimit: effectType === 'slingshot' || effectType === 'boulderLauncher' || effectType === 'rockLauncher' ? 6 : 1,
+      bouncesLeft: effectType === 'slingshot' ? 3 : 0, payloadType, effectType,
+      slowDuration, freezeDuration, chainCount, color: '#d8b4fe',
+      size: payloadType === 'cannon' || payloadType === 'cluster' || payloadType === 'mortar' ? 7 : 5,
+      sourceType: t.type, sourceTowerId: t.id,
+    })
+    s.explosions.push({ x: t.x, y: t.y, r: 16, t: 0, dur: 0.2, color: '#d8b4fe' })
     return
   }
   if (t.type === 'splitHeel') {
@@ -1588,6 +1605,39 @@ export function update(s: GameState, dt: number) {
         return false
       }
       return p.traveled < p.maxDistance && p.x > -20 && p.x < WIDTH + 20 && p.y > -20 && p.y < HEIGHT + 20
+    }
+    if (p.kind === 'hybrid') {
+      const step = p.speed * dt
+      const oldX = p.x, oldY = p.y
+      p.x += p.dirX * step; p.y += p.dirY * step; p.traveled += step
+      if (p.bouncesLeft > 0) {
+        if (p.x < 8 || p.x > WIDTH - 8) { p.x = Math.max(8, Math.min(WIDTH - 8, p.x)); p.dirX *= -1; p.bouncesLeft-- }
+        if (p.y < 8 || p.y > HEIGHT - 8) { p.y = Math.max(8, Math.min(HEIGHT - 8, p.y)); p.dirY *= -1; p.bouncesLeft-- }
+      }
+      const dx = p.x - oldX, dy = p.y - oldY, lenSq = dx * dx + dy * dy
+      const hits = s.enemies.filter(enemy => {
+        if (!enemy.alive || p.hitIds.includes(enemy.id) || !canTowerTargetEnemy(enemy, p.payloadType)) return false
+        const along = lenSq > 0 ? Math.max(0, Math.min(1, ((enemy.x - oldX) * dx + (enemy.y - oldY) * dy) / lenSq)) : 0
+        return Math.hypot(enemy.x - (oldX + along * dx), enemy.y - (oldY + along * dy)) <= ENEMIES[enemy.type].radius + p.size + 2
+      }).sort((a,b) => Math.hypot(a.x-oldX,a.y-oldY)-Math.hypot(b.x-oldX,b.y-oldY))
+      for (const hit of hits) {
+        if (p.hitIds.length >= p.hitLimit) break
+        p.hitIds.push(hit.id)
+        if (!projectilePassesGhost(p, hit)) {
+          damageEnemy(s, hit, p.damage, p.payloadType, p.sourceTowerId, true)
+          if (p.freezeDuration > 0) applyFreeze(hit, p.freezeDuration)
+          if (p.slowDuration > 0) applySlow(hit, p.slowDuration, 0.58, p.effectType)
+          if (p.splash > 0) explode(s, hit.x, hit.y, p.splash, p.damage * 0.55, p.color, p.payloadType, p.sourceTowerId, true)
+          if (p.chainCount > 0) {
+            const nearby = s.enemies.filter(other => other.alive && other.id !== hit.id && !p.hitIds.includes(other.id) && Math.hypot(other.x-hit.x,other.y-hit.y) <= 76)
+              .sort((a,b) => Math.hypot(a.x-hit.x,a.y-hit.y)-Math.hypot(b.x-hit.x,b.y-hit.y)).slice(0,p.chainCount)
+            for (const chained of nearby) { p.hitIds.push(chained.id); damageEnemy(s,chained,p.damage*0.42,p.effectType,p.sourceTowerId,true); s.lightningFlashes.push({points:[{x:hit.x,y:hit.y},{x:chained.x,y:chained.y}],t:0,dur:0.16,color:'#c084fc'}) }
+          }
+        }
+        s.explosions.push({ x: hit.x, y: hit.y, r: p.splash > 0 ? Math.max(15,p.splash*0.45) : 10, t: 0, dur: 0.18, color: p.color })
+      }
+      const inBounds = p.x >= -16 && p.x <= WIDTH + 16 && p.y >= -16 && p.y <= HEIGHT + 16
+      return p.traveled < p.maxDistance && inBounds && p.hitIds.length < p.hitLimit
     }
     if (p.kind === 'direct') {
       const target = s.enemies.find((e) => e.id === p.targetId && e.alive)
@@ -2671,6 +2721,14 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
           ctx.beginPath(); ctx.arc(p.size * 0.35, 0, p.size * 0.32, 0, Math.PI * 2); ctx.fill()
         }
       }
+      ctx.restore()
+      continue
+    }
+    if (p.kind === 'hybrid') {
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(Math.atan2(p.dirY,p.dirX))
+      ctx.shadowColor = p.color; ctx.shadowBlur = 13; ctx.fillStyle = p.color; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5
+      ctx.beginPath(); ctx.ellipse(0,0,p.size*1.55,p.size,0,0,Math.PI*2); ctx.fill(); ctx.stroke()
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(p.size*0.35,0,Math.max(1.5,p.size*0.3),0,Math.PI*2); ctx.fill()
       ctx.restore()
       continue
     }
