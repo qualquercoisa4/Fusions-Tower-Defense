@@ -75,9 +75,9 @@ const MAP_DIFFICULTIES: { id: MapDifficulty; label: string; subtitle: string; co
 ]
 
 function MapPreview({ map, large = false }: { map: typeof GAME_MAPS[number]; large?: boolean }) {
-  const points = map.waypoints.map(([x, y]) => `${x},${y}`).join(' ')
-  const first = map.waypoints[0]
-  const last = map.waypoints[map.waypoints.length - 1]
+  const routes = map.routes?.length ? map.routes : [{ id: 'main', waypoints: map.waypoints }]
+  const first = routes[0].waypoints[0]
+  const last = routes[0].waypoints[routes[0].waypoints.length - 1]
   return (
     <div className={`ftd-map-preview ${large ? 'large' : ''}`}>
       <svg viewBox="-1.2 0 19.4 12" role="img" aria-label={`Prévia do mapa ${map.name}`} preserveAspectRatio="xMidYMid meet">
@@ -88,11 +88,17 @@ function MapPreview({ map, large = false }: { map: typeof GAME_MAPS[number]; lar
         </defs>
         <rect x="-1.2" y="0" width="19.4" height="12" fill="#061326" />
         <rect x="-1.2" y="0" width="19.4" height="12" fill={`url(#ftd-map-grid-${map.id}-${large ? 'large' : 'small'})`} />
-        <polyline points={points} fill="none" stroke="rgba(14,165,233,.22)" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
-        <polyline points={points} fill="none" stroke="#38536d" strokeWidth="1.72" strokeLinecap="round" strokeLinejoin="round" />
-        <polyline points={points} fill="none" stroke="#80dff2" strokeWidth=".055" strokeDasharray=".18 .2" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx={first[0]} cy={first[1]} r=".17" fill="#4ade80" stroke="#dcfce7" strokeWidth=".05" />
-        <circle cx={last[0]} cy={last[1]} r=".17" fill="#fb7185" stroke="#ffe4e6" strokeWidth=".05" />
+        {routes.map((route, index) => {
+          const points = route.waypoints.map(([x, y]) => `${x},${y}`).join(' ')
+          const start = route.waypoints[0], end = route.waypoints[route.waypoints.length - 1]
+          return <g key={route.id}>
+            <polyline points={points} fill="none" stroke="rgba(14,165,233,.22)" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+            <polyline points={points} fill="none" stroke="#38536d" strokeWidth="1.72" strokeLinecap="round" strokeLinejoin="round" />
+            <polyline points={points} fill="none" stroke={index % 2 ? '#c4b5fd' : '#80dff2'} strokeWidth=".055" strokeDasharray=".18 .2" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx={start[0]} cy={start[1]} r=".17" fill="#4ade80" stroke="#dcfce7" strokeWidth=".05" />
+            <circle cx={end[0]} cy={end[1]} r=".17" fill="#fb7185" stroke="#ffe4e6" strokeWidth=".05" />
+          </g>
+        })}
       </svg>
       <div className="ftd-map-preview-legend"><span><i className="start" /> ENTRADA</span><span><i className="exit" /> SAÍDA</span></div>
     </div>
@@ -100,10 +106,11 @@ function MapPreview({ map, large = false }: { map: typeof GAME_MAPS[number]; lar
 }
 
 function mapRouteLength(map: typeof GAME_MAPS[number]) {
-  return map.waypoints.slice(1).reduce((total, point, index) => {
-    const previous = map.waypoints[index]
+  const routes = map.routes?.length ? map.routes : [{ id: 'main', waypoints: map.waypoints }]
+  return routes.reduce((grandTotal, route) => grandTotal + route.waypoints.slice(1).reduce((total, point, index) => {
+    const previous = route.waypoints[index]
     return total + Math.abs(point[0] - previous[0]) + Math.abs(point[1] - previous[1])
-  }, 0)
+  }, 0), 0)
 }
 
 export function MapSelectScreen({ onBack, onSelect }: { onBack: () => void; onSelect: (mapId: MapId) => void }) {
@@ -173,7 +180,7 @@ export function MapSelectScreen({ onBack, onSelect }: { onBack: () => void; onSe
             <p className="ftd-map-description">{selectedMap.description}</p>
             <div className="ftd-map-stats">
               <div><strong>{mapRouteLength(selectedMap)}</strong><span>CÉLULAS DE ROTA</span></div>
-              <div><strong>{selectedMap.waypoints.length - 2}</strong><span>CURVAS</span></div>
+              <div><strong>{(selectedMap.routes?.length ? selectedMap.routes : [{ id: 'main', waypoints: selectedMap.waypoints }]).reduce((sum, route) => sum + route.waypoints.length - 2, 0)}</strong><span>CURVAS</span></div>
               <div><strong>{selectedMap.rating}/5</strong><span>DIFICULDADE</span></div>
             </div>
             <div className="ftd-map-note">A dificuldade desta seleção considera o traçado e o espaço para construção. As regras de ondas e economia permanecem iguais entre os mapas.</div>
