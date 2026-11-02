@@ -45,6 +45,7 @@ export interface Enemy {
   attackCooldown: number
   wp: number
   dist: number
+  routeIndex: number
   angle: number
   anim: number
   alive: boolean
@@ -325,6 +326,7 @@ export interface GameState {
   waveActive: boolean
   spawnQueue: { type: EnemyType; delay: number }[]
   spawnTimer: number
+  routeSpawnIndex: number
   status: 'playing' | 'over'
   nextId: number
   buildType: TowerType | null
@@ -360,6 +362,7 @@ export function createGame(mapId: MapId = DEFAULT_MAP_ID): GameState {
     waveActive: false,
     spawnQueue: [],
     spawnTimer: 0,
+    routeSpawnIndex: 0,
     status: 'playing',
     nextId: 1,
     buildType: null,
@@ -380,8 +383,10 @@ export function createGame(mapId: MapId = DEFAULT_MAP_ID): GameState {
 
 function createEnemy(s: GameState, type: EnemyType, x?: number, y?: number): Enemy {
   const map = getMapGeometry(s.mapId)
-  x ??= map.waypoints[0].x
-  y ??= map.waypoints[0].y
+  const routeIndex = s.routeSpawnIndex++ % map.routes.length
+  const route = map.routes[routeIndex] ?? map
+  x ??= route.waypoints[0].x
+  y ??= route.waypoints[0].y
   const def = ENEMIES[type]
   const boss = type === 'bugPrince' || type === 'bugQueen' || type === 'bugKing'
   const helmet = (s.bugPrinceDefeated || s.bugQueenDefeated) && s.seenEnemyTypes.includes(type)
@@ -396,7 +401,7 @@ function createEnemy(s: GameState, type: EnemyType, x?: number, y?: number): Ene
     spawnCooldown: type === 'spitter' ? 1.5 : 3.5, helmet, queenArmor, splitGeneration: 0,
     bulbOn: false, bulbTimer: 3,
     attackCooldown: type === 'spitter' ? 1.5 : type === 'buguns' ? 2.2 : type === 'starbug' ? 2.8 : 3,
-    wp: 1, dist: 0, angle: 0, anim: Math.random() * 10, alive: true,
+    wp: 1, dist: 0, routeIndex, angle: 0, anim: Math.random() * 10, alive: true,
     cocooning: false, cocoonTimer: 0,
     segmentHp: type === 'dirtBug' ? Array.from({ length: 4 }, () => hp / 4) : undefined,
     segmentMaxHp: type === 'dirtBug' ? hp / 4 : undefined,
@@ -567,6 +572,7 @@ export function startWave(s: GameState) {
   const farmCells = getMapGeometry(s.mapId).farmCells
   s.wave++
   s.waveActive = true
+  s.routeSpawnIndex = 0
   for (const tower of s.towers) {
     if (tower.type === 'incomeFarm' && farmCells.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 5; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
     else if (tower.type === 'incomeTax' && farmCells.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 7; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
@@ -628,7 +634,7 @@ function projectilePassesGhost(p: Projectile, enemy: Enemy) {
 }
 
 function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType, sourceTowerId?: number, fromProjectile = false) {
-  const map = getMapGeometry(s.mapId)
+  const map = getEnemyPath(getMapGeometry(s.mapId), e)
   if (!e.alive || isShielded(s,e) || e.burrowTimer > 0) return
   const element = sourceType ? TOWER_ELEMENTS[sourceType] : undefined
   if (e.type === 'ironBug' && element === 'normal' && fromProjectile && sourceTowerId && Math.random() < 0.1) {
@@ -664,8 +670,9 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType
   }
   if (e.type === 'swarmer' && e.hp < previousHp) {
     const child = createEnemy(s, 'swarmBug', e.x + (Math.random() - 0.5) * 10, e.y + (Math.random() - 0.5) * 10)
-    const pathPosition = projectToPath(map, e.x, e.y)
-    placeEnemyOnPath(map, child, pathPosition.distance)
+    child.routeIndex = e.routeIndex
+    const pathPosition = projectToPath(getEnemyPath(map, e), e.x, e.y)
+    placeEnemyOnPath(getEnemyPath(map, child), child, pathPosition.distance)
     s.enemies.push(child)
     s.explosions.push({ x: e.x, y: e.y, r: 13, t: 0, dur: 0.16, color: '#fb7185' })
   }
@@ -812,14 +819,17 @@ function findChainTargets(s: GameState, first: Enemy, linkRange = 76, towerType?
   return targets
 }
 
-interface MapGeometry {
+interface PathGeometry {
   waypoints: { x: number; y: number }[]
   pathCells: Set<string>
-  farmCells: Set<string>
   smoothPath: { x: number; y: number }[]
   pathDistances: number[]
   distanceScale: number
   totalLength: number
+}
+interface MapGeometry extends PathGeometry {
+  farmCells: Set<string>
+  routes: PathGeometry[]
 }
 const mapGeometryCache = new Map<MapId, MapGeometry>()
 
@@ -869,18 +879,11 @@ function pathMetrics(points: readonly { x: number; y: number }[]) {
   }
   return lengths
 }
-function getMapGeometry(mapId: MapId): MapGeometry {
-  const cached = mapGeometryCache.get(mapId)
-  if (cached) return cached
-  const definition = getMapDefinition(mapId)
-  const waypoints = definition.waypoints.map(([col, row]) => ({
-    x: col * CELL + CELL / 2,
-    y: row * CELL + CELL / 2,
-  }))
+function buildPathGeometry(rawWaypoints: readonly (readonly [number, number])[]): PathGeometry {
+  const waypoints = rawWaypoints.map(([col, row]) => ({ x: col * CELL + CELL / 2, y: row * CELL + CELL / 2 }))
   const pathCells = new Set<string>()
-  for (let i = 0; i < definition.waypoints.length - 1; i++) {
-    const [c1, r1] = definition.waypoints[i]
-    const [c2, r2] = definition.waypoints[i + 1]
+  for (let i = 0; i < rawWaypoints.length - 1; i++) {
+    const [c1, r1] = rawWaypoints[i], [c2, r2] = rawWaypoints[i + 1]
     const steps = Math.max(Math.abs(c2 - c1), Math.abs(r2 - r1))
     for (let step = 0; step <= steps; step++) {
       const col = c1 + Math.sign(c2 - c1) * step
@@ -893,19 +896,25 @@ function getMapGeometry(mapId: MapId): MapGeometry {
   const smoothLengths = pathMetrics(smoothPath)
   const distanceScale = rawLength / (smoothLengths.at(-1) || 1)
   const pathDistances = smoothLengths.map(distance => distance * distanceScale)
-  const geometry: MapGeometry = {
-    waypoints,
-    pathCells,
-    farmCells: new Set(definition.farmCells),
-    smoothPath,
-    pathDistances,
-    distanceScale,
-    totalLength: pathDistances[pathDistances.length - 1] ?? 0,
-  }
+  return { waypoints, pathCells, smoothPath, pathDistances, distanceScale, totalLength: pathDistances[pathDistances.length - 1] ?? 0 }
+}
+function getMapGeometry(mapId: MapId): MapGeometry {
+  const cached = mapGeometryCache.get(mapId)
+  if (cached) return cached
+  const definition = getMapDefinition(mapId)
+  const routeDefinitions = definition.routes?.length ? definition.routes : [{ id: 'main', waypoints: definition.waypoints }]
+  const routes = routeDefinitions.map(route => buildPathGeometry(route.waypoints))
+  const primary = routes[0]
+  const pathCells = new Set<string>()
+  for (const route of routes) for (const cell of route.pathCells) pathCells.add(cell)
+  const geometry: MapGeometry = { ...primary, pathCells, farmCells: new Set(definition.farmCells), routes }
   mapGeometryCache.set(mapId, geometry)
   return geometry
 }
-function pointOnPath(map: MapGeometry, distance: number) {
+function getEnemyPath(map: MapGeometry, enemy: Enemy): PathGeometry {
+  return map.routes[enemy.routeIndex] ?? map
+}
+function pointOnPath(map: PathGeometry, distance: number) {
   const d = Math.max(0, Math.min(map.totalLength, distance))
   let i = 1
   while (i < map.pathDistances.length - 1 && map.pathDistances[i] < d) i++
@@ -916,17 +925,17 @@ function pointOnPath(map: MapGeometry, distance: number) {
     y: map.smoothPath[i - 1].y + (map.smoothPath[i].y - map.smoothPath[i - 1].y) * k,
   }
 }
-function pathAngleAt(map: MapGeometry, distance: number) {
+function pathAngleAt(map: PathGeometry, distance: number) {
   const before = pointOnPath(map, Math.max(0, distance - 6))
   const after = pointOnPath(map, Math.min(map.totalLength, distance + 6))
   return Math.atan2(after.y - before.y, after.x - before.x)
 }
-function pathWaypointIndex(map: MapGeometry, distance: number) {
+function pathWaypointIndex(map: PathGeometry, distance: number) {
   let i = 1
   while (i < map.pathDistances.length - 1 && map.pathDistances[i] < distance) i++
   return i
 }
-function placeEnemyOnPath(map: MapGeometry, enemy: Enemy, distance: number) {
+function placeEnemyOnPath(map: PathGeometry, enemy: Enemy, distance: number) {
   const clamped = Math.max(0, Math.min(map.totalLength, distance))
   const point = pointOnPath(map, clamped)
   enemy.dist = clamped
@@ -935,7 +944,7 @@ function placeEnemyOnPath(map: MapGeometry, enemy: Enemy, distance: number) {
   enemy.wp = pathWaypointIndex(map, clamped)
   enemy.angle = pathAngleAt(map, clamped)
 }
-function projectToPath(map: MapGeometry, x: number, y: number) {
+function projectToPath(map: PathGeometry, x: number, y: number) {
   let best = { distance: 0, x: map.smoothPath[0].x, y: map.smoothPath[0].y, error: Infinity }
   for (let i = 1; i < map.smoothPath.length; i++) {
     const a = map.smoothPath[i - 1], b = map.smoothPath[i], dx = b.x - a.x, dy = b.y - a.y
@@ -1266,6 +1275,7 @@ export function update(s: GameState, dt: number) {
 
   for (const e of s.enemies) {
     if (!e.alive) continue
+    const enemyMap = getEnemyPath(map, e)
     const def = ENEMIES[e.type]
     e.anim += dt
     e.frozenTimer = Math.max(0, e.frozenTimer - dt)
@@ -1358,7 +1368,7 @@ export function update(s: GameState, dt: number) {
       if (e.burrowTimer > 0) {
         const travel = Math.min(e.burrowRemaining, 118 * dt)
         if (travel > 0) {
-          placeEnemyOnPath(map, e, e.dist + travel)
+          placeEnemyOnPath(enemyMap, e, e.dist + travel)
           e.burrowRemaining -= travel
         }
         e.burrowTimer = Math.max(0, e.burrowTimer - dt)
@@ -1367,7 +1377,7 @@ export function update(s: GameState, dt: number) {
           e.burrowCooldown = 3.6 + Math.random() * 2.2
           s.explosions.push({ x: e.x, y: e.y, r: 17, t: 0, dur: 0.28, color: '#a8a29e' })
         }
-        if (e.dist >= map.totalLength) {
+        if (e.dist >= enemyMap.totalLength) {
           e.alive = false
           s.lives -= def.damage
         }
@@ -1383,7 +1393,7 @@ export function update(s: GameState, dt: number) {
     if (e.frozenTimer > 0) continue
     const previousDist = e.dist
     if (e.type === 'flyBug') {
-      const exit = map.waypoints[map.waypoints.length - 1]
+      const exit = enemyMap.waypoints[enemyMap.waypoints.length - 1]
       const dx = exit.x - e.x, dy = exit.y - e.y
       const distance = Math.hypot(dx, dy)
       const step = def.speed * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
@@ -1403,9 +1413,9 @@ export function update(s: GameState, dt: number) {
     if (e.type === 'jumper') {
       // Jumps still cover the same distance over the same airtime; only the route geometry is curved.
       if (e.airborneTimer > 0) {
-        const nextDistance = Math.min(map.totalLength, e.dist + 82 * dt / 0.55)
-        placeEnemyOnPath(map, e, nextDistance)
-        if (nextDistance >= map.totalLength && e.alive) {
+        const nextDistance = Math.min(enemyMap.totalLength, e.dist + 82 * dt / 0.55)
+        placeEnemyOnPath(enemyMap, e, nextDistance)
+        if (nextDistance >= enemyMap.totalLength && e.alive) {
           e.alive = false
           s.lives -= def.damage
         }
@@ -1415,8 +1425,8 @@ export function update(s: GameState, dt: number) {
         if (portal) {
           portal.usedEnemyIds.push(e.id)
           portal.remainingHp -= e.hp
-          placeEnemyOnPath(map, e, portal.purpleDistance)
-          const blue = pointOnPath(map, portal.blueDistance), purple = pointOnPath(map, portal.purpleDistance)
+          placeEnemyOnPath(enemyMap, e, portal.purpleDistance)
+          const blue = pointOnPath(enemyMap, portal.blueDistance), purple = pointOnPath(enemyMap, portal.purpleDistance)
           s.explosions.push({ x: blue.x, y: blue.y, r: 20, t: 0, dur: 0.3, color: '#38bdf8' })
           s.explosions.push({ x: purple.x, y: purple.y, r: 23, t: 0, dur: 0.35, color: '#c084fc' })
         }
@@ -1433,9 +1443,9 @@ export function update(s: GameState, dt: number) {
     )
     const isolatedSupportSpeed = supportRadius > 0 && !hasAlliesInSupportRange ? 2.2 : 1
     const step = def.speed * isolatedSupportSpeed * (e.splitGeneration > 0 ? 2 : 1) * (e.type === 'bombug' ? 1.35 : 1) * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
-    const nextDistance = Math.min(map.totalLength, e.dist + step)
-    placeEnemyOnPath(map, e, nextDistance)
-    if (nextDistance >= map.totalLength && e.alive) {
+    const nextDistance = Math.min(enemyMap.totalLength, e.dist + step)
+    placeEnemyOnPath(enemyMap, e, nextDistance)
+    if (nextDistance >= enemyMap.totalLength && e.alive) {
       e.alive = false
       s.lives -= def.damage
     }
@@ -1444,8 +1454,8 @@ export function update(s: GameState, dt: number) {
       if (portal) {
         portal.usedEnemyIds.push(e.id)
         portal.remainingHp -= e.hp
-        placeEnemyOnPath(map, e, portal.purpleDistance)
-        const blue = pointOnPath(map, portal.blueDistance), purple = pointOnPath(map, portal.purpleDistance)
+        placeEnemyOnPath(enemyMap, e, portal.purpleDistance)
+        const blue = pointOnPath(enemyMap, portal.blueDistance), purple = pointOnPath(enemyMap, portal.purpleDistance)
         s.explosions.push({ x: blue.x, y: blue.y, r: 20, t: 0, dur: 0.3, color: '#38bdf8' })
         s.explosions.push({ x: purple.x, y: purple.y, r: 23, t: 0, dur: 0.35, color: '#c084fc' })
       }
@@ -2511,37 +2521,23 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
 
   ctx.lineJoin = 'round'
   ctx.lineCap = 'round'
-  // Outer illuminated curb, layered asphalt and center lane.
-  ctx.save()
-  ctx.shadowColor = '#0ea5e9'
-  ctx.shadowBlur = 22
-  ctx.strokeStyle = 'rgba(56,189,248,0.28)'
-  ctx.lineWidth = CELL + 12
-  tracePath(ctx, map); ctx.stroke()
-  ctx.shadowBlur = 0
-  ctx.strokeStyle = '#152941'
-  ctx.lineWidth = CELL + 2
-  tracePath(ctx, map); ctx.stroke()
-  const lane = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT)
-  lane.addColorStop(0, '#1c3048')
-  lane.addColorStop(.5, '#12243a')
-  lane.addColorStop(1, '#1a2d43')
-  ctx.strokeStyle = lane
-  ctx.lineWidth = CELL - 5
-  tracePath(ctx, map); ctx.stroke()
-  ctx.strokeStyle = 'rgba(148,197,224,0.17)'
-  ctx.lineWidth = CELL - 9
-  ctx.setLineDash([2, 12])
-  ctx.lineDashOffset = -s.time * 14
-  tracePath(ctx, map); ctx.stroke()
-  ctx.setLineDash([])
-  ctx.strokeStyle = 'rgba(103,232,249,0.52)'
-  ctx.lineWidth = 1.5
-  ctx.setLineDash([7, 13])
-  ctx.lineDashOffset = -s.time * 25
-  tracePath(ctx, map); ctx.stroke()
-  ctx.setLineDash([])
-  ctx.restore()
+  // Desenha todas as rotas da arena, cada uma com entrada e saída próprias.
+  for (const route of map.routes) {
+    ctx.save()
+    ctx.shadowColor = '#0ea5e9'; ctx.shadowBlur = 22
+    ctx.strokeStyle = 'rgba(56,189,248,0.28)'; ctx.lineWidth = CELL + 12
+    tracePath(ctx, route); ctx.stroke()
+    ctx.shadowBlur = 0; ctx.strokeStyle = '#152941'; ctx.lineWidth = CELL + 2
+    tracePath(ctx, route); ctx.stroke()
+    const lane = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT)
+    lane.addColorStop(0, '#1c3048'); lane.addColorStop(.5, '#12243a'); lane.addColorStop(1, '#1a2d43')
+    ctx.strokeStyle = lane; ctx.lineWidth = CELL - 5; tracePath(ctx, route); ctx.stroke()
+    ctx.strokeStyle = 'rgba(148,197,224,0.17)'; ctx.lineWidth = CELL - 9
+    ctx.setLineDash([2, 12]); ctx.lineDashOffset = -s.time * 14; tracePath(ctx, route); ctx.stroke()
+    ctx.setLineDash([]); ctx.strokeStyle = 'rgba(103,232,249,0.52)'; ctx.lineWidth = 1.5
+    ctx.setLineDash([7, 13]); ctx.lineDashOffset = -s.time * 25; tracePath(ctx, route); ctx.stroke()
+    ctx.setLineDash([]); ctx.restore()
+  }
 
   // Small animated lane chevrons reinforce direction without covering the track.
   ctx.save()
@@ -3108,7 +3104,7 @@ function drawElectricBeam(
   ctx.restore()
 }
 
-function tracePath(ctx: CanvasRenderingContext2D, map: MapGeometry) {
+function tracePath(ctx: CanvasRenderingContext2D, map: PathGeometry) {
   ctx.beginPath()
   ctx.moveTo(map.smoothPath[0].x, map.smoothPath[0].y)
   for (let i = 1; i < map.smoothPath.length; i++) ctx.lineTo(map.smoothPath[i].x, map.smoothPath[i].y)
