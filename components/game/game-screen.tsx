@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Activity, ArrowLeft, Atom, Bomb, Bug, CircleDot, Coins, Crosshair, FastForward, Flame, Heart, Merge, Mountain, Pickaxe, Play, RotateCcw, Snowflake, Sparkles, Trash2, Waves, Wind, Wrench, Zap, type LucideIcon } from 'lucide-react'
-import { BUILDABLE, CELL, ENEMIES, HEIGHT, TARGET_MODES, TOWERS, TOWER_ELEMENTS, TOWER_SECONDARY_ELEMENTS, WIDTH, fusionResult, type ElementClass, type EnemyType, type TargetMode, type TowerType } from '@/lib/game/data'
+import { BUILDABLE, CELL, DEFAULT_MAP_ID, ENEMIES, HEIGHT, TARGET_MODES, TOWERS, TOWER_ELEMENTS, TOWER_SECONDARY_ELEMENTS, WIDTH, fusionResult, getMapDefinition, type ElementClass, type EnemyType, type MapId, type TargetMode, type TowerType } from '@/lib/game/data'
 import {
   createGame,
   fuseTowers,
@@ -67,9 +67,9 @@ function TowerElementIcons({ type }: { type: TowerType }) {
   )
 }
 
-export function GameScreen({ onExit }: { onExit: () => void }) {
+export function GameScreen({ onExit, mapId = DEFAULT_MAP_ID }: { onExit: () => void; mapId?: MapId }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const game = useRef<GameState>(createGame())
+  const game = useRef<GameState>(createGame(mapId))
   const speedRef = useRef(1)
   const [, setTick] = useState(0)
   const [speed, setSpeed] = useState(1)
@@ -245,7 +245,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
           <ArrowLeft className="size-4" aria-hidden />
           Menu
         </button>
-        <h1 className="font-display text-lg tracking-widest text-sky-300">FUSION TD</h1>
+        <div className="ftd-game-brand"><h1 className="font-display text-lg tracking-widest text-sky-300">FUSION TD</h1><span className="ftd-current-map">{getMapDefinition(mapId).name}</span></div>
         <div className="ml-auto flex items-center gap-4 font-display text-sm">
           <Stat icon={<Heart className="size-4 text-rose-400" aria-hidden />} label="Vidas" value={s.lives} />
           <Stat icon={<Coins className="size-4 text-amber-300" aria-hidden />} label="Créditos" value={s.money} />
