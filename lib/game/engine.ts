@@ -90,6 +90,7 @@ export interface Tower {
   helicopterX: number
   helicopterY: number
   helicopterCooldown: number
+  helicopterMissileCooldown: number
 }
 
 type Projectile = (
@@ -488,7 +489,7 @@ export function placeTower(s: GameState, type: TowerType, col: number, row: numb
     incomeSignalsLeft: 0,
     incomeWave: -1,
     disabledTimer: 0,
-    supportCooldown: type === 'teleporter' ? 2.2 : (type === 'meteorShower' || type === 'commsCenter') ? 15 : 0,
+    supportCooldown: type === 'teleporter' ? 2.2 : (type === 'meteorShower' || type === 'commsCenter') ? 15 : type === 'spikeLayer' ? 12 : 0,
     essence: 0,
     overclockTimer: 0,
     burstTimer: 0,
@@ -500,6 +501,7 @@ export function placeTower(s: GameState, type: TowerType, col: number, row: numb
     helicopterX: col * CELL + CELL / 2,
     helicopterY: row * CELL + CELL / 2,
     helicopterCooldown: 0.25,
+    helicopterMissileCooldown: 1.2,
   })
   return true
 }
@@ -1114,11 +1116,17 @@ export function update(s: GameState, dt: number) {
     if (!target) target = s.enemies.filter(enemy => enemy.alive).sort((a,b) => Math.hypot(a.x-drone.x,a.y-drone.y)-Math.hypot(b.x-drone.x,b.y-drone.y))[0] ?? null
     if (target) {
       drone.targetId = target.id
-      const dx = target.x-drone.x, dy = target.y-drone.y, distance = Math.hypot(dx,dy)
-      if (distance > 42) { drone.x += dx/distance*Math.min(distance,150*dt); drone.y += dy/distance*Math.min(distance,150*dt) }
+      const formation = s.drones.filter(item => item.ownerId === drone.ownerId).sort((a,b) => a.id-b.id)
+      const slot = formation.findIndex(item => item.id === drone.id)
+      const angle = (slot / Math.max(1, formation.length)) * Math.PI * 2
+      const spacing = 38 + Math.floor(slot / 8) * 22
+      const desiredX = target.x + Math.cos(angle) * spacing
+      const desiredY = target.y + Math.sin(angle) * spacing
+      const dx = desiredX-drone.x, dy = desiredY-drone.y, distance = Math.hypot(dx,dy)
+      if (distance > 4) { drone.x += dx/distance*Math.min(distance,150*dt); drone.y += dy/distance*Math.min(distance,150*dt) }
       drone.cooldown -= dt
       if (drone.cooldown <= 0) {
-        for (const side of [-1,1]) s.projectiles.push({kind:'direct',x:drone.x,y:drone.y,tx:target.x,ty:target.y,targetId:target.id,speed:430,damage:12,splash:0,color:'#cbd5e1',size:3.2,sourceType:'droneFactory',sourceTowerId:owner.id,droneId:drone.id})
+        for (const side of [-1,1]) s.projectiles.push({kind:'direct',x:drone.x+side*4,y:drone.y,tx:target.x,ty:target.y,targetId:target.id,speed:430,damage:12,splash:0,color:'#cbd5e1',size:3.2,sourceType:'droneFactory',sourceTowerId:owner.id,droneId:drone.id})
         drone.cooldown = 0.5
       }
     }
@@ -1375,21 +1383,46 @@ export function update(s: GameState, dt: number) {
     else t.recoil = Math.max(0, t.recoil - dt * 5)
     if (t.type === 'droneFactory') {
       t.droneTimer -= dt
-      if (t.droneTimer <= 0) { s.drones.push({id:s.nextId++,ownerId:t.id,x:t.x,y:t.y-12,hp:1000,cooldown:0.1,targetId:null}); t.droneTimer=20; s.explosions.push({x:t.x,y:t.y-12,r:18,t:0,dur:0.35,color:'#cbd5e1'}) }
+      if (t.droneTimer <= 0) { s.drones.push({id:s.nextId++,ownerId:t.id,x:t.x,y:t.y-12,hp:500,cooldown:0.1,targetId:null}); t.droneTimer=20; s.explosions.push({x:t.x,y:t.y-12,r:18,t:0,dur:0.35,color:'#cbd5e1'}) }
       continue
     }
     if (t.type === 'spikeLayer') {
       t.supportCooldown -= dt
-      if (t.supportCooldown <= 0) { const point=pointOnPath(projectToPath(t.x,t.y).distance); s.spikeTraps.push({id:s.nextId++,x:point.x,y:point.y,expiresWave:s.wave+2,usedEnemyIds:[]}); t.supportCooldown=3 }
+      if (t.supportCooldown <= 0) {
+        const maxDistance = REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1]
+        let chosen = pointOnPath(Math.random() * maxDistance)
+        for (let attempt = 0; attempt < 12; attempt++) {
+          const candidate = pointOnPath(Math.random() * maxDistance)
+          if (s.spikeTraps.every(trap => Math.hypot(trap.x-candidate.x,trap.y-candidate.y) > 72)) { chosen = candidate; break }
+        }
+        s.spikeTraps.push({id:s.nextId++,x:chosen.x,y:chosen.y,expiresWave:s.wave+2,usedEnemyIds:[]})
+        t.supportCooldown = 12
+      }
       continue
     }
     if (t.type === 'skybreaker') {
-      if (s.hover) { const tx=s.hover.col*CELL+CELL/2,ty=s.hover.row*CELL+CELL/2; t.helicopterX+=(tx-t.helicopterX)*Math.min(1,dt*7); t.helicopterY+=(ty-t.helicopterY)*Math.min(1,dt*7) }
+      if (s.hover) {
+        const tx=s.hover.col*CELL+CELL/2,ty=s.hover.row*CELL+CELL/2
+        t.helicopterX+=(tx-t.helicopterX)*Math.min(1,dt*1.4)
+        t.helicopterY+=(ty-t.helicopterY)*Math.min(1,dt*1.4)
+      }
+      const target=s.enemies.filter(enemy=>enemy.alive&&Math.hypot(enemy.x-t.helicopterX,enemy.y-t.helicopterY)<=baseDef.range)
+        .sort((a,b)=>Math.hypot(a.x-t.helicopterX,a.y-t.helicopterY)-Math.hypot(b.x-t.helicopterX,b.y-t.helicopterY))[0]
       t.helicopterCooldown -= dt
-      if (t.helicopterCooldown <= 0) {
-        const boss=s.enemies.filter(enemy=>enemy.alive&&['bugPrince','bugQueen','bugKing'].includes(enemy.type)).sort((a,b)=>Math.hypot(a.x-t.helicopterX,a.y-t.helicopterY)-Math.hypot(b.x-t.helicopterX,b.y-t.helicopterY))[0]
-        if (boss) { s.projectiles.push({kind:'homing',x:t.helicopterX,y:t.helicopterY,dirX:0,dirY:-1,traveled:0,maxDistance:950,speed:310,turnRate:8,acquireAfter:0,targetId:boss.id,hitIds:[],hitLimit:1,damage:260,color:'#fb923c',size:8,sourceType:t.type,sourceTowerId:t.id}); t.helicopterCooldown=1.2 }
-        else { const target=s.enemies.filter(enemy=>enemy.alive&&Math.hypot(enemy.x-t.helicopterX,enemy.y-t.helicopterY)<=baseDef.range).sort((a,b)=>Math.hypot(a.x-t.helicopterX,a.y-t.helicopterY)-Math.hypot(b.x-t.helicopterX,b.y-t.helicopterY))[0]; if(target){const angle=Math.atan2(target.y-t.helicopterY,target.x-t.helicopterX);for(let k=0;k<4;k++){const a=angle+(k-1.5)*0.075;s.projectiles.push({kind:'homing',x:t.helicopterX,y:t.helicopterY,dirX:Math.cos(a),dirY:Math.sin(a),traveled:0,maxDistance:baseDef.range+100,speed:520,turnRate:10,acquireAfter:0,targetId:target.id,hitIds:[],hitLimit:2,damage:baseDef.damage,color:'#fdba74',size:3.2,sourceType:t.type,sourceTowerId:t.id})}} t.helicopterCooldown=0.25 }
+      if (target && t.helicopterCooldown <= 0) {
+        const angle=Math.atan2(target.y-t.helicopterY,target.x-t.helicopterX)
+        for(let k=0;k<4;k++){
+          const a=angle+(k-1.5)*0.075
+          s.projectiles.push({kind:'homing',x:t.helicopterX,y:t.helicopterY,dirX:Math.cos(a),dirY:Math.sin(a),traveled:0,maxDistance:baseDef.range+100,speed:520,turnRate:10,acquireAfter:0,targetId:target.id,hitIds:[],hitLimit:2,damage:baseDef.damage,color:'#fdba74',size:3.2,sourceType:t.type,sourceTowerId:t.id})
+        }
+        t.helicopterCooldown=0.25
+      }
+      const boss=s.enemies.filter(enemy=>enemy.alive&&['bugPrince','bugQueen','bugKing'].includes(enemy.type))
+        .sort((a,b)=>Math.hypot(a.x-t.helicopterX,a.y-t.helicopterY)-Math.hypot(b.x-t.helicopterX,b.y-t.helicopterY))[0]
+      t.helicopterMissileCooldown -= dt
+      if (boss && t.helicopterMissileCooldown <= 0) {
+        s.projectiles.push({kind:'homing',x:t.helicopterX,y:t.helicopterY,dirX:0,dirY:-1,traveled:0,maxDistance:950,speed:310,turnRate:8,acquireAfter:0,targetId:boss.id,hitIds:[],hitLimit:1,damage:260,color:'#fb923c',size:8,sourceType:t.type,sourceTowerId:t.id})
+        t.helicopterMissileCooldown=1.2
       }
       continue
     }
