@@ -46,6 +46,9 @@ export type TowerType =
   | 'commsCenter'
   | 'meteorShower'
   | 'glacialCataclysm'
+  | 'masterBank'
+  | 'bladeOfChaos'
+  | 'ringOfFlames'
 export type EnemyType =
   | 'grunt' | 'tank' | 'runner' | 'vessel' | 'jumper' | 'healer'
   | 'bugPrince' | 'swarmBug' | 'splitter' | 'shadowBug' | 'spitter' | 'bulb' | 'bugQueen'
@@ -409,6 +412,9 @@ export const TOWERS: Record<TowerType, TowerDef> = {
   commsCenter: { name: 'Comms Center', tier: 3, damage: 0, range: 175, fireRate: 1, splash: 0, style: 'support', projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#2dd4bf', accent: '#134e4a', description: 'Possui HP massivo. Torres no alcance recebem apenas 25% do dano: o Comms Center absorve 75%, mas sofre somente metade desse valor. Recupera 20% do HP máximo ao fim de cada onda, concede buffs médios, ignora resistências e imunidades dos insetos e concede um grande Overclock aleatório por 5 s a cada 15 s.' },
   meteorShower: { name: 'Meteor Shower', tier: 3, damage: 60, range: 999, fireRate: 0.1, splash: 48, style: 'mortar', projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#c084fc', accent: '#713f12', description: 'A cada 10 segundos, lança uma chuva de meteoros em posições fixas por toda a rota, espaçadas a cada 1 célula.' },
   glacialCataclysm: { name: 'Glacial Cataclysm', tier: 3, damage: 85, range: 190, fireRate: 0.16, splash: 64, style: 'mortar', projectileSpeed: 0, inaccuracy: 18, cost: 0, color: '#67e8f9', accent: '#164e63', description: 'Dispara uma enorme bomba de gelo que se divide em bombas menores congelantes. Cada bomba menor explode e dispara 8 projéteis de gelo.' },
+  masterBank: { name: 'Master Bank', tier: 3, damage: 0, range: 118, fireRate: 1, splash: 0, style: 'support', projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#fbbf24', accent: '#78350f', description: 'Gera 1.000 créditos por rodada: 800 vão diretamente para sua conta e 200 são depositados no banco. O saldo depositado rende juros compostos de 20% por rodada até ser sacado.' },
+  bladeOfChaos: { name: 'Blade Of Chaos', tier: 2, damage: 20, range: 180, fireRate: 0.45, splash: 0, style: 'energy', projectileSpeed: 310, inaccuracy: 0, cost: 0, color: '#c084fc', accent: '#581c87', description: 'Lança uma lâmina giratória que persegue inimigos e causa dano a cada giro. Permanece ativa por até 5 segundos ou até causar 500 de dano.' },
+  ringOfFlames: { name: 'Ring Of Flames', tier: 3, damage: 14, range: 185, fireRate: 0.45, splash: 0, style: 'energy', projectileSpeed: 320, inaccuracy: 0, cost: 0, color: '#fb923c', accent: '#9a3412', description: 'Lança uma lâmina giratória que persegue inimigos e lança chamas pelas duas pontas. Permanece ativa por até 5 segundos.' },
 }
 
 export const BUILDABLE: TowerType[] = ['shooter', 'cannon', 'lightning', 'retarder', 'incomeFarm', 'buffer', 'teleporter', 'boulderLauncher']
@@ -453,6 +459,9 @@ const FUSIONS: Record<string, TowerType> = {
   'commsBuilding+commsBuilding': 'commsCenter',
   'pebblesLauncher+singularity': 'meteorShower',
   'cannonadeBomber+cryoMortar': 'glacialCataclysm',
+  'economyHouse+economyHouse': 'masterBank',
+  'plasmaCannon+raygun': 'bladeOfChaos',
+  'bladeOfChaos+flamethrower': 'ringOfFlames',
 }
 
 export function fusionResult(a: TowerType, b: TowerType): TowerType | undefined {
@@ -500,6 +509,9 @@ export const FUSION_LIST: { a: TowerType; b: TowerType; result: TowerType }[] = 
   { a: 'commsBuilding', b: 'commsBuilding', result: 'commsCenter' },
   { a: 'pebblesLauncher', b: 'singularity', result: 'meteorShower' },
   { a: 'cannonadeBomber', b: 'cryoMortar', result: 'glacialCataclysm' },
+  { a: 'economyHouse', b: 'economyHouse', result: 'masterBank' },
+  { a: 'plasmaCannon', b: 'raygun', result: 'bladeOfChaos' },
+  { a: 'bladeOfChaos', b: 'flamethrower', result: 'ringOfFlames' },
 ]
 
 export const TOWER_ELEMENTS: Partial<Record<TowerType, ElementClass>> = {
@@ -514,6 +526,7 @@ export const TOWER_ELEMENTS: Partial<Record<TowerType, ElementClass>> = {
   soulstorm: 'electricity',
   gatlingGun: 'normal', commsCenter: undefined,
   meteorShower: 'plasma', glacialCataclysm: 'ice',
+  masterBank: undefined, bladeOfChaos: 'normal', ringOfFlames: 'fire',
   pebblesLauncher: 'earth', flamethrower: 'fire', hyperLaser: 'plasma',
   cannonadeBomber: 'fire', splitHeel: 'fire', singularity: 'plasma', mimic: 'plasma',
 }
