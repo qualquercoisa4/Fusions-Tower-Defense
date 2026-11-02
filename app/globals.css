@@ -528,3 +528,138 @@ main:has(> header) .font-display { text-shadow:0 1px 12px #0006; }
     overflow-y:auto !important;
   }
 }
+
+
+/* Bloons-inspired arena and difficulty selector. */
+.ftd-map-select {
+  min-height:100dvh;
+  padding:clamp(14px,3vw,38px);
+  color:#e8f5ff;
+  background:
+    radial-gradient(ellipse at 12% 8%,rgba(8,145,178,.18),transparent 34rem),
+    radial-gradient(ellipse at 92% 82%,rgba(109,40,217,.13),transparent 38rem),
+    linear-gradient(145deg,#050b18,#071528 52%,#040914);
+}
+.ftd-map-select-inner { width:min(100%,1460px); margin:0 auto; }
+.ftd-map-select-header {
+  display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center;
+  gap:clamp(14px,3vw,38px); padding:8px 0 24px; border-bottom:1px solid rgba(125,211,252,.15);
+}
+.ftd-map-back {
+  display:flex; align-items:center; gap:8px; padding:10px 14px; border:1px solid #7dd3fc35;
+  border-radius:10px; background:linear-gradient(135deg,#102940,#09182a); color:#bfeaff;
+  font:700 10px var(--font-orbitron),sans-serif; letter-spacing:.12em;
+}
+.ftd-map-back:hover { border-color:#67e8f9; background:#123454; }
+.ftd-map-kicker { display:flex; align-items:center; gap:8px; color:#67e8f9; font:700 9px var(--font-orbitron),sans-serif; letter-spacing:.25em; }
+.ftd-map-heading h1 { margin-top:7px; color:#f0f9ff; font:900 clamp(22px,4vw,38px)/1.08 var(--font-orbitron),sans-serif; letter-spacing:.025em; }
+.ftd-map-heading > p:last-child { margin-top:8px; color:#819bb8; font-size:12px; }
+.ftd-map-count { color:#7791ad; font:700 9px var(--font-orbitron),sans-serif; letter-spacing:.12em; text-align:right; }
+.ftd-map-count span { display:block; margin-bottom:4px; color:#67e8f9; font-size:26px; }
+.ftd-map-difficulties { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin:20px 0; }
+.ftd-map-difficulty {
+  display:flex; flex-direction:column; align-items:flex-start; gap:5px; min-width:0; padding:13px 15px;
+  border:1px solid rgba(125,211,252,.16); border-radius:12px; text-align:left;
+  background:linear-gradient(145deg,rgba(12,31,53,.92),rgba(5,15,29,.96)); color:#90a8c0;
+  transition:border-color .18s ease,transform .18s ease,box-shadow .18s ease;
+}
+.ftd-map-difficulty strong { font:800 11px var(--font-orbitron),sans-serif; letter-spacing:.1em; }
+.ftd-map-difficulty span { font-size:11px; color:#8197b0; }
+.ftd-map-difficulty small { margin-top:4px; color:#637d99; font:700 8px var(--font-orbitron),sans-serif; letter-spacing:.12em; }
+.ftd-map-difficulty:hover { transform:translateY(-2px); border-color:#7dd3fc66; }
+.ftd-map-difficulty.active { background:linear-gradient(145deg,rgba(14,50,75,.96),rgba(7,22,41,.98)); box-shadow:0 0 25px rgba(14,165,233,.09),inset 0 1px rgba(255,255,255,.06); color:#e6f8ff; }
+.ftd-map-difficulty.emerald.active { border-color:#4ade80a8; }
+.ftd-map-difficulty.cyan.active { border-color:#22d3eea8; }
+.ftd-map-difficulty.orange.active { border-color:#fb923ca8; }
+.ftd-map-difficulty.rose.active { border-color:#fb7185a8; }
+.ftd-map-browser { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(280px,.85fr); align-items:start; gap:16px; }
+.ftd-map-catalog,.ftd-map-details {
+  min-width:0; border:1px solid rgba(125,211,252,.17); border-radius:16px;
+  background:linear-gradient(155deg,rgba(10,27,48,.97),rgba(4,13,27,.97));
+  box-shadow:0 16px 38px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.045);
+}
+.ftd-map-catalog { padding:16px; }
+.ftd-map-catalog-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:13px; }
+.ftd-map-catalog-heading h2 { color:#dff7ff; font:800 12px var(--font-orbitron),sans-serif; letter-spacing:.12em; }
+.ftd-map-catalog-heading p { margin-top:4px; color:#718ba8; font-size:10px; }
+.ftd-map-catalog-heading > span { color:#5b7794; font:700 8px var(--font-orbitron),sans-serif; letter-spacing:.12em; }
+.ftd-map-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:11px; }
+.ftd-map-card {
+  display:flex; flex-direction:column; min-width:0; overflow:hidden; border:1px solid rgba(125,211,252,.15);
+  border-radius:12px; background:linear-gradient(155deg,#0b2036,#071426); text-align:left;
+  transition:border-color .18s ease,transform .18s ease,box-shadow .18s ease;
+}
+.ftd-map-card:hover { transform:translateY(-2px); border-color:#67e8f966; }
+.ftd-map-card.selected { border-color:#67e8f9; box-shadow:0 0 0 1px rgba(103,232,249,.22),0 0 22px rgba(14,165,233,.14); background:linear-gradient(155deg,#102e49,#08182b); }
+.ftd-map-preview { position:relative; overflow:hidden; width:100%; height:112px; background:#061326; border-bottom:1px solid rgba(125,211,252,.12); }
+.ftd-map-preview svg { display:block; width:100%; height:100%; }
+.ftd-map-preview.large { height:clamp(145px,17vw,220px); border:1px solid rgba(125,211,252,.15); border-radius:11px; }
+.ftd-map-preview-legend { position:absolute; right:7px; bottom:6px; display:flex; gap:9px; padding:4px 6px; border:1px solid rgba(125,211,252,.15); border-radius:5px; background:rgba(3,12,25,.8); color:#7f98b3; font:700 7px var(--font-orbitron),sans-serif; letter-spacing:.06em; }
+.ftd-map-preview-legend span { display:flex; align-items:center; gap:4px; }
+.ftd-map-preview-legend i { display:inline-block; width:6px; height:6px; border-radius:50%; }
+.ftd-map-preview-legend i.start { background:#4ade80; }
+.ftd-map-preview-legend i.exit { background:#fb7185; }
+.ftd-map-card-info { padding:10px 11px 8px; }
+.ftd-map-card-title { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+.ftd-map-card-title strong { color:#e7f5ff; font-size:12px; line-height:1.35; }
+.ftd-map-card-title span { flex:none; color:#67e8f9; font:700 9px var(--font-orbitron),sans-serif; }
+.ftd-map-stars { display:flex; gap:2px; margin-top:5px; color:#475d74; }
+.ftd-map-stars .filled { color:#fbbf24; }
+.ftd-map-card-info p { min-height:31px; margin-top:7px; color:#8399b3; font-size:9px; line-height:1.5; }
+.ftd-map-select-indicator { align-self:flex-start; margin:0 11px 10px; color:#6686a6; font:700 8px var(--font-orbitron),sans-serif; letter-spacing:.12em; }
+.ftd-map-card.selected .ftd-map-select-indicator { color:#67e8f9; }
+.ftd-map-details { position:sticky; top:14px; padding:16px; }
+.ftd-map-details-top { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; color:#8ba7c3; font:700 9px var(--font-orbitron),sans-serif; letter-spacing:.12em; }
+.ftd-map-tier { padding:5px 7px; border:1px solid rgba(125,211,252,.2); border-radius:5px; color:#67e8f9; font-size:8px; }
+.ftd-map-tier.beginner { color:#4ade80; border-color:#4ade8055; }
+.ftd-map-tier.intermediate { color:#67e8f9; border-color:#67e8f955; }
+.ftd-map-tier.advanced { color:#fb923c; border-color:#fb923c55; }
+.ftd-map-tier.expert { color:#fb7185; border-color:#fb718555; }
+.ftd-map-details h2 { margin-top:14px; color:#f0f9ff; font:800 17px var(--font-orbitron),sans-serif; letter-spacing:.025em; }
+.ftd-map-description { margin-top:7px; color:#8ba2bb; font-size:11px; line-height:1.65; }
+.ftd-map-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; margin-top:15px; }
+.ftd-map-stats div { display:flex; flex-direction:column; gap:5px; padding:9px 7px; border:1px solid rgba(125,211,252,.12); border-radius:8px; background:rgba(2,12,26,.5); }
+.ftd-map-stats strong { color:#c8f4ff; font:800 15px var(--font-orbitron),sans-serif; }
+.ftd-map-stats span { color:#6f89a5; font:700 7px var(--font-orbitron),sans-serif; letter-spacing:.07em; }
+.ftd-map-note { margin-top:13px; padding:10px; border-left:2px solid rgba(103,232,249,.55); background:rgba(8,47,73,.22); color:#7892ae; font-size:9px; line-height:1.6; }
+.ftd-map-play { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; margin-top:15px; padding:13px 14px; border:1px solid #38bdf8; border-radius:9px; background:linear-gradient(105deg,#0284c7,#0e7490); color:#031525; font:900 10px var(--font-orbitron),sans-serif; letter-spacing:.12em; box-shadow:0 8px 24px rgba(14,165,233,.16),inset 0 1px rgba(255,255,255,.25); }
+.ftd-map-play:hover { transform:translateY(-2px); filter:brightness(1.12); box-shadow:0 12px 30px rgba(14,165,233,.25); }
+.ftd-map-footer { margin-top:24px; padding-top:15px; border-top:1px solid rgba(125,211,252,.1); color:#526d89; text-align:center; font:700 8px var(--font-orbitron),sans-serif; letter-spacing:.18em; }
+.ftd-map-footer span { margin:0 8px; color:#38bdf8; }
+.ftd-game-brand { display:flex; flex-direction:column; gap:1px; }
+.ftd-current-map { color:#8abbd2; font:700 8px var(--font-orbitron),sans-serif; letter-spacing:.11em; text-transform:uppercase; }
+@media (max-width: 980px) {
+  .ftd-map-browser { grid-template-columns:minmax(0,1fr) minmax(250px,.8fr); }
+  .ftd-map-card-info p { min-height:0; }
+}
+@media (max-width: 760px) {
+  .ftd-map-select-header { grid-template-columns:auto 1fr; gap:12px; }
+  .ftd-map-count { display:none; }
+  .ftd-map-browser { grid-template-columns:1fr; }
+  .ftd-map-details { position:static; }
+  .ftd-map-difficulty { padding:10px 9px; }
+  .ftd-map-difficulty strong { font-size:9px; letter-spacing:.04em; }
+  .ftd-map-difficulty span { font-size:9px; }
+  .ftd-map-difficulty small { font-size:7px; }
+}
+@media (max-width: 520px) {
+  .ftd-map-select { padding:13px 10px 20px; }
+  .ftd-map-select-header { align-items:start; padding-bottom:16px; }
+  .ftd-map-back { padding:9px 10px; font-size:8px; }
+  .ftd-map-heading h1 { font-size:20px; }
+  .ftd-map-heading > p:last-child { font-size:10px; }
+  .ftd-map-difficulties { gap:5px; margin:13px 0; }
+  .ftd-map-difficulty { padding:8px 6px; border-radius:8px; }
+  .ftd-map-difficulty strong { font-size:7px; }
+  .ftd-map-difficulty span { font-size:8px; }
+  .ftd-map-difficulty small { font-size:6px; }
+  .ftd-map-catalog { padding:10px; }
+  .ftd-map-cards { grid-template-columns:1fr; }
+  .ftd-map-card { display:grid; grid-template-columns:42% minmax(0,1fr); align-items:stretch; }
+  .ftd-map-card .ftd-map-preview { grid-row:1 / span 2; height:100%; min-height:112px; border-right:1px solid rgba(125,211,252,.12); border-bottom:0; }
+  .ftd-map-card-info { padding:9px; }
+  .ftd-map-card-info p { font-size:8px; }
+  .ftd-map-select-indicator { margin:0 9px 9px; }
+  .ftd-map-details { padding:11px; }
+  .ftd-current-map { max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:7px; }
+}
