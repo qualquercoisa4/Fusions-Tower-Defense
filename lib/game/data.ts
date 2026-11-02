@@ -634,20 +634,20 @@ export const ROWS = 12
 export const WIDTH = CELL * COLS
 export const HEIGHT = CELL * ROWS
 
-// Percurso serpenteado contínuo, sem cruzamentos ou segmentos sobrepostos.
-// O comprimento permanece próximo ao traçado anterior para preservar o ritmo das ondas.
+// Percurso serpenteado contínuo: os segmentos ficam em corredores distintos,
+// sem cruzamentos, retornos sobre si mesmos ou interseções entre faixas.
 const WAYPOINT_CELLS: [number, number][] = [
   [-1, 6],
-  [2, 6],
-  [2, 2],
-  [11, 2],
-  [11, 4],
+  [1, 6],
+  [1, 2],
+  [13, 2],
+  [13, 4],
   [4, 4],
   [4, 8],
   [11, 8],
   [11, 10],
-  [9, 10],
-  [9, 6],
+  [16, 10],
+  [16, 6],
   [18, 6],
 ]
 
