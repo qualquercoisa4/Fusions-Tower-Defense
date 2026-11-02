@@ -17,7 +17,7 @@ import {
   type TowerType,
   type TargetMode,
 } from './data'
-import { drawPremiumBug, drawPremiumTower } from './premium-art'
+import { drawPremiumBug, drawPremiumTower, drawPremiumDrone, drawPremiumSpikeTrap, drawPremiumHelicopter } from './premium-art'
 
 export interface Enemy {
   id: number
@@ -2366,6 +2366,36 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   ctx.lineWidth = 1
   ctx.strokeRect(1, 1, WIDTH - 2, HEIGHT - 2)
 
+  // Floating dust, tiny signal nodes and engraved floor markers give the arena depth.
+  for (let i = 0; i < 26; i++) {
+    const phase = i * 2.399
+    const px = ((i * 83 + Math.sin(s.time * 0.22 + phase) * 13) % WIDTH + WIDTH) % WIDTH
+    const py = ((i * 47 + Math.cos(s.time * 0.19 + phase) * 11) % HEIGHT + HEIGHT) % HEIGHT
+    const pulse = 0.22 + (Math.sin(s.time * 1.8 + phase) + 1) * 0.13
+    ctx.save()
+    ctx.globalAlpha = pulse
+    ctx.fillStyle = i % 4 === 0 ? '#a78bfa' : '#67e8f9'
+    ctx.shadowColor = ctx.fillStyle
+    ctx.shadowBlur = 7
+    ctx.beginPath()
+    ctx.arc(px, py, i % 5 === 0 ? 1.6 : 0.85, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+  }
+  ctx.save()
+  ctx.strokeStyle = 'rgba(103,232,249,0.09)'
+  ctx.lineWidth = 1
+  for (let row = 1; row < ROWS; row += 2) {
+    for (let col = 1; col < COLS; col += 2) {
+      const cx = col * CELL + CELL / 2, cy = row * CELL + CELL / 2
+      ctx.beginPath()
+      ctx.moveTo(cx - 4, cy - 3); ctx.lineTo(cx, cy - 5); ctx.lineTo(cx + 4, cy - 3)
+      ctx.moveTo(cx - 4, cy + 3); ctx.lineTo(cx, cy + 5); ctx.lineTo(cx + 4, cy + 3)
+      ctx.stroke()
+    }
+  }
+  ctx.restore()
+
   // Pads verdes exclusivos para torres de renda.
   for (const cell of FARM_CELLS) {
     const [col, row] = cell.split(',').map(Number)
@@ -2472,10 +2502,10 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
     ctx.stroke()
   }
 
-  for (const trap of s.spikeTraps) { ctx.save();ctx.translate(trap.x,trap.y);ctx.rotate(Math.PI/4);ctx.fillStyle='#9ca3af';ctx.strokeStyle='#e5e7eb';ctx.lineWidth=1.2;ctx.shadowColor='#d1d5db';ctx.shadowBlur=7;for(let k=-1;k<=1;k++){ctx.beginPath();ctx.moveTo(k*6-4,5);ctx.lineTo(k*6,-7);ctx.lineTo(k*6+4,5);ctx.closePath();ctx.fill();ctx.stroke()}ctx.restore() }
-  for (const drone of s.drones) { ctx.save();ctx.translate(drone.x,drone.y);ctx.rotate(Math.sin(s.time*8)*0.08);ctx.fillStyle='#94a3b8';ctx.strokeStyle='#e2e8f0';ctx.lineWidth=1.5;ctx.shadowColor='#cbd5e1';ctx.shadowBlur=9;ctx.beginPath();ctx.roundRect(-8,-4,16,8,3);ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(-14,-8);ctx.lineTo(-7,-3);ctx.moveTo(14,-8);ctx.lineTo(7,-3);ctx.moveTo(-14,8);ctx.lineTo(-7,3);ctx.moveTo(14,8);ctx.lineTo(7,3);ctx.stroke();ctx.beginPath();ctx.arc(0,0,2.5,0,Math.PI*2);ctx.fillStyle='#38bdf8';ctx.fill();ctx.restore() }
+  for (const trap of s.spikeTraps) drawPremiumSpikeTrap(ctx, trap.x, trap.y, s.time)
+  for (const drone of s.drones) drawPremiumDrone(ctx, drone.x, drone.y, s.time)
   for (const t of s.towers) {
-    if (t.type === 'skybreaker') { ctx.save();ctx.translate(t.helicopterX,t.helicopterY);ctx.rotate(Math.sin(s.time*3)*0.025);ctx.shadowColor='#fb923c';ctx.shadowBlur=12;ctx.fillStyle='#334155';ctx.strokeStyle='#fdba74';ctx.lineWidth=1.5;ctx.beginPath();ctx.ellipse(0,0,15,7,0,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.beginPath();ctx.ellipse(8,-1,6,4,0,0,Math.PI*2);ctx.fillStyle='#7dd3fc';ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(-2,-7);ctx.lineTo(-2,7);ctx.moveTo(-15,-8);ctx.lineTo(15,-8);ctx.moveTo(-15,-8);ctx.lineTo(-18,-5);ctx.moveTo(15,-8);ctx.lineTo(18,-5);ctx.stroke();ctx.beginPath();ctx.moveTo(-15,0);ctx.lineTo(-22,0);ctx.stroke();ctx.restore() }
+    if (t.type === 'skybreaker') drawPremiumHelicopter(ctx, t.helicopterX, t.helicopterY, s.time)
     if (t.overclockTimer > 0) {
       ctx.save()
       ctx.strokeStyle = '#facc15'
