@@ -243,7 +243,7 @@ export function GameScreen({ onExit, mapId = DEFAULT_MAP_ID }: { onExit: () => v
           className="flex items-center gap-2 rounded-md border border-sky-500/30 px-3 py-1.5 text-sm hover:bg-sky-500/10"
         >
           <ArrowLeft className="size-4" aria-hidden />
-          Menu
+          Mapas
         </button>
         <div className="ftd-game-brand"><h1 className="font-display text-lg tracking-widest text-sky-300">FUSION TD</h1><span className="ftd-current-map">{getMapDefinition(mapId).name}</span></div>
         <div className="ml-auto flex items-center gap-4 font-display text-sm">
