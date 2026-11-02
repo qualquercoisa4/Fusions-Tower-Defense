@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Activity, ArrowLeft, Atom, Bomb, Bug, CircleDot, Coins, Crosshair, FastForward, Flame, Heart, Merge, Mountain, Pickaxe, Play, RotateCcw, Snowflake, Sparkles, Trash2, Waves, Wind, Wrench, Zap, type LucideIcon } from 'lucide-react'
-import { BUILDABLE, CELL, ENEMIES, HEIGHT, TARGET_MODES, TOWERS, TOWER_ELEMENTS, WIDTH, fusionResult, type ElementClass, type EnemyType, type TargetMode, type TowerType } from '@/lib/game/data'
+import { BUILDABLE, CELL, ENEMIES, HEIGHT, TARGET_MODES, TOWERS, TOWER_ELEMENTS, TOWER_SECONDARY_ELEMENTS, WIDTH, fusionResult, type ElementClass, type EnemyType, type TargetMode, type TowerType } from '@/lib/game/data'
 import {
   createGame,
   fuseTowers,
@@ -28,6 +28,8 @@ const ELEMENT_LABELS: Record<ElementClass, string> = {
   ice: 'Gelo / Ar',
   earth: 'Terra / Terrestre',
   plasma: 'Plasma / Mágico',
+  air: 'Ar',
+  explosive: 'Explosivo',
 }
 
 const BASE_TOWER_ELEMENT_ICONS: Partial<Record<TowerType, readonly [LucideIcon, LucideIcon]>> = {
@@ -47,14 +49,17 @@ const FUSION_ELEMENT_ICONS: Record<ElementClass, LucideIcon> = {
   ice: Snowflake,
   earth: Mountain,
   plasma: Atom,
+  air: Wind,
+  explosive: Bomb,
 }
 
 function TowerElementIcons({ type }: { type: TowerType }) {
   const element = TOWER_ELEMENTS[type]
+  const secondary = TOWER_SECONDARY_ELEMENTS[type] ?? element
   const baseIcons = BASE_TOWER_ELEMENT_ICONS[type]
-  const icons: LucideIcon[] = baseIcons ? [...baseIcons] : element ? [FUSION_ELEMENT_ICONS[element]] : []
+  const icons: LucideIcon[] = baseIcons ? [...baseIcons] : element ? [FUSION_ELEMENT_ICONS[element], FUSION_ELEMENT_ICONS[secondary ?? element]] : []
   if (!icons.length) return null
-  const label = element ? ELEMENT_LABELS[element] : 'Elemento'
+  const label = [element, secondary].filter(Boolean).map(item => ELEMENT_LABELS[item!]).join(' + ')
   return (
     <span className="inline-flex items-center gap-1 text-violet-300" role="img" aria-label={label} title={label}>
       {icons.map((Icon, index) => <Icon key={index} className="size-3.5" aria-hidden />)}
