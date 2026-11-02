@@ -236,8 +236,8 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
     : []
 
   return (
-    <main className="h-dvh overflow-hidden bg-[#050914] text-slate-100 font-sans flex flex-col">
-      <header className="flex h-[58px] shrink-0 flex-wrap items-center gap-3 border-b border-sky-500/20 bg-[#0a1226] px-4 py-2">
+    <main className="ftd-game-screen h-dvh overflow-hidden bg-[#050914] text-slate-100 font-sans flex flex-col">
+      <header className="ftd-game-header flex h-[58px] shrink-0 flex-wrap items-center gap-3 border-b border-sky-500/20 bg-[#0a1226] px-4 py-2">
         <button
           onClick={onExit}
           className="flex items-center gap-2 rounded-md border border-sky-500/30 px-3 py-1.5 text-sm hover:bg-sky-500/10"
@@ -254,16 +254,16 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
         </div>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 overflow-hidden p-2 lg:grid-cols-[220px_minmax(0,1fr)_270px] lg:grid-rows-[minmax(0,1fr)_auto]">
-        <div className="relative flex min-h-0 min-w-0 items-center justify-center lg:col-start-2 lg:row-start-1">
+      <div className="ftd-game-layout grid min-h-0 flex-1 grid-cols-1 gap-2 overflow-hidden p-2 lg:grid-cols-[220px_minmax(0,1fr)_270px] lg:grid-rows-[minmax(0,1fr)_auto]">
+        <div className="ftd-game-map relative flex min-h-0 min-w-0 items-center justify-center lg:col-start-2 lg:row-start-1">
           <div className="relative flex h-full min-h-0 w-full items-center justify-center">
             <canvas
               ref={canvasRef}
               onPointerDown={handleClick}
               onPointerMove={handleMove}
               onPointerLeave={() => (game.current.hover = null)}
-              className="block h-auto w-full max-w-full rounded-lg border border-sky-500/30 shadow-[0_0_40px_rgba(56,189,248,0.15)] touch-none cursor-crosshair"
-              style={{ aspectRatio: `${WIDTH} / ${HEIGHT}`, width: `min(100%, calc((100dvh - 150px) * ${WIDTH / HEIGHT}))` }}
+              className="ftd-game-canvas block h-auto w-full max-w-full rounded-lg border border-sky-500/30 shadow-[0_0_40px_rgba(56,189,248,0.15)] touch-none cursor-crosshair"
+              style={{ aspectRatio: `${WIDTH} / ${HEIGHT}` }}
               aria-label="Campo de batalha"
             />
             {message && (
@@ -292,7 +292,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
 
         <aside className="contents">
           {debugOpen && (
-            <section className="rounded-lg border border-amber-400/40 bg-[#171526] p-2 lg:col-start-1 lg:row-start-2">
+            <section className="ftd-game-debug rounded-lg border border-amber-400/40 bg-[#171526] p-2 lg:col-start-1 lg:row-start-2">
               <h2 className="mb-1 flex items-center gap-2 font-display text-xs tracking-widest text-amber-300"><Bug className="size-4" aria-hidden /> MODO DEBUG</h2>
               <p className="mb-3 text-[11px] leading-relaxed text-slate-400">Crie qualquer torre sem gastar créditos ou invoque insetos instantaneamente. Para colocar uma torre, escolha-a e toque em uma casa livre do mapa.</p>
               <label className="mb-1 block text-xs text-slate-300" htmlFor="debug-enemy">Spawnar inseto</label>
@@ -310,9 +310,9 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
               {debugTowerType && <div className="flex items-center gap-2"><SpriteIcon tower={debugTowerType} label={TOWERS[debugTowerType].name} /><span className="min-w-0 flex-1 text-xs text-amber-200">Toque no mapa para posicionar grátis</span><button onClick={() => setDebugTowerType('')} className="rounded border border-slate-600 px-2 py-1 text-xs">Cancelar</button></div>}
             </section>
           )}
-          <section className="min-h-0 overflow-hidden rounded-lg border border-rose-500/30 bg-[#0a1226] p-2 lg:col-start-1 lg:row-start-1">
+          <section className="ftd-game-build min-h-0 overflow-hidden rounded-lg border border-rose-500/30 bg-[#0a1226] p-2 lg:col-start-1 lg:row-start-1">
             <h2 className="mb-1 font-display text-xs tracking-widest text-rose-300">CONSTRUIR</h2>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="ftd-game-tower-grid grid grid-cols-2 gap-1.5">
               {BUILDABLE.map((type, i) => {
                 const def = TOWERS[type]
                 const active = s.buildType === type
@@ -345,7 +345,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
             </div>
           </section>
 
-          <section className="min-h-0 overflow-hidden rounded-lg border border-emerald-500/25 bg-[#0a1226] p-2 lg:col-start-3 lg:row-start-1 lg:row-span-2">
+          <section className="ftd-game-selected min-h-0 overflow-hidden rounded-lg border border-emerald-500/25 bg-[#0a1226] p-2 lg:col-start-3 lg:row-start-1 lg:row-span-2">
             <h2 className="mb-1 font-display text-xs tracking-widest text-emerald-300">TORRE SELECIONADA</h2>
             {selected && selDef ? (
               <div className="flex flex-col gap-2">
@@ -444,7 +444,7 @@ export function GameScreen({ onExit }: { onExit: () => void }) {
             )}
           </section>
 
-          <section className="flex flex-wrap items-center justify-center gap-2 rounded-lg border border-sky-500/25 bg-[#0a1226] p-2 lg:col-start-2 lg:row-start-2">
+          <section className="ftd-game-controls flex flex-wrap items-center justify-center gap-2 rounded-lg border border-sky-500/25 bg-[#0a1226] p-2 lg:col-start-2 lg:row-start-2">
           <label className="flex items-center gap-2 rounded-md border border-sky-500/30 bg-sky-500/5 px-2 py-1.5 text-[11px] text-sky-200">
             <input
               type="checkbox"
