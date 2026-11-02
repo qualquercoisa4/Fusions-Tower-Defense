@@ -46,14 +46,42 @@ function core(ctx:CanvasRenderingContext2D,color:string,accent:string,r:number,t
   ctx.beginPath();ctx.arc(-r*.12,-r*.12,r*.5,-2.5,.25);ctx.stroke();ctx.restore()
 }
 function base(ctx:CanvasRenderingContext2D,color:string,tier:number,time:number) {
-  ctx.save();ctx.shadowColor='#000';ctx.shadowBlur=10;ctx.fillStyle='rgba(0,0,0,.58)'
-  ctx.beginPath();ctx.ellipse(2,8,23,13,0,0,TAU);ctx.fill();ctx.restore()
-  path(ctx,[[-22,-8],[-15,-19],[13,-21],[22,-9],[20,13],[9,21],[-15,17],[-22,7]],metal(ctx,-20,-20,42,42,'#334155'),'#020617',2)
-  path(ctx,[[-18,-8],[-12,-15],[12,-16],[18,-7],[16,11],[8,16],[-12,13],[-18,6]],'#0b1728','#64748b',1)
-  ctx.save();ctx.globalAlpha=.48+tier*.12+Math.sin(time*2)*.05;ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=8+tier*5;ctx.lineWidth=tier>1?2.3:1.4
-  ctx.beginPath();ctx.ellipse(0,1,15.5,12.5,0,0,TAU);ctx.stroke();ctx.restore()
-  for(const [x,y] of [[-15,-8],[15,-8],[-12,11],[12,11]] as Point[])rivet(ctx,x,y,color)
-  if(tier>0){ctx.save();ctx.rotate(time*(tier%2?.22:-.18));ctx.strokeStyle=color;ctx.globalAlpha=.28;ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(0,0,19,-2.5,2.5);ctx.stroke();for(let i=0;i<tier*2+2;i++){const a=i*TAU/(tier*2+2);glow(ctx,Math.cos(a)*19,Math.sin(a)*19,1.3,color,4)}ctx.restore()}
+  ctx.save();ctx.shadowColor='#000';ctx.shadowBlur=12;ctx.fillStyle='rgba(0,0,0,.68)'
+  ctx.beginPath();ctx.ellipse(2,9,25,14,0,0,TAU);ctx.fill();ctx.restore()
+  path(ctx,[[-23,-8],[-16,-20],[13,-22],[23,-9],[21,14],[9,22],[-16,18],[-23,7]],metal(ctx,-22,-21,45,44,'#334155'),'#020617',2.2)
+  path(ctx,[[-19,-8],[-13,-16],[13,-17],[19,-7],[17,12],[8,17],[-13,14],[-19,6]],'#091525','#64748b',1.1)
+  // Recessed ceramic armor panels and machining seams.
+  path(ctx,[[-16,-10],[-10,-16],[-2,-15],[-5,-9],[-13,-7]],'#172a40','#3b526c',.75)
+  path(ctx,[[16,-10],[10,-16],[2,-15],[5,-9],[13,-7]],'#172a40','#3b526c',.75)
+  path(ctx,[[-15,8],[-9,14],[-2,13],[-5,8],[-12,6]],'#101f32','#3b526c',.65)
+  path(ctx,[[15,8],[9,14],[2,13],[5,8],[12,6]],'#101f32','#3b526c',.65)
+  ctx.save();ctx.globalAlpha=.5+tier*.1+Math.sin(time*2)*.05;ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=10+tier*6;ctx.lineWidth=tier>1?2.5:1.5
+  ctx.beginPath();ctx.ellipse(0,1,15.5,12.5,0,0,TAU);ctx.stroke()
+  ctx.beginPath();ctx.ellipse(0,1,11.7,8.7,0,0,TAU);ctx.stroke()
+  ctx.restore()
+  // Segmented power rails around the chassis.
+  ctx.save();ctx.strokeStyle=color;ctx.lineWidth=2;ctx.shadowColor=color;ctx.shadowBlur=7;ctx.globalAlpha=.62
+  for(const side of [-1,1]){
+    ctx.beginPath();ctx.moveTo(side*19,-4);ctx.lineTo(side*21,0);ctx.lineTo(side*19,4);ctx.stroke()
+  }
+  ctx.restore()
+  ctx.save();ctx.strokeStyle='rgba(226,232,240,.42)';ctx.lineWidth=.7
+  ctx.beginPath();ctx.moveTo(-7,-19);ctx.lineTo(7,-19);ctx.moveTo(-8,19);ctx.lineTo(8,19);ctx.stroke()
+  ctx.restore()
+  for(const [x,y] of [[-17,-9],[17,-9],[-14,12],[14,12],[-5,-17],[5,17]] as Point[])rivet(ctx,x,y,color)
+  // Tiny status LEDs remain visible on every chassis, including support towers.
+  for(let i=0;i<3;i++){
+    const light=color
+    ctx.save();ctx.globalAlpha=.48+.45*(Math.sin(time*4+i*1.7)+1)/2
+    glow(ctx,-4+i*4,18,1.15,light,4)
+    ctx.restore()
+  }
+  if(tier>0){
+    ctx.save();ctx.rotate(time*(tier%2?.24:-.2));ctx.strokeStyle=color;ctx.globalAlpha=.35;ctx.lineWidth=1.7
+    ctx.beginPath();ctx.arc(0,0,20,-2.5,2.5);ctx.stroke()
+    for(let i=0;i<tier*3+2;i++){const angle=i*TAU/(tier*3+2);glow(ctx,Math.cos(angle)*20,Math.sin(angle)*20,1.35,color,5)}
+    ctx.restore()
+  }
 }
 function support(ctx:CanvasRenderingContext2D,type:TowerType,color:string,accent:string,time:number) {
   if(['incomeFarm','incomeTax','economyHouse','masterBank'].includes(type)){
@@ -185,6 +213,20 @@ export function drawPremiumTower(ctx:CanvasRenderingContext2D,type:TowerType,x:n
     ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(8,-5*flash);ctx.lineTo(15*flash,0);ctx.lineTo(8,5*flash);ctx.closePath();ctx.fill();ctx.stroke()
     ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(2,0,2.2*flash,0,TAU);ctx.fill();ctx.restore()
   }
+  // Exposed fasteners, optical ports and engraved side armor tie the turret to its chassis.
+  ctx.save()
+  ctx.globalAlpha=.92
+  for(const side of [-1,1]){
+    ctx.fillStyle='#0b1220';ctx.strokeStyle='#64748b';ctx.lineWidth=.8
+    ctx.beginPath();ctx.roundRect(-8,side*8-2,10,4,1.3);ctx.fill();ctx.stroke()
+    ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=5
+    ctx.fillRect(-6,side*8-.55,5,1.1)
+    ctx.shadowBlur=0
+    rivet(ctx,-9,side*10,c)
+  }
+  ctx.strokeStyle='rgba(226,232,240,.48)';ctx.lineWidth=.7
+  ctx.beginPath();ctx.moveTo(-8,-5);ctx.lineTo(-5,-8);ctx.moveTo(-8,5);ctx.lineTo(-5,8);ctx.stroke()
+  ctx.restore()
   ctx.restore();ctx.restore()
 }
 
@@ -266,23 +308,70 @@ export function drawPremiumBug(ctx:CanvasRenderingContext2D,type:EnemyType,x:num
   ctx.strokeStyle=d.dark;ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(r*.75,-r*.25);ctx.quadraticCurveTo(r*1.25,-r*.55,r*1.45,-r*.85);ctx.moveTo(r*.75,r*.25);ctx.quadraticCurveTo(r*1.25,r*.55,r*1.45,r*.85);ctx.stroke()
   if(type==='flyBug'||type==='jumper'){ctx.strokeStyle='#7dd3fc';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-r*.2,-r*.6);ctx.lineTo(-r*.55,-r*1.1);ctx.moveTo(r*.2,-r*.6);ctx.lineTo(r*.45,-r*1.15);ctx.stroke()}
   if(boss){ctx.strokeStyle=type==='bugKing'?'#c084fc':type==='bugQueen'?'#f0abfc':'#fbbf24';ctx.lineWidth=1.6;ctx.globalAlpha=.65+Math.sin(anim*5)*.15;ctx.beginPath();ctx.arc(0,0,r*1.35,0,TAU);ctx.stroke()}
+  // Layered chitin ridges, shell seams and tiny sensory nodes add readable material depth.
+  ctx.save()
+  ctx.globalAlpha *= type === 'ghostBug' ? 0.62 : 1
+  ctx.strokeStyle='rgba(255,255,255,.34)';ctx.lineWidth=Math.max(.8,r*.055)
+  for(let i=0;i<3;i++){
+    const offset=(i-1)*r*.13
+    ctx.beginPath()
+    ctx.ellipse(-r*.48,offset,r*.58,r*(.34-i*.035),0,-2.45,-.58)
+    ctx.stroke()
+  }
+  ctx.strokeStyle='rgba(2,6,23,.58)';ctx.lineWidth=Math.max(1,r*.07)
+  ctx.beginPath();ctx.moveTo(-r*.12,-r*.43);ctx.quadraticCurveTo(-r*.38,0,-r*.12,r*.43);ctx.stroke()
+  // Metallic or mineral nodes along the dorsal shell.
+  const nodeColor=type==='bugKing'?'#c084fc':type==='bugQueen'?'#f0abfc':type==='bulb'?'#fde047':type==='heatBug'||type==='bombug'?'#fb923c':type==='ghostBug'?'#c4b5fd':'#e2e8f0'
+  for(let i=0;i<3;i++){
+    const nx=-r*.75+i*r*.48,ny=-r*.42
+    ctx.fillStyle='#020617';ctx.beginPath();ctx.arc(nx,ny,Math.max(1.4,r*.105),0,TAU);ctx.fill()
+    glow(ctx,nx,ny,Math.max(1,r*.065),nodeColor,type==='bugKing'?11:6)
+  }
+  // Mandibles and small shell spurs make the front/back silhouette less generic.
+  ctx.strokeStyle=d.dark;ctx.lineWidth=Math.max(1.1,r*.085);ctx.lineCap='round'
+  ctx.beginPath()
+  ctx.moveTo(r*.63,-r*.32);ctx.quadraticCurveTo(r*.98,-r*.42,r*1.12,-r*.68)
+  ctx.moveTo(r*.63,r*.32);ctx.quadraticCurveTo(r*.98,r*.42,r*1.12,r*.68)
+  ctx.stroke()
+  if(!['ghostBug','shadowBug','swarmer','swarmBug'].includes(type)){
+    for(const side of [-1,1]){
+      ctx.fillStyle=d.dark;ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=.75
+      ctx.beginPath();ctx.moveTo(-r*.92,side*r*.34);ctx.lineTo(-r*1.22,side*r*.66);ctx.lineTo(-r*.78,side*r*.54);ctx.closePath();ctx.fill();ctx.stroke()
+    }
+  }
+  if(boss){
+    ctx.save();ctx.strokeStyle=type==='bugKing'?'#e9d5ff':type==='bugQueen'?'#fce7f3':'#fde68a'
+    ctx.globalAlpha=.6+.2*Math.sin(anim*7);ctx.lineWidth=1
+    ctx.beginPath();ctx.arc(0,0,r*1.52,-2.8,2.8);ctx.stroke()
+    for(let i=0;i<8;i++){
+      const angle=i*TAU/8+anim*.12
+      glow(ctx,Math.cos(angle)*r*1.52,Math.sin(angle)*r*1.52,Math.max(1,r*.045),type==='bugKing'?'#c084fc':type==='bugQueen'?'#f0abfc':'#fbbf24',8)
+    }
+    ctx.restore()
+  }
   ctx.restore()
 }
 
 
 export function drawPremiumDrone(ctx:CanvasRenderingContext2D,x:number,y:number,time:number){
+  const pulse=.7+Math.sin(time*9)*.18
   ctx.save();ctx.translate(x,y);ctx.rotate(Math.sin(time*8)*.06)
-  ctx.shadowColor='#38bdf8';ctx.shadowBlur=10
-  ctx.fillStyle=metal(ctx,-8,-5,16,10,'#64748b');ctx.strokeStyle='#e2e8f0';ctx.lineWidth=1.2
-  ctx.beginPath();ctx.roundRect(-8,-4,16,8,3);ctx.fill();ctx.stroke()
+  ctx.fillStyle='rgba(2,6,23,.52)';ctx.beginPath();ctx.ellipse(1,8,17,5,0,0,TAU);ctx.fill()
+  ctx.shadowColor='#38bdf8';ctx.shadowBlur=14
+  ctx.fillStyle=metal(ctx,-10,-6,20,12,'#64748b');ctx.strokeStyle='#e2e8f0';ctx.lineWidth=1.3
+  ctx.beginPath();ctx.moveTo(-10,-2);ctx.lineTo(-6,-7);ctx.lineTo(7,-7);ctx.lineTo(10,-2);ctx.lineTo(8,5);ctx.lineTo(-8,5);ctx.closePath();ctx.fill();ctx.stroke()
   ctx.shadowBlur=0
+  ctx.fillStyle='#082f49';ctx.beginPath();ctx.ellipse(1,-1,5,3.2,0,0,TAU);ctx.fill();ctx.strokeStyle='#bae6fd';ctx.lineWidth=.8;ctx.stroke()
+  glow(ctx,1,-1,2.1,'#38bdf8',11)
   for(const side of [-1,1])for(const vert of [-1,1]){
-    ctx.strokeStyle='#cbd5e1';ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(side*4,vert*2);ctx.lineTo(side*13,vert*8);ctx.stroke()
-    ctx.save();ctx.translate(side*14,vert*9);ctx.rotate(time*(side===vert?1:-1)*9)
-    ctx.strokeStyle='#7dd3fc';ctx.lineWidth=1.8;ctx.beginPath();ctx.ellipse(0,0,6,1.5,0,0,TAU);ctx.stroke()
+    const rotorX=side*15,rotorY=vert*9
+    ctx.strokeStyle='#94a3b8';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(side*5,vert*2);ctx.lineTo(rotorX,rotorY);ctx.stroke()
+    ctx.save();ctx.translate(rotorX,rotorY);ctx.rotate(time*(side===vert?1:-1)*11)
+    ctx.strokeStyle='#7dd3fc';ctx.lineWidth=2;ctx.globalAlpha=.72
+    ctx.beginPath();ctx.ellipse(0,0,7,1.6,0,0,TAU);ctx.stroke()
     ctx.restore()
+    ctx.save();ctx.globalAlpha=pulse;glow(ctx,rotorX,rotorY,1.5,'#67e8f9',5);ctx.restore()
   }
-  glow(ctx,0,0,2.8,'#38bdf8',9)
   ctx.restore()
 }
 export function drawPremiumSpikeTrap(ctx:CanvasRenderingContext2D,x:number,y:number,time:number){
