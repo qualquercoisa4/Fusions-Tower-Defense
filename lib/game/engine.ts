@@ -804,7 +804,7 @@ function findChainTargets(s: GameState, first: Enemy, linkRange = 76, towerType?
   return targets
 }
 
-function createSmoothedPath(points: readonly { x: number; y: number }[], samplesPerTurn = 12) {
+function createSmoothedPath(points: readonly { x: number; y: number }[], samplesPerTurn = 20) {
   if (points.length < 3) return [...points]
   const smooth: { x: number; y: number }[] = [{ ...points[0] }]
   const unit = (x: number, y: number) => {
@@ -851,7 +851,10 @@ function pathMetrics(points: readonly { x: number; y: number }[]) {
   }
   return lengths
 }
-const REVERSE_PATH_LENGTHS = pathMetrics(SMOOTH_PATH)
+const RAW_PATH_LENGTH = pathMetrics(PATH).at(-1) ?? 0
+const SMOOTH_PATH_LENGTHS = pathMetrics(SMOOTH_PATH)
+const PATH_DISTANCE_SCALE = RAW_PATH_LENGTH / (SMOOTH_PATH_LENGTHS.at(-1) || 1)
+const REVERSE_PATH_LENGTHS = SMOOTH_PATH_LENGTHS.map(distance => distance * PATH_DISTANCE_SCALE)
 const TOTAL_PATH_LENGTH = REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1]
 function pointOnPath(distance: number) {
   const d = Math.max(0, Math.min(TOTAL_PATH_LENGTH, distance))
@@ -890,7 +893,7 @@ function projectToPath(x: number, y: number) {
     const lenSq = dx * dx + dy * dy
     const k = lenSq ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / lenSq)) : 0
     const px = a.x + dx * k, py = a.y + dy * k, error = Math.hypot(x - px, y - py)
-    if (error < best.error) best = { distance: REVERSE_PATH_LENGTHS[i - 1] + Math.sqrt(lenSq) * k, x: px, y: py, error }
+    if (error < best.error) best = { distance: REVERSE_PATH_LENGTHS[i - 1] + Math.sqrt(lenSq) * k * PATH_DISTANCE_SCALE, x: px, y: py, error }
   }
   return best
 }
