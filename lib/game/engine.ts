@@ -85,6 +85,7 @@ export interface Tower {
   burstShotsRemaining: number
   meteorDistance: number
   meteorTimer: number
+  bankedMoney: number
 }
 
 type Projectile = (
@@ -212,6 +213,12 @@ type Projectile = (
       sourceType?: TowerType
     }
   | {
+      kind: 'blade'
+      x: number; y: number; targetId: number; angle: number; orbitRadius: number; angularSpeed: number
+      remaining: number; damagePerHit: number; damageCap: number; damageDealt: number
+      hitCooldowns: Record<number, number>; flame: boolean; color: string; size: number
+    }
+  | {
       kind: 'singularity'
       x: number; y: number; tx: number; ty: number; t: number; duration: number
       damage: number; radius: number; capturedIds: number[]; color: string
@@ -249,7 +256,7 @@ interface ElectricTrap {
   x: number; y: number; radius: number; t: number; duration: number; tickTimer: number; damage: number
 }
 interface PortalPair {
-  blueDistance: number; purpleDistance: number; t: number; duration: number; usedEnemyIds: number[]
+  blueDistance: number; purpleDistance: number; t: number; duration: number; usedEnemyIds: number[]; remainingHp: number
 }
 interface PlasmaBeam {
   x1: number
@@ -392,7 +399,7 @@ export function spawnDebugEnemy(s: GameState, type: EnemyType) {
   s.status = 'playing'
 }
 
-const INCOME_TOWERS: TowerType[] = ['incomeFarm', 'incomeTax', 'economyHouse']
+const INCOME_TOWERS: TowerType[] = ['incomeFarm', 'incomeTax', 'economyHouse', 'masterBank']
 export const SOULSTORM_ESSENCE_REQUIRED = 10
 const COMMS_BUILDING_OVERCLOCK_DURATION = 4
 const COMMS_BUILDING_OVERCLOCK_INTERVAL = 12
@@ -476,6 +483,7 @@ export function placeTower(s: GameState, type: TowerType, col: number, row: numb
     burstShotsRemaining: 0,
     meteorDistance: -1,
     meteorTimer: 0,
+    bankedMoney: 0,
   })
   return true
 }
@@ -483,7 +491,8 @@ export function placeTower(s: GameState, type: TowerType, col: number, row: numb
 export function getFusionCost(a: Tower, b: Tower): number {
   const result = fusionResult(a.type, b.type)
   if (!result) return 0
-  return Math.ceil((a.invested + b.invested) * (TOWERS[result].tier * 1.2))
+  const tierMultiplier = TOWERS[result].tier * 1.2
+  return Math.ceil((a.invested + b.invested) * (TOWERS[result].tier === 3 ? tierMultiplier * 0.5 : tierMultiplier))
 }
 
 export function fuseTowers(s: GameState, sourceId: number, targetId: number) {
@@ -507,6 +516,16 @@ export function fuseTowers(s: GameState, sourceId: number, targetId: number) {
   s.explosions.push({ x: b.x, y: b.y, r: 40, t: 0, dur: 0.6, color: TOWERS[result].color })
   s.selectedId = b.id
   return true
+}
+
+export function collectMasterBank(s: GameState, id: number) {
+  const tower = s.towers.find(item => item.id === id && item.type === 'masterBank')
+  if (!tower || tower.bankedMoney <= 0) return 0
+  const amount = Math.floor(tower.bankedMoney)
+  tower.bankedMoney = 0
+  s.money += amount
+  s.explosions.push({ x: tower.x, y: tower.y, r: 32, t: 0, dur: 0.45, color: '#fbbf24' })
+  return amount
 }
 
 export function sellTower(s: GameState, id: number) {
@@ -839,6 +858,10 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
     }
     return
   }
+  if (t.type === 'bladeOfChaos' || t.type === 'ringOfFlames') {
+    s.projectiles.push({ kind: 'blade', x: target.x, y: target.y, targetId: target.id, angle: 0, orbitRadius: 25, angularSpeed: t.type === 'ringOfFlames' ? 13 : 10, remaining: 5, damagePerHit: def.damage, damageCap: t.type === 'bladeOfChaos' ? 500 : Number.POSITIVE_INFINITY, damageDealt: 0, hitCooldowns: {}, flame: t.type === 'ringOfFlames', color: def.color, size: t.type === 'ringOfFlames' ? 9 : 11, sourceType: t.type, sourceTowerId: t.id })
+    return
+  }
   if (t.type === 'glacialCataclysm') {
     s.projectiles.push({ kind: 'arc', sx: t.x, sy: t.y, tx: target.x, ty: target.y, t: 0, duration: 1.15, height: 115, damage: def.damage, splash: def.splash, cluster: false, glacial: true, color: def.color, size: 13, sourceType: t.type, sourceTowerId: t.id })
     return
@@ -911,9 +934,10 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
   }
   if (t.type === 'portalGun') {
     const total = REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1]
-    const blueDistance = Math.max(0, Math.min(total - 160, target.dist + 20))
-    s.portalPairs.push({ blueDistance, purpleDistance: blueDistance + 160, t: 0, duration: 2, usedEnemyIds: [] })
-    const blue = pointOnPath(blueDistance), purple = pointOnPath(blueDistance + 160)
+    const blueDistance = Math.max(160, Math.min(total, target.dist + 20))
+    const purpleDistance = blueDistance - 160
+    s.portalPairs.push({ blueDistance, purpleDistance, t: 0, duration: 2, usedEnemyIds: [], remainingHp: 2000 })
+    const blue = pointOnPath(blueDistance), purple = pointOnPath(purpleDistance)
     s.explosions.push({ x: blue.x, y: blue.y, r: 25, t: 0, dur: 0.45, color: '#38bdf8' })
     s.explosions.push({ x: purple.x, y: purple.y, r: 25, t: 0, dur: 0.45, color: '#c084fc' })
     return
@@ -1231,9 +1255,10 @@ export function update(s: GameState, dt: number) {
         if(e.wp>=PATH.length&&e.alive){e.alive=false;s.lives-=def.damage}
       }
       if (e.alive && e.dist > previousDist) {
-        const portal = e.type === 'flyBug' ? undefined : s.portalPairs.find(pair => !pair.usedEnemyIds.includes(e.id) && previousDist < pair.blueDistance && e.dist >= pair.blueDistance)
+        const portal = e.type === 'flyBug' ? undefined : s.portalPairs.find(pair => !pair.usedEnemyIds.includes(e.id) && pair.remainingHp >= e.hp && previousDist < pair.blueDistance && e.dist >= pair.blueDistance)
         if (portal) {
           portal.usedEnemyIds.push(e.id)
+          portal.remainingHp -= e.hp
           placeEnemyOnPath(e, portal.purpleDistance)
           const blue = pointOnPath(portal.blueDistance), purple = pointOnPath(portal.purpleDistance)
           s.explosions.push({ x: blue.x, y: blue.y, r: 20, t: 0, dur: 0.3, color: '#38bdf8' })
@@ -1276,9 +1301,10 @@ export function update(s: GameState, dt: number) {
       }
     }
     if (e.alive && e.dist > previousDist) {
-      const portal = e.type === 'flyBug' ? undefined : s.portalPairs.find(pair => !pair.usedEnemyIds.includes(e.id) && previousDist < pair.blueDistance && e.dist >= pair.blueDistance)
+      const portal = e.type === 'flyBug' ? undefined : s.portalPairs.find(pair => !pair.usedEnemyIds.includes(e.id) && pair.remainingHp >= e.hp && previousDist < pair.blueDistance && e.dist >= pair.blueDistance)
       if (portal) {
         portal.usedEnemyIds.push(e.id)
+        portal.remainingHp -= e.hp
         placeEnemyOnPath(e, portal.purpleDistance)
         const blue = pointOnPath(portal.blueDistance), purple = pointOnPath(portal.purpleDistance)
         s.explosions.push({ x: blue.x, y: blue.y, r: 20, t: 0, dur: 0.3, color: '#38bdf8' })
@@ -1644,6 +1670,35 @@ export function update(s: GameState, dt: number) {
 
   const spawned: Projectile[] = []
   s.projectiles = s.projectiles.filter((p) => {
+    if (p.kind === 'blade') {
+      p.remaining -= dt
+      const target = s.enemies.find(enemy => enemy.id === p.targetId && enemy.alive)
+      if (target) {
+        const dx = target.x - p.x, dy = target.y - p.y, distance = Math.hypot(dx, dy)
+        const travel = Math.min(distance, 340 * dt)
+        if (distance > 0.001) { p.x += dx / distance * travel; p.y += dy / distance * travel }
+      } else {
+        const next = s.enemies.filter(enemy => enemy.alive).sort((a,b) => Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0]
+        if (next) p.targetId = next.id
+      }
+      p.angle += p.angularSpeed * dt
+      for (const id of Object.keys(p.hitCooldowns)) p.hitCooldowns[Number(id)] = Math.max(0, p.hitCooldowns[Number(id)] - dt)
+      for (let tip = 0; tip < (p.flame ? 2 : 1); tip++) {
+        const angle = p.angle + tip * Math.PI
+        const tipX = p.x + Math.cos(angle) * p.orbitRadius, tipY = p.y + Math.sin(angle) * p.orbitRadius
+        for (const enemy of s.enemies) {
+          if (!enemy.alive || (p.hitCooldowns[enemy.id] ?? 0) > 0 || Math.hypot(enemy.x-tipX, enemy.y-tipY) > ENEMIES[enemy.type].radius + p.size + (p.flame ? 5 : 2)) continue
+          const dealt = Math.min(p.damagePerHit, p.damageCap - p.damageDealt)
+          if (dealt <= 0) break
+          damageEnemy(s, enemy, dealt, p.sourceType, p.sourceTowerId, true)
+          p.damageDealt += dealt
+          p.hitCooldowns[enemy.id] = 0.28
+          s.explosions.push({ x: tipX, y: tipY, r: p.flame ? 16 : 11, t: 0, dur: 0.18, color: p.flame ? '#fb923c' : p.color })
+          if (p.damageDealt >= p.damageCap) break
+        }
+      }
+      return p.remaining > 0 && p.damageDealt < p.damageCap && s.enemies.some(enemy => enemy.alive)
+    }
     if (p.kind === 'hostile') {
       const oldX = p.x, oldY = p.y
       const step = p.speed * dt
@@ -2142,6 +2197,10 @@ export function update(s: GameState, dt: number) {
   if (s.waveActive && !s.spawnQueue.length && !s.enemies.length) {
     s.waveActive = false
     s.money += 20 + s.wave * 5
+    for (const bank of s.towers.filter(tower => tower.type === 'masterBank')) {
+      s.money += 800
+      bank.bankedMoney = Math.floor((bank.bankedMoney + 200) * 1.2)
+    }
     const commsCenters = s.towers.filter(tower => tower.type === 'commsCenter')
     for (const center of commsCenters) center.hp = Math.min(center.maxHp, center.hp + center.maxHp * 0.2)
     const buffers = s.towers.filter(tower => tower.type === 'buffer')
@@ -2939,6 +2998,16 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
       ctx.beginPath()
       ctx.arc(p.x, p.y, p.size * 0.65, s.time * 5, s.time * 5 + Math.PI * 1.4)
       ctx.stroke()
+      ctx.restore()
+    } else if (p.kind === 'blade') {
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle); ctx.shadowColor = p.color; ctx.shadowBlur = 18
+      for (let tip = 0; tip < (p.flame ? 2 : 1); tip++) {
+        ctx.save(); ctx.rotate(tip * Math.PI)
+        ctx.fillStyle = p.flame ? '#fb923c' : '#c084fc'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5
+        ctx.beginPath(); ctx.moveTo(p.orbitRadius + p.size, 0); ctx.lineTo(p.orbitRadius - 8, -p.size * 0.55); ctx.lineTo(p.orbitRadius - 15, 0); ctx.lineTo(p.orbitRadius - 8, p.size * 0.55); ctx.closePath(); ctx.fill(); ctx.stroke()
+        if (p.flame) { ctx.strokeStyle = '#fef08a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(p.orbitRadius + 3, -3); ctx.lineTo(p.orbitRadius + 17, 0); ctx.lineTo(p.orbitRadius + 3, 3); ctx.stroke() }
+        ctx.restore()
+      }
       ctx.restore()
     } else if (p.kind === 'singularity') {
       ctx.save(); ctx.globalAlpha = 0.75 + Math.sin(s.time * 9) * 0.15; ctx.shadowColor = '#a78bfa'; ctx.shadowBlur = 24; ctx.fillStyle = '#1e1b4b'; ctx.strokeStyle = '#c4b5fd'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius * (0.72 + Math.sin(s.time * 7) * 0.05), 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius * 0.42, s.time * 3, s.time * 3 + Math.PI * 1.5); ctx.stroke(); ctx.restore()
