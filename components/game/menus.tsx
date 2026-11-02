@@ -46,7 +46,7 @@ export function MainMenu({ onPlay, onTowers }: { onPlay: () => void; onTowers: (
         <nav className="ftd-menu-actions" aria-label="Menu principal">
           <button onClick={onPlay} className="ftd-menu-button primary">
             <span className="ftd-menu-button-icon"><Gamepad2 size={23}/></span>
-            <span><strong>INICIAR PARTIDA</strong><small>Entre na arena e defenda sua base</small></span>
+            <span><strong>ESCOLHER MAPA</strong><small>Selecione uma arena e sua dificuldade</small></span>
             <span className="ftd-arrow"><ArrowRight/></span>
           </button>
           <button onClick={onTowers} className="ftd-menu-button">
