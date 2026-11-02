@@ -786,9 +786,12 @@ function findTarget(
       continue
     }
     const bestDistance = Math.hypot(best.x - t.x, best.y - t.y)
+    const map = getMapGeometry(s.mapId)
+    const progress = e.dist / Math.max(1, (map.routes[e.routeIndex] ?? map).totalLength)
+    const bestProgress = best.dist / Math.max(1, (map.routes[best.routeIndex] ?? map).totalLength)
     const preferred =
-      mode === 'first' ? e.dist > best.dist
-      : mode === 'last' ? e.dist < best.dist
+      mode === 'first' ? progress > bestProgress
+      : mode === 'last' ? progress < bestProgress
       : mode === 'strongest' ? e.hp > best.hp
       : mode === 'weakest' ? e.hp < best.hp
       : distance < bestDistance
