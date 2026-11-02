@@ -2521,25 +2521,25 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   ctx.shadowBlur = 0
   ctx.strokeStyle = '#152941'
   ctx.lineWidth = CELL + 2
-  tracePath(ctx); ctx.stroke()
+  tracePath(ctx, map); ctx.stroke()
   const lane = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT)
   lane.addColorStop(0, '#1c3048')
   lane.addColorStop(.5, '#12243a')
   lane.addColorStop(1, '#1a2d43')
   ctx.strokeStyle = lane
   ctx.lineWidth = CELL - 5
-  tracePath(ctx); ctx.stroke()
+  tracePath(ctx, map); ctx.stroke()
   ctx.strokeStyle = 'rgba(148,197,224,0.17)'
   ctx.lineWidth = CELL - 9
   ctx.setLineDash([2, 12])
   ctx.lineDashOffset = -s.time * 14
-  tracePath(ctx); ctx.stroke()
+  tracePath(ctx, map); ctx.stroke()
   ctx.setLineDash([])
   ctx.strokeStyle = 'rgba(103,232,249,0.52)'
   ctx.lineWidth = 1.5
   ctx.setLineDash([7, 13])
   ctx.lineDashOffset = -s.time * 25
-  tracePath(ctx); ctx.stroke()
+  tracePath(ctx, map); ctx.stroke()
   ctx.setLineDash([])
   ctx.restore()
 
