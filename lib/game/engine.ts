@@ -1683,19 +1683,19 @@ export function update(s: GameState, dt: number) {
       }
       p.angle += p.angularSpeed * dt
       for (const id of Object.keys(p.hitCooldowns)) p.hitCooldowns[Number(id)] = Math.max(0, p.hitCooldowns[Number(id)] - dt)
-      for (let tip = 0; tip < (p.flame ? 2 : 1); tip++) {
-        const angle = p.angle + tip * Math.PI
-        const tipX = p.x + Math.cos(angle) * p.orbitRadius, tipY = p.y + Math.sin(angle) * p.orbitRadius
-        for (const enemy of s.enemies) {
-          if (!enemy.alive || (p.hitCooldowns[enemy.id] ?? 0) > 0 || Math.hypot(enemy.x-tipX, enemy.y-tipY) > ENEMIES[enemy.type].radius + p.size + (p.flame ? 5 : 2)) continue
-          const dealt = Math.min(p.damagePerHit, p.damageCap - p.damageDealt)
-          if (dealt <= 0) break
-          damageEnemy(s, enemy, dealt, p.sourceType, p.sourceTowerId, true)
-          p.damageDealt += dealt
-          p.hitCooldowns[enemy.id] = 0.28
-          s.explosions.push({ x: tipX, y: tipY, r: p.flame ? 16 : 11, t: 0, dur: 0.18, color: p.flame ? '#fb923c' : p.color })
-          if (p.damageDealt >= p.damageCap) break
-        }
+      for (const enemy of s.enemies) {
+        if (!enemy.alive || (p.hitCooldowns[enemy.id] ?? 0) > 0) continue
+        // A shuriken damages on contact with any part of its rotating blade,
+        // not only when a tiny tip happens to overlap the enemy.
+        const contactRadius = p.orbitRadius + p.size + ENEMIES[enemy.type].radius
+        if (Math.hypot(enemy.x - p.x, enemy.y - p.y) > contactRadius) continue
+        const dealt = Math.min(p.damagePerHit, p.damageCap - p.damageDealt)
+        if (dealt <= 0) break
+        damageEnemy(s, enemy, dealt, p.sourceType, p.sourceTowerId, true)
+        p.damageDealt += dealt
+        p.hitCooldowns[enemy.id] = 0.22
+        s.explosions.push({ x: enemy.x, y: enemy.y, r: p.flame ? 19 : 13, t: 0, dur: 0.2, color: p.flame ? '#fb923c' : p.color })
+        if (p.damageDealt >= p.damageCap) break
       }
       return p.remaining > 0 && p.damageDealt < p.damageCap && s.enemies.some(enemy => enemy.alive)
     }
@@ -2199,7 +2199,7 @@ export function update(s: GameState, dt: number) {
     s.money += 20 + s.wave * 5
     for (const bank of s.towers.filter(tower => tower.type === 'masterBank')) {
       s.money += 800
-      bank.bankedMoney = Math.floor((bank.bankedMoney + 200) * 1.2)
+      bank.bankedMoney = Math.min(100000, Math.floor((bank.bankedMoney + 200) * 1.2))
     }
     const commsCenters = s.towers.filter(tower => tower.type === 'commsCenter')
     for (const center of commsCenters) center.hp = Math.min(center.maxHp, center.hp + center.maxHp * 0.2)
@@ -3019,14 +3019,55 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
       ctx.stroke()
       ctx.restore()
     } else if (p.kind === 'blade') {
-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle); ctx.shadowColor = p.color; ctx.shadowBlur = 18
-      for (let tip = 0; tip < (p.flame ? 2 : 1); tip++) {
-        ctx.save(); ctx.rotate(tip * Math.PI)
-        ctx.fillStyle = p.flame ? '#fb923c' : '#c084fc'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5
-        ctx.beginPath(); ctx.moveTo(p.orbitRadius + p.size, 0); ctx.lineTo(p.orbitRadius - 8, -p.size * 0.55); ctx.lineTo(p.orbitRadius - 15, 0); ctx.lineTo(p.orbitRadius - 8, p.size * 0.55); ctx.closePath(); ctx.fill(); ctx.stroke()
-        if (p.flame) { ctx.strokeStyle = '#fef08a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(p.orbitRadius + 3, -3); ctx.lineTo(p.orbitRadius + 17, 0); ctx.lineTo(p.orbitRadius + 3, 3); ctx.stroke() }
+      ctx.save()
+      ctx.translate(p.x, p.y)
+      ctx.rotate(p.angle)
+      ctx.shadowColor = p.flame ? '#f97316' : '#c084fc'
+      ctx.shadowBlur = p.flame ? 24 : 18
+      // Four-point shuriken silhouette.
+      for (let blade = 0; blade < 4; blade++) {
+        ctx.save()
+        ctx.rotate(blade * Math.PI / 2)
+        ctx.beginPath()
+        ctx.moveTo(0, -4)
+        ctx.lineTo(p.orbitRadius - 7, -p.size * 0.62)
+        ctx.lineTo(p.orbitRadius + p.size + 8, 0)
+        ctx.lineTo(p.orbitRadius - 7, p.size * 0.62)
+        ctx.lineTo(0, 4)
+        ctx.lineTo(5, 0)
+        ctx.closePath()
+        ctx.fillStyle = p.flame ? '#f97316' : '#a78bfa'
+        ctx.strokeStyle = p.flame ? '#ffedd5' : '#ede9fe'
+        ctx.lineWidth = 1.8
+        ctx.fill()
+        ctx.stroke()
+        if (p.flame) {
+          // Visible tongues of fire surrounding each shuriken point.
+          ctx.shadowColor = '#fb923c'
+          ctx.shadowBlur = 15
+          ctx.fillStyle = '#facc15'
+          ctx.beginPath()
+          ctx.moveTo(p.orbitRadius + 5, -4)
+          ctx.quadraticCurveTo(p.orbitRadius + 19, -13, p.orbitRadius + 23, -2)
+          ctx.quadraticCurveTo(p.orbitRadius + 17, 2, p.orbitRadius + 5, 4)
+          ctx.fill()
+          ctx.fillStyle = '#fb923c'
+          ctx.beginPath()
+          ctx.moveTo(p.orbitRadius + 7, 3)
+          ctx.quadraticCurveTo(p.orbitRadius + 22, 15, p.orbitRadius + 18, 22)
+          ctx.quadraticCurveTo(p.orbitRadius + 10, 15, p.orbitRadius + 7, 3)
+          ctx.fill()
+        }
         ctx.restore()
       }
+      ctx.shadowBlur = 10
+      ctx.fillStyle = p.flame ? '#fbbf24' : '#e9d5ff'
+      ctx.strokeStyle = '#fff'
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.arc(0, 0, 5, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.stroke()
       ctx.restore()
     } else if (p.kind === 'singularity') {
       ctx.save(); ctx.globalAlpha = 0.75 + Math.sin(s.time * 9) * 0.15; ctx.shadowColor = '#a78bfa'; ctx.shadowBlur = 24; ctx.fillStyle = '#1e1b4b'; ctx.strokeStyle = '#c4b5fd'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius * (0.72 + Math.sin(s.time * 7) * 0.05), 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius * 0.42, s.time * 3, s.time * 3 + Math.PI * 1.5); ctx.stroke(); ctx.restore()
