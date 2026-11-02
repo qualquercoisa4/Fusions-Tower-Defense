@@ -374,6 +374,20 @@ main:has(> header) .font-display { text-shadow:0 1px 12px #0006; }
   transition: opacity .25s ease;
 }
 .ftd-menu-button:hover::before { opacity: 1; }
+
+/* Keep the title CTA above the artwork overlay and anchored to the viewport. */
+.ftd-title-screen .ftd-title-action {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  bottom: clamp(24px, 7vh, 76px);
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+.ftd-title-screen .ftd-title-action:hover {
+  transform: translateX(-50%) translateY(-3px);
+}
+
 .ftd-menu-button:focus-visible,
 .ftd-codex-back:focus-visible,
 .ftd-title-action:focus-visible {
