@@ -804,19 +804,70 @@ function findChainTargets(s: GameState, first: Enemy, linkRange = 76, towerType?
   return targets
 }
 
-function pathMetrics() {
+function createSmoothedPath(points: readonly { x: number; y: number }[], samplesPerTurn = 12) {
+  if (points.length < 3) return [...points]
+  const smooth: { x: number; y: number }[] = [{ ...points[0] }]
+  const unit = (x: number, y: number) => {
+    const length = Math.hypot(x, y) || 1
+    return { x: x / length, y: y / length, length }
+  }
+  const push = (point: { x: number; y: number }) => {
+    const last = smooth[smooth.length - 1]
+    if (Math.hypot(point.x - last.x, point.y - last.y) > 0.01) smooth.push(point)
+  }
+  for (let i = 1; i < points.length - 1; i++) {
+    const previous = points[i - 1], corner = points[i], next = points[i + 1]
+    const incoming = unit(corner.x - previous.x, corner.y - previous.y)
+    const outgoing = unit(next.x - corner.x, next.y - corner.y)
+    const dot = incoming.x * outgoing.x + incoming.y * outgoing.y
+    if (dot > 0.995 || Math.abs(incoming.x * outgoing.y - incoming.y * outgoing.x) < 0.015) {
+      push(corner)
+      continue
+    }
+    const cut = Math.min(CELL * 0.52, incoming.length * 0.42, outgoing.length * 0.42)
+    const start = { x: corner.x - incoming.x * cut, y: corner.y - incoming.y * cut }
+    const end = { x: corner.x + outgoing.x * cut, y: corner.y + outgoing.y * cut }
+    const control1 = { x: start.x + incoming.x * cut * 0.58, y: start.y + incoming.y * cut * 0.58 }
+    const control2 = { x: end.x - outgoing.x * cut * 0.58, y: end.y - outgoing.y * cut * 0.58 }
+    push(start)
+    for (let sample = 1; sample <= samplesPerTurn; sample++) {
+      const t = sample / samplesPerTurn, inverse = 1 - t
+      const a = inverse * inverse * inverse, b = 3 * inverse * inverse * t
+      const c = 3 * inverse * t * t, d = t * t * t
+      push({
+        x: a * start.x + b * control1.x + c * control2.x + d * end.x,
+        y: a * start.y + b * control1.y + c * control2.y + d * end.y,
+      })
+    }
+  }
+  push({ ...points[points.length - 1] })
+  return smooth
+}
+const SMOOTH_PATH = createSmoothedPath(PATH)
+function pathMetrics(points: readonly { x: number; y: number }[]) {
   const lengths = [0]
-  for (let i = 1; i < PATH.length; i++) lengths[i] = lengths[i - 1] + Math.hypot(PATH[i].x - PATH[i - 1].x, PATH[i].y - PATH[i - 1].y)
+  for (let i = 1; i < points.length; i++) {
+    lengths[i] = lengths[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
+  }
   return lengths
 }
-const REVERSE_PATH_LENGTHS = pathMetrics()
+const REVERSE_PATH_LENGTHS = pathMetrics(SMOOTH_PATH)
+const TOTAL_PATH_LENGTH = REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1]
 function pointOnPath(distance: number) {
-  const d = Math.max(0, Math.min(REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1], distance))
+  const d = Math.max(0, Math.min(TOTAL_PATH_LENGTH, distance))
   let i = 1
   while (i < REVERSE_PATH_LENGTHS.length - 1 && REVERSE_PATH_LENGTHS[i] < d) i++
   const span = REVERSE_PATH_LENGTHS[i] - REVERSE_PATH_LENGTHS[i - 1]
   const k = span > 0 ? (d - REVERSE_PATH_LENGTHS[i - 1]) / span : 0
-  return { x: PATH[i - 1].x + (PATH[i].x - PATH[i - 1].x) * k, y: PATH[i - 1].y + (PATH[i].y - PATH[i - 1].y) * k }
+  return {
+    x: SMOOTH_PATH[i - 1].x + (SMOOTH_PATH[i].x - SMOOTH_PATH[i - 1].x) * k,
+    y: SMOOTH_PATH[i - 1].y + (SMOOTH_PATH[i].y - SMOOTH_PATH[i - 1].y) * k,
+  }
+}
+function pathAngleAt(distance: number) {
+  const before = pointOnPath(Math.max(0, distance - 6))
+  const after = pointOnPath(Math.min(TOTAL_PATH_LENGTH, distance + 6))
+  return Math.atan2(after.y - before.y, after.x - before.x)
 }
 function pathWaypointIndex(distance: number) {
   let i = 1
@@ -824,14 +875,18 @@ function pathWaypointIndex(distance: number) {
   return i
 }
 function placeEnemyOnPath(enemy: Enemy, distance: number) {
-  const clamped = Math.max(0, Math.min(REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1], distance))
+  const clamped = Math.max(0, Math.min(TOTAL_PATH_LENGTH, distance))
   const point = pointOnPath(clamped)
-  enemy.dist = clamped; enemy.x = point.x; enemy.y = point.y; enemy.wp = pathWaypointIndex(clamped)
+  enemy.dist = clamped
+  enemy.x = point.x
+  enemy.y = point.y
+  enemy.wp = pathWaypointIndex(clamped)
+  enemy.angle = pathAngleAt(clamped)
 }
 function projectToPath(x: number, y: number) {
-  let best = { distance: 0, x: PATH[0].x, y: PATH[0].y, error: Infinity }
-  for (let i = 1; i < PATH.length; i++) {
-    const a = PATH[i - 1], b = PATH[i], dx = b.x - a.x, dy = b.y - a.y
+  let best = { distance: 0, x: SMOOTH_PATH[0].x, y: SMOOTH_PATH[0].y, error: Infinity }
+  for (let i = 1; i < SMOOTH_PATH.length; i++) {
+    const a = SMOOTH_PATH[i - 1], b = SMOOTH_PATH[i], dx = b.x - a.x, dy = b.y - a.y
     const lenSq = dx * dx + dy * dy
     const k = lenSq ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / lenSq)) : 0
     const px = a.x + dx * k, py = a.y + dy * k, error = Math.hypot(x - px, y - py)
@@ -1289,22 +1344,14 @@ export function update(s: GameState, dt: number) {
       e.airborneTimer=.55;e.jumpCooldown=1;e.anim=0
     }
     if (e.type === 'jumper') {
-      // Each jump covers up to 70 world units over 0.52s, smoothly following
-      // the waypoint path instead of teleporting. Crossing a waypoint never stalls it.
-      if(e.airborneTimer>0){
-        let step=82*dt/.55
-        while(step>0&&e.alive&&e.wp<PATH.length){
-          const target=PATH[e.wp]
-          const dx=target.x-e.x,dy=target.y-e.y,distance=Math.hypot(dx,dy)
-          if(distance<=.001){e.x=target.x;e.y=target.y;e.wp++;continue}
-          e.angle=Math.atan2(dy,dx)
-          if(step>=distance){
-            e.x=target.x;e.y=target.y;e.dist+=distance;step-=distance;e.wp++
-          }else{
-            e.x+=(dx/distance)*step;e.y+=(dy/distance)*step;e.dist+=step;step=0
-          }
+      // Jumps still cover the same distance over the same airtime; only the route geometry is curved.
+      if (e.airborneTimer > 0) {
+        const nextDistance = Math.min(TOTAL_PATH_LENGTH, e.dist + 82 * dt / 0.55)
+        placeEnemyOnPath(e, nextDistance)
+        if (nextDistance >= TOTAL_PATH_LENGTH && e.alive) {
+          e.alive = false
+          s.lives -= def.damage
         }
-        if(e.wp>=PATH.length&&e.alive){e.alive=false;s.lives-=def.damage}
       }
       if (e.alive && e.dist > previousDist) {
         const portal = e.type === 'flyBug' ? undefined : s.portalPairs.find(pair => !pair.usedEnemyIds.includes(e.id) && pair.remainingHp >= e.hp && previousDist < pair.blueDistance && e.dist >= pair.blueDistance)
@@ -1328,29 +1375,12 @@ export function update(s: GameState, dt: number) {
       Math.hypot(other.x - e.x, other.y - e.y) <= supportRadius
     )
     const isolatedSupportSpeed = supportRadius > 0 && !hasAlliesInSupportRange ? 2.2 : 1
-    let step = def.speed * isolatedSupportSpeed * (e.splitGeneration > 0 ? 2 : 1) * (e.type === 'bombug' ? 1.35 : 1) * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
-    while (step > 0 && e.alive) {
-      const target = PATH[e.wp]
-      const dx = target.x - e.x
-      const dy = target.y - e.y
-      const d = Math.hypot(dx, dy)
-      if (d > 0.001) e.angle = Math.atan2(dy, dx)
-      if (step >= d) {
-        e.x = target.x
-        e.y = target.y
-        e.dist += d
-        step -= d
-        e.wp++
-        if (e.wp >= PATH.length) {
-          e.alive = false
-          s.lives -= def.damage
-        }
-      } else {
-        e.x += (dx / d) * step
-        e.y += (dy / d) * step
-        e.dist += step
-        step = 0
-      }
+    const step = def.speed * isolatedSupportSpeed * (e.splitGeneration > 0 ? 2 : 1) * (e.type === 'bombug' ? 1.35 : 1) * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
+    const nextDistance = Math.min(TOTAL_PATH_LENGTH, e.dist + step)
+    placeEnemyOnPath(e, nextDistance)
+    if (nextDistance >= TOTAL_PATH_LENGTH && e.alive) {
+      e.alive = false
+      s.lives -= def.damage
     }
     if (e.alive && e.dist > previousDist) {
       const portal = e.type === 'flyBug' ? undefined : s.portalPairs.find(pair => !pair.usedEnemyIds.includes(e.id) && pair.remainingHp >= e.hp && previousDist < pair.blueDistance && e.dist >= pair.blueDistance)
@@ -2445,6 +2475,27 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   ctx.setLineDash([])
   ctx.restore()
 
+  // Small animated lane chevrons reinforce direction without covering the track.
+  ctx.save()
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  for (let distance = 34; distance < TOTAL_PATH_LENGTH - 22; distance += 58) {
+    const point = pointOnPath(distance)
+    ctx.save()
+    ctx.translate(point.x, point.y)
+    ctx.rotate(pathAngleAt(distance))
+    ctx.globalAlpha = 0.24 + (Math.sin(s.time * 2.4 - distance * 0.025) + 1) * 0.07
+    ctx.strokeStyle = '#a5f3fc'
+    ctx.lineWidth = 1.25
+    ctx.beginPath()
+    ctx.moveTo(-5, -4)
+    ctx.lineTo(0, 0)
+    ctx.lineTo(-5, 4)
+    ctx.stroke()
+    ctx.restore()
+  }
+  ctx.restore()
+
   for (const trap of s.electricTraps) {
     const pulse = 0.78 + Math.sin(s.time * 14) * 0.12
     ctx.save(); ctx.globalAlpha = pulse; ctx.fillStyle = 'rgba(34,211,238,0.12)'; ctx.strokeStyle = '#67e8f9'; ctx.lineWidth = 2
@@ -2991,6 +3042,6 @@ function drawElectricBeam(
 
 function tracePath(ctx: CanvasRenderingContext2D) {
   ctx.beginPath()
-  ctx.moveTo(PATH[0].x, PATH[0].y)
-  for (let i = 1; i < PATH.length; i++) ctx.lineTo(PATH[i].x, PATH[i].y)
+  ctx.moveTo(SMOOTH_PATH[0].x, SMOOTH_PATH[0].y)
+  for (let i = 1; i < SMOOTH_PATH.length; i++) ctx.lineTo(SMOOTH_PATH[i].x, SMOOTH_PATH[i].y)
 }
