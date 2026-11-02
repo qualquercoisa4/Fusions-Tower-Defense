@@ -381,9 +381,9 @@ export function createGame(mapId: MapId = DEFAULT_MAP_ID): GameState {
 
 
 
-function createEnemy(s: GameState, type: EnemyType, x?: number, y?: number): Enemy {
+function createEnemy(s: GameState, type: EnemyType, x?: number, y?: number, routeIndexOverride?: number): Enemy {
   const map = getMapGeometry(s.mapId)
-  const routeIndex = s.routeSpawnIndex++ % map.routes.length
+  const routeIndex = routeIndexOverride ?? (s.routeSpawnIndex++ % map.routes.length)
   const route = map.routes[routeIndex] ?? map
   x ??= route.waypoints[0].x
   y ??= route.waypoints[0].y
@@ -669,7 +669,7 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType
     e.hp -= dmg
   }
   if (e.type === 'swarmer' && e.hp < previousHp) {
-    const child = createEnemy(s, 'swarmBug', e.x + (Math.random() - 0.5) * 10, e.y + (Math.random() - 0.5) * 10)
+    const child = createEnemy(s, 'swarmBug', e.x + (Math.random() - 0.5) * 10, e.y + (Math.random() - 0.5) * 10, e.routeIndex)
     child.routeIndex = e.routeIndex
     const pathPosition = projectToPath(getEnemyPath(map, e), e.x, e.y)
     placeEnemyOnPath(getEnemyPath(map, child), child, pathPosition.distance)
