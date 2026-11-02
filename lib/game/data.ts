@@ -277,7 +277,7 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     description: 'Lança uma bola de neve que captura até 5 inimigos e os carrega para trás pelo caminho. Ao explodir, causa dano em área, espalha os inimigos e congela por 1 segundo.',
   },
   portalGun: {
-    name: 'Portal Gun', tier: 1, damage: 0, range: 170, fireRate: 0.5, splash: 0,
+    name: 'Portal Gun', tier: 1, damage: 0, range: 170, fireRate: 0.1, splash: 0,
     style: 'support', projectileSpeed: 0, inaccuracy: 0, cost: 0,
     color: '#a78bfa', accent: '#4c1d95',
     description: 'Abre um portal azul e um roxo no caminho por 2 segundos. Inimigos que atravessam o portal azul saem pelo portal roxo.',
