@@ -76,8 +76,6 @@ const MAP_DIFFICULTIES: { id: MapDifficulty; label: string; subtitle: string; co
 
 function MapPreview({ map, large = false }: { map: typeof GAME_MAPS[number]; large?: boolean }) {
   const routes = map.routes?.length ? map.routes : [{ id: 'main', waypoints: map.waypoints }]
-  const first = routes[0].waypoints[0]
-  const last = routes[0].waypoints[routes[0].waypoints.length - 1]
   return (
     <div className={`ftd-map-preview ${large ? 'large' : ''}`}>
       <svg viewBox="-1.2 0 19.4 12" role="img" aria-label={`Prévia do mapa ${map.name}`} preserveAspectRatio="xMidYMid meet">
