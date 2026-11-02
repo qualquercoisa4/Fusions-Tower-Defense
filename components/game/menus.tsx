@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight, Atom, BookOpen, Bug, Gamepad2, Layers3, Plus, Search, ShoppingBag, Sparkles, Swords } from 'lucide-react'
-import { ENEMIES, FUSION_LIST, TOWERS, type EnemyType, type TowerType } from '@/lib/game/data'
+import { ArrowLeft, ArrowRight, Atom, BookOpen, Bug, Gamepad2, Layers3, Map as MapIcon, Plus, Search, ShoppingBag, Sparkles, Star, Swords } from 'lucide-react'
+import { ENEMIES, FUSION_LIST, GAME_MAPS, TOWERS, type EnemyType, type MapDifficulty, type MapId, type TowerType } from '@/lib/game/data'
 import { SpriteIcon } from './sprite-icon'
 
 export function TitleScreen({ onStart }: { onStart: () => void }) {
@@ -63,6 +63,127 @@ export function MainMenu({ onPlay, onTowers }: { onPlay: () => void; onTowers: (
         </nav>
       </div>
       <div className="ftd-menu-footer">FUSION TD <span className="mx-2 text-sky-400">◆</span> DEFENDA · COMBINE · EVOLUA</div>
+    </main>
+  )
+}
+
+const MAP_DIFFICULTIES: { id: MapDifficulty; label: string; subtitle: string; color: string }[] = [
+  { id: 'beginner', label: 'INICIANTE', subtitle: 'Rotas abertas', color: 'emerald' },
+  { id: 'intermediate', label: 'INTERMEDIÁRIO', subtitle: 'Mais curvas', color: 'cyan' },
+  { id: 'advanced', label: 'AVANÇADO', subtitle: 'Poucas margens', color: 'orange' },
+  { id: 'expert', label: 'EXPERT', subtitle: 'Desafio máximo', color: 'rose' },
+]
+
+function MapPreview({ map, large = false }: { map: typeof GAME_MAPS[number]; large?: boolean }) {
+  const points = map.waypoints.map(([x, y]) => `${x},${y}`).join(' ')
+  const first = map.waypoints[0]
+  const last = map.waypoints[map.waypoints.length - 1]
+  return (
+    <div className={`ftd-map-preview ${large ? 'large' : ''}`}>
+      <svg viewBox="-1.2 0 19.4 12" role="img" aria-label={`Prévia do mapa ${map.name}`} preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <pattern id="ftd-map-grid" width="1" height="1" patternUnits="userSpaceOnUse">
+            <path d="M 1 0 L 0 0 0 1" fill="none" stroke="rgba(125,211,252,.12)" strokeWidth=".035" />
+          </pattern>
+        </defs>
+        <rect x="-1.2" y="0" width="19.4" height="12" fill="#061326" />
+        <rect x="-1.2" y="0" width="19.4" height="12" fill="url(#ftd-map-grid)" />
+        <polyline points={points} fill="none" stroke="rgba(14,165,233,.22)" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+        <polyline points={points} fill="none" stroke="#38536d" strokeWidth="1.72" strokeLinecap="round" strokeLinejoin="round" />
+        <polyline points={points} fill="none" stroke="#80dff2" strokeWidth=".055" strokeDasharray=".18 .2" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx={first[0]} cy={first[1]} r=".17" fill="#4ade80" stroke="#dcfce7" strokeWidth=".05" />
+        <circle cx={last[0]} cy={last[1]} r=".17" fill="#fb7185" stroke="#ffe4e6" strokeWidth=".05" />
+      </svg>
+      <div className="ftd-map-preview-legend"><span><i className="start" /> ENTRADA</span><span><i className="exit" /> SAÍDA</span></div>
+    </div>
+  )
+}
+
+function mapRouteLength(map: typeof GAME_MAPS[number]) {
+  return map.waypoints.slice(1).reduce((total, point, index) => {
+    const previous = map.waypoints[index]
+    return total + Math.abs(point[0] - previous[0]) + Math.abs(point[1] - previous[1])
+  }, 0)
+}
+
+export function MapSelectScreen({ onBack, onSelect }: { onBack: () => void; onSelect: (mapId: MapId) => void }) {
+  const [difficulty, setDifficulty] = useState<MapDifficulty>('beginner')
+  const [selectedMapId, setSelectedMapId] = useState<MapId>(GAME_MAPS[0].id)
+  const visibleMaps = GAME_MAPS.filter(map => map.difficulty === difficulty)
+  const selectedMap = visibleMaps.find(map => map.id === selectedMapId) ?? visibleMaps[0]
+  const difficultyInfo = MAP_DIFFICULTIES.find(item => item.id === difficulty)!
+
+  const changeDifficulty = (next: MapDifficulty) => {
+    setDifficulty(next)
+    const firstMap = GAME_MAPS.find(map => map.difficulty === next)
+    if (firstMap) setSelectedMapId(firstMap.id)
+  }
+
+  return (
+    <main className="ftd-map-select">
+      <div className="ftd-map-select-inner">
+        <header className="ftd-map-select-header">
+          <button onClick={onBack} className="ftd-map-back"><ArrowLeft size={16} /> MENU</button>
+          <div className="ftd-map-heading">
+            <p className="ftd-map-kicker"><MapIcon size={14} /> SELEÇÃO DE FASE</p>
+            <h1>ESCOLHA SUA ARENA</h1>
+            <p>Selecione uma dificuldade e escolha o mapa da partida.</p>
+          </div>
+          <div className="ftd-map-count"><span>{GAME_MAPS.length}</span> MAPAS DISPONÍVEIS</div>
+        </header>
+
+        <nav className="ftd-map-difficulties" aria-label="Dificuldade dos mapas">
+          {MAP_DIFFICULTIES.map(item => {
+            const count = GAME_MAPS.filter(map => map.difficulty === item.id).length
+            return (
+              <button key={item.id} onClick={() => changeDifficulty(item.id)} aria-pressed={difficulty === item.id} className={`ftd-map-difficulty ${difficulty === item.id ? 'active' : ''} ${item.color}`}>
+                <strong>{item.label}</strong><span>{item.subtitle}</span><small>{count} MAPAS</small>
+              </button>
+            )
+          })}
+        </nav>
+
+        <div className="ftd-map-browser">
+          <section className="ftd-map-catalog">
+            <div className="ftd-map-catalog-heading">
+              <div><h2>{difficultyInfo.label}</h2><p>{difficultyInfo.subtitle} · {visibleMaps.length} opções</p></div>
+              <span>SELECIONE UM MAPA</span>
+            </div>
+            <div className="ftd-map-cards">
+              {visibleMaps.map(map => (
+                <button key={map.id} onClick={() => setSelectedMapId(map.id)} aria-pressed={selectedMap.id === map.id} className={`ftd-map-card ${selectedMap.id === map.id ? 'selected' : ''}`}>
+                  <MapPreview map={map} />
+                  <div className="ftd-map-card-info">
+                    <div className="ftd-map-card-title"><strong>{map.name}</strong><span>{map.rating}/5</span></div>
+                    <div className="ftd-map-stars" aria-label={`Dificuldade ${map.rating} de 5`}>
+                      {Array.from({ length: 5 }, (_, index) => <Star key={index} size={11} fill={index < map.rating ? 'currentColor' : 'none'} className={index < map.rating ? 'filled' : ''} />)}
+                    </div>
+                    <p>{map.description}</p>
+                  </div>
+                  <span className="ftd-map-select-indicator">{selectedMap.id === map.id ? 'SELECIONADO' : 'VER MAPA'}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <aside className="ftd-map-details">
+            <div className="ftd-map-details-top"><span>MAPA SELECIONADO</span><span className={`ftd-map-tier ${difficulty}`}>{difficultyInfo.label}</span></div>
+            <MapPreview map={selectedMap} large />
+            <h2>{selectedMap.name}</h2>
+            <p className="ftd-map-description">{selectedMap.description}</p>
+            <div className="ftd-map-stats">
+              <div><strong>{mapRouteLength(selectedMap)}</strong><span>CÉLULAS DE ROTA</span></div>
+              <div><strong>{selectedMap.waypoints.length - 2}</strong><span>CURVAS</span></div>
+              <div><strong>{selectedMap.rating}/5</strong><span>DIFICULDADE</span></div>
+            </div>
+            <div className="ftd-map-note">A dificuldade desta seleção considera o traçado e o espaço para construção. As regras de ondas e economia permanecem iguais entre os mapas.</div>
+            <button onClick={() => onSelect(selectedMap.id)} className="ftd-map-play">
+              JOGAR NESTE MAPA <ArrowRight size={17} />
+            </button>
+          </aside>
+        </div>
+        <footer className="ftd-map-footer">FUSION TD <span>◆</span> 8 ARENAS · 4 NÍVEIS DE DIFICULDADE</footer>
+      </div>
     </main>
   )
 }
