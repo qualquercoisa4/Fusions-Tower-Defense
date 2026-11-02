@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import type { EnemyType, TowerType } from '@/lib/game/data'
+import { ENEMIES, type EnemyType, type TowerType } from '@/lib/game/data'
 import { drawBug, drawTower } from '@/lib/game/engine'
 
 type Props = { size?: number; label: string } & (
@@ -24,7 +24,8 @@ export function SpriteIcon({ size = 48, label, tower, enemy }: Props) {
     if (tower) drawTower(ctx, tower, 24, 24, -Math.PI / 4)
     else if (enemy) {
       ctx.translate(24, 24)
-      ctx.scale(1.4, 1.4)
+      const fit = Math.min(1.3, 16 / (ENEMIES[enemy].radius * 1.9))
+      ctx.scale(fit, fit)
       drawBug(ctx, enemy, 0, 0, -Math.PI / 2, 0.3)
     }
   }, [size, tower, enemy])
