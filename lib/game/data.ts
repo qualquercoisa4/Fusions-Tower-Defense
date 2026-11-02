@@ -49,13 +49,16 @@ export type TowerType =
   | 'masterBank'
   | 'bladeOfChaos'
   | 'ringOfFlames'
+  | 'droneFactory'
+  | 'spikeLayer'
+  | 'skybreaker'
 export type EnemyType =
   | 'grunt' | 'tank' | 'runner' | 'vessel' | 'jumper' | 'healer'
   | 'bugPrince' | 'swarmBug' | 'splitter' | 'shadowBug' | 'spitter' | 'bulb' | 'bugQueen'
   | 'flyBug' | 'ironBug' | 'rubberBug' | 'heatBug' | 'ghostBug' | 'dirtBug'
   | 'swarmer' | 'buguns' | 'starbug' | 'bombug' | 'bugKing'
 
-export type ElementClass = 'normal' | 'fire' | 'electricity' | 'ice' | 'earth' | 'plasma'
+export type ElementClass = 'normal' | 'fire' | 'electricity' | 'ice' | 'earth' | 'plasma' | 'air' | 'explosive'
 
 export type TargetMode = 'first' | 'last' | 'strongest' | 'weakest' | 'closest'
 export const TARGET_MODES: { value: TargetMode; label: string }[] = [
@@ -415,6 +418,9 @@ export const TOWERS: Record<TowerType, TowerDef> = {
   masterBank: { name: 'Master Bank', tier: 3, damage: 0, range: 118, fireRate: 1, splash: 0, style: 'support', projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#fbbf24', accent: '#78350f', description: 'Gera 1.000 créditos por rodada: 800 vão diretamente para sua conta e 200 são depositados no banco. O saldo depositado rende juros compostos de 20% por rodada até ser sacado.' },
   bladeOfChaos: { name: 'Blade Of Chaos', tier: 2, damage: 20, range: 180, fireRate: 0.45, splash: 0, style: 'energy', projectileSpeed: 310, inaccuracy: 0, cost: 0, color: '#c084fc', accent: '#581c87', description: 'Lança uma lâmina giratória que persegue inimigos e causa dano a cada giro. Permanece ativa por até 5 segundos ou até causar 500 de dano.' },
   ringOfFlames: { name: 'Ring Of Flames', tier: 3, damage: 14, range: 185, fireRate: 0.45, splash: 0, style: 'energy', projectileSpeed: 320, inaccuracy: 0, cost: 0, color: '#fb923c', accent: '#9a3412', description: 'Lança uma lâmina giratória que persegue inimigos e lança chamas pelas duas pontas. Permanece ativa por até 5 segundos.' },
+  droneFactory: { name: 'Drone Factory', tier: 2, damage: 12, range: 180, fireRate: 2, splash: 0, style: 'bullet', projectileSpeed: 430, inaccuracy: 0, cost: 0, color: '#94a3b8', accent: '#334155', description: 'A cada 20 segundos, fabrica um drone aliado. Cada drone suporta até 1.000 de dano acumulado e dispara duas balas por salva, duas vezes por segundo.' },
+  spikeLayer: { name: 'Spike Layer', tier: 2, damage: 22, range: 165, fireRate: 1/3, splash: 0, style: 'support', projectileSpeed: 0, inaccuracy: 0, cost: 0, color: '#a3a3a3', accent: '#44403c', description: 'A cada 3 segundos, instala espinhos na rota. Eles duram 2 rodadas e, quando um inimigo passa por cima, explodem em 4 estilhaços de gelo.' },
+  skybreaker: { name: 'Skybreaker', tier: 3, damage: 38, range: 185, fireRate: 4, splash: 0, style: 'bullet', projectileSpeed: 520, inaccuracy: 0, cost: 0, color: '#f97316', accent: '#7c2d12', description: 'Invoca um helicóptero permanente que segue o cursor e dispara quatro rajadas por segundo, cada uma com quatro balas perfurantes. Quando um chefe aparece, troca para mísseis teleguiados de alto dano. O helicóptero desaparece quando a torre é vendida ou destruída.' },
 }
 
 export const BUILDABLE: TowerType[] = ['shooter', 'cannon', 'lightning', 'retarder', 'incomeFarm', 'buffer', 'teleporter', 'boulderLauncher']
@@ -512,6 +518,9 @@ export const FUSION_LIST: { a: TowerType; b: TowerType; result: TowerType }[] = 
   { a: 'economyHouse', b: 'economyHouse', result: 'masterBank' },
   { a: 'plasmaCannon', b: 'raygun', result: 'bladeOfChaos' },
   { a: 'bladeOfChaos', b: 'flamethrower', result: 'ringOfFlames' },
+  { a: 'rockLauncher', b: 'dual', result: 'droneFactory' },
+  { a: 'rockLauncher', b: 'cluster', result: 'spikeLayer' },
+  { a: 'droneFactory', b: 'spikeLayer', result: 'skybreaker' },
 ]
 
 export const TOWER_ELEMENTS: Partial<Record<TowerType, ElementClass>> = {
@@ -529,6 +538,19 @@ export const TOWER_ELEMENTS: Partial<Record<TowerType, ElementClass>> = {
   masterBank: undefined, bladeOfChaos: 'normal', ringOfFlames: 'fire',
   pebblesLauncher: 'earth', flamethrower: 'fire', hyperLaser: 'plasma',
   cannonadeBomber: 'fire', splitHeel: 'fire', singularity: 'plasma', mimic: 'plasma',
+  droneFactory: 'normal', spikeLayer: 'earth', skybreaker: 'explosive',
+}
+
+export const TOWER_SECONDARY_ELEMENTS: Partial<Record<TowerType, ElementClass>> = {
+  dual: 'air', mortar: 'explosive', cluster: 'explosive', raygun: 'normal', bolt: 'explosive', tesla: 'electricity',
+  icicles: 'air', snowballer: 'explosive', thunderstorm: 'ice', ice: 'air', rockLauncher: 'air', slingshot: 'air',
+  boulderCannon: 'explosive', electricSyringe: 'earth', snowballLauncher: 'earth', portalGun: 'earth', plasmaCannon: 'air',
+  plasmaBlaster: 'explosive', plasmaRod: 'electricity', plasmaHypothermia: 'ice', commsLanHouse: 'electricity', incomeTax: 'earth',
+  electricalStation: 'electricity', cryoMortar: 'explosive', tripleShooter: 'air', economyHouse: 'explosive', commsBuilding: 'electricity',
+  soulstorm: 'plasma', pebblesLauncher: 'air', flamethrower: 'air', hyperLaser: 'electricity', cannonadeBomber: 'explosive',
+  splitHeel: 'earth', singularity: 'explosive', mimic: 'normal', gatlingGun: 'air', meteorShower: 'explosive',
+  glacialCataclysm: 'explosive', masterBank: 'earth', bladeOfChaos: 'electricity', ringOfFlames: 'air',
+  droneFactory: 'air', spikeLayer: 'explosive', skybreaker: 'air',
 }
 
 export interface EnemyDef {
