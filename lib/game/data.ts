@@ -549,7 +549,7 @@ export const TOWER_SECONDARY_ELEMENTS: Partial<Record<TowerType, ElementClass>> 
   electricalStation: 'electricity', cryoMortar: 'explosive', tripleShooter: 'air', economyHouse: 'explosive', commsBuilding: 'electricity',
   soulstorm: 'plasma', pebblesLauncher: 'air', flamethrower: 'air', hyperLaser: 'electricity', cannonadeBomber: 'explosive',
   splitHeel: 'earth', singularity: 'explosive', mimic: 'normal', gatlingGun: 'air', meteorShower: 'explosive',
-  glacialCataclysm: 'explosive', masterBank: 'earth', bladeOfChaos: 'electricity', ringOfFlames: 'air',
+  glacialCataclysm: 'explosive', masterBank: 'earth', commsCenter: 'electricity', bladeOfChaos: 'electricity', ringOfFlames: 'air',
   droneFactory: 'air', spikeLayer: 'explosive', skybreaker: 'air',
 }
 
