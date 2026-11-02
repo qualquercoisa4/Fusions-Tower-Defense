@@ -86,6 +86,10 @@ export interface Tower {
   meteorDistance: number
   meteorTimer: number
   bankedMoney: number
+  droneTimer: number
+  helicopterX: number
+  helicopterY: number
+  helicopterCooldown: number
 }
 
 type Projectile = (
@@ -109,6 +113,7 @@ type Projectile = (
       color: string
       size: number
       sourceType?: TowerType
+      droneId?: number
     }
   | {
       kind: 'fire'
@@ -243,6 +248,9 @@ type Projectile = (
     }
 ) & { sourceTowerId?: number; teleporterClone?: boolean; sourceType?: TowerType; ghostCheckedIds?: number[]; ghostEvadedIds?: number[] }
 
+interface Drone { id: number; ownerId: number; x: number; y: number; hp: number; cooldown: number; targetId: number | null }
+interface SpikeTrap { id: number; x: number; y: number; expiresWave: number; usedEnemyIds: number[] }
+
 interface PlasmaPool {
   x: number
   y: number
@@ -306,6 +314,8 @@ export interface GameState {
   plasmaBeams: PlasmaBeam[]
   electricTraps: ElectricTrap[]
   portalPairs: PortalPair[]
+  drones: Drone[]
+  spikeTraps: SpikeTrap[]
   money: number
   lives: number
   wave: number
@@ -338,6 +348,8 @@ export function createGame(): GameState {
     plasmaBeams: [],
     electricTraps: [],
     portalPairs: [],
+    drones: [],
+    spikeTraps: [],
     money: 500,
     lives: 100,
     wave: 0,
@@ -484,6 +496,10 @@ export function placeTower(s: GameState, type: TowerType, col: number, row: numb
     meteorDistance: -1,
     meteorTimer: 0,
     bankedMoney: 0,
+    droneTimer: 20,
+    helicopterX: col * CELL + CELL / 2,
+    helicopterY: row * CELL + CELL / 2,
+    helicopterCooldown: 0.25,
   })
   return true
 }
@@ -1091,6 +1107,33 @@ export function update(s: GameState, dt: number) {
   for (const pair of s.portalPairs) pair.t += dt
   s.portalPairs = s.portalPairs.filter(pair => pair.t < pair.duration)
 
+  for (const drone of s.drones) {
+    const owner = s.towers.find(tower => tower.id === drone.ownerId && tower.type === 'droneFactory')
+    if (!owner) continue
+    let target = s.enemies.find(enemy => enemy.id === drone.targetId && enemy.alive)
+    if (!target) target = s.enemies.filter(enemy => enemy.alive).sort((a,b) => Math.hypot(a.x-drone.x,a.y-drone.y)-Math.hypot(b.x-drone.x,b.y-drone.y))[0] ?? null
+    if (target) {
+      drone.targetId = target.id
+      const dx = target.x-drone.x, dy = target.y-drone.y, distance = Math.hypot(dx,dy)
+      if (distance > 42) { drone.x += dx/distance*Math.min(distance,150*dt); drone.y += dy/distance*Math.min(distance,150*dt) }
+      drone.cooldown -= dt
+      if (drone.cooldown <= 0) {
+        for (const side of [-1,1]) s.projectiles.push({kind:'direct',x:drone.x,y:drone.y,tx:target.x,ty:target.y,targetId:target.id,speed:430,damage:12,splash:0,color:'#cbd5e1',size:3.2,sourceType:'droneFactory',sourceTowerId:owner.id,droneId:drone.id})
+        drone.cooldown = 0.5
+      }
+    }
+  }
+  s.drones = s.drones.filter(drone => drone.hp > 0 && s.towers.some(tower => tower.id === drone.ownerId && tower.type === 'droneFactory'))
+
+  for (const trap of s.spikeTraps) {
+    for (const enemy of s.enemies) {
+      if (!enemy.alive || trap.usedEnemyIds.includes(enemy.id) || Math.hypot(enemy.x-trap.x,enemy.y-trap.y) > ENEMIES[enemy.type].radius+13) continue
+      trap.usedEnemyIds.push(enemy.id)
+      for (let k=0;k<4;k++) { const angle=k*Math.PI/2+Math.PI/4; s.projectiles.push({kind:'ice',x:trap.x,y:trap.y,dirX:Math.cos(angle),dirY:Math.sin(angle),traveled:0,maxDistance:74,speed:280,damage:22,color:'#cbd5e1',size:4,freezeDuration:0,slowDuration:0,slowFactor:1,hitLimit:1,hitIds:[],splitOnHit:false,explodeAtLimit:false,splash:0,splashFreezeDuration:0,sourceType:'spikeLayer'}) }
+      s.explosions.push({x:trap.x,y:trap.y,r:20,t:0,dur:0.25,color:'#d1d5db'})
+    }
+  }
+
   if (s.waveActive && s.spawnQueue.length) {
     s.spawnTimer -= dt
     if (s.spawnTimer <= 0) {
@@ -1330,6 +1373,26 @@ export function update(s: GameState, dt: number) {
     }
     if (t.type === 'plasmaBlaster') t.recoil = Math.min(1, t.recoil + dt * baseDef.fireRate * (t.overclockTimer > 0 ? 2 : 1))
     else t.recoil = Math.max(0, t.recoil - dt * 5)
+    if (t.type === 'droneFactory') {
+      t.droneTimer -= dt
+      if (t.droneTimer <= 0) { s.drones.push({id:s.nextId++,ownerId:t.id,x:t.x,y:t.y-12,hp:1000,cooldown:0.1,targetId:null}); t.droneTimer=20; s.explosions.push({x:t.x,y:t.y-12,r:18,t:0,dur:0.35,color:'#cbd5e1'}) }
+      continue
+    }
+    if (t.type === 'spikeLayer') {
+      t.supportCooldown -= dt
+      if (t.supportCooldown <= 0) { const point=pointOnPath(projectToPath(t.x,t.y).distance); s.spikeTraps.push({id:s.nextId++,x:point.x,y:point.y,expiresWave:s.wave+2,usedEnemyIds:[]}); t.supportCooldown=3 }
+      continue
+    }
+    if (t.type === 'skybreaker') {
+      if (s.hover) { const tx=s.hover.col*CELL+CELL/2,ty=s.hover.row*CELL+CELL/2; t.helicopterX+=(tx-t.helicopterX)*Math.min(1,dt*7); t.helicopterY+=(ty-t.helicopterY)*Math.min(1,dt*7) }
+      t.helicopterCooldown -= dt
+      if (t.helicopterCooldown <= 0) {
+        const boss=s.enemies.filter(enemy=>enemy.alive&&['bugPrince','bugQueen','bugKing'].includes(enemy.type)).sort((a,b)=>Math.hypot(a.x-t.helicopterX,a.y-t.helicopterY)-Math.hypot(b.x-t.helicopterX,b.y-t.helicopterY))[0]
+        if (boss) { s.projectiles.push({kind:'homing',x:t.helicopterX,y:t.helicopterY,dirX:0,dirY:-1,traveled:0,maxDistance:950,speed:310,turnRate:8,acquireAfter:0,targetId:boss.id,hitIds:[],hitLimit:1,damage:260,color:'#fb923c',size:8,sourceType:t.type,sourceTowerId:t.id}); t.helicopterCooldown=1.2 }
+        else { const target=s.enemies.filter(enemy=>enemy.alive&&Math.hypot(enemy.x-t.helicopterX,enemy.y-t.helicopterY)<=baseDef.range).sort((a,b)=>Math.hypot(a.x-t.helicopterX,a.y-t.helicopterY)-Math.hypot(b.x-t.helicopterX,b.y-t.helicopterY))[0]; if(target){const angle=Math.atan2(target.y-t.helicopterY,target.x-t.helicopterX);for(let k=0;k<4;k++){const a=angle+(k-1.5)*0.075;s.projectiles.push({kind:'homing',x:t.helicopterX,y:t.helicopterY,dirX:Math.cos(a),dirY:Math.sin(a),traveled:0,maxDistance:baseDef.range+100,speed:520,turnRate:10,acquireAfter:0,targetId:target.id,hitIds:[],hitLimit:2,damage:baseDef.damage,color:'#fdba74',size:3.2,sourceType:t.type,sourceTowerId:t.id})}} t.helicopterCooldown=0.25 }
+      }
+      continue
+    }
     if (t.type === 'teleporter') {
       t.supportCooldown = Math.max(0, t.supportCooldown - dt)
       if (t.supportCooldown <= 0) {
@@ -1778,6 +1841,7 @@ export function update(s: GameState, dt: number) {
             return true
           }
           damageEnemy(s, target, p.damage, p.sourceType, p.sourceTowerId, true)
+          if (p.droneId !== undefined) { const drone=s.drones.find(item=>item.id===p.droneId); if(drone) drone.hp=Math.max(0,drone.hp-p.damage) }
         }
         return false
       }
@@ -2197,6 +2261,7 @@ export function update(s: GameState, dt: number) {
   if (s.waveActive && !s.spawnQueue.length && !s.enemies.length) {
     s.waveActive = false
     s.money += 20 + s.wave * 5
+    s.spikeTraps = s.spikeTraps.filter(trap => trap.expiresWave > s.wave)
     for (const bank of s.towers.filter(tower => tower.type === 'masterBank')) {
       s.money += 800
       bank.bankedMoney = Math.min(100000, Math.floor((bank.bankedMoney + 200) * 1.2))
@@ -2783,7 +2848,10 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
     ctx.stroke()
   }
 
+  for (const trap of s.spikeTraps) { ctx.save();ctx.translate(trap.x,trap.y);ctx.rotate(Math.PI/4);ctx.fillStyle='#9ca3af';ctx.strokeStyle='#e5e7eb';ctx.lineWidth=1.2;ctx.shadowColor='#d1d5db';ctx.shadowBlur=7;for(let k=-1;k<=1;k++){ctx.beginPath();ctx.moveTo(k*6-4,5);ctx.lineTo(k*6,-7);ctx.lineTo(k*6+4,5);ctx.closePath();ctx.fill();ctx.stroke()}ctx.restore() }
+  for (const drone of s.drones) { ctx.save();ctx.translate(drone.x,drone.y);ctx.rotate(Math.sin(s.time*8)*0.08);ctx.fillStyle='#94a3b8';ctx.strokeStyle='#e2e8f0';ctx.lineWidth=1.5;ctx.shadowColor='#cbd5e1';ctx.shadowBlur=9;ctx.beginPath();ctx.roundRect(-8,-4,16,8,3);ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(-14,-8);ctx.lineTo(-7,-3);ctx.moveTo(14,-8);ctx.lineTo(7,-3);ctx.moveTo(-14,8);ctx.lineTo(-7,3);ctx.moveTo(14,8);ctx.lineTo(7,3);ctx.stroke();ctx.beginPath();ctx.arc(0,0,2.5,0,Math.PI*2);ctx.fillStyle='#38bdf8';ctx.fill();ctx.restore() }
   for (const t of s.towers) {
+    if (t.type === 'skybreaker') { ctx.save();ctx.translate(t.helicopterX,t.helicopterY);ctx.rotate(Math.sin(s.time*3)*0.025);ctx.shadowColor='#fb923c';ctx.shadowBlur=12;ctx.fillStyle='#334155';ctx.strokeStyle='#fdba74';ctx.lineWidth=1.5;ctx.beginPath();ctx.ellipse(0,0,15,7,0,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.beginPath();ctx.ellipse(8,-1,6,4,0,0,Math.PI*2);ctx.fillStyle='#7dd3fc';ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(-2,-7);ctx.lineTo(-2,7);ctx.moveTo(-15,-8);ctx.lineTo(15,-8);ctx.moveTo(-15,-8);ctx.lineTo(-18,-5);ctx.moveTo(15,-8);ctx.lineTo(18,-5);ctx.stroke();ctx.beginPath();ctx.moveTo(-15,0);ctx.lineTo(-22,0);ctx.stroke();ctx.restore() }
     if (t.overclockTimer > 0) {
       ctx.save()
       ctx.strokeStyle = '#facc15'
