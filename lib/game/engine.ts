@@ -3,13 +3,13 @@ import {
   COLS,
   ENEMIES,
   HEIGHT,
-  PATH,
-  PATH_CELLS,
-  FARM_CELLS,
   ROWS,
   TOWERS,
   TOWER_ELEMENTS,
   WIDTH,
+  DEFAULT_MAP_ID,
+  getMapDefinition,
+  type MapId,
   buildWave,
   fusionResult,
   hpScale,
@@ -306,6 +306,7 @@ interface Explosion {
 }
 
 export interface GameState {
+  mapId: MapId
   enemies: Enemy[]
   towers: Tower[]
   projectiles: Projectile[]
@@ -338,8 +339,9 @@ export interface GameState {
   enemyHpMultiplier: number
 }
 
-export function createGame(): GameState {
+export function createGame(mapId: MapId = DEFAULT_MAP_ID): GameState {
   return {
+    mapId,
     enemies: [],
     towers: [],
     projectiles: [],
@@ -376,7 +378,10 @@ export function createGame(): GameState {
 
 
 
-function createEnemy(s: GameState, type: EnemyType, x = PATH[0].x, y = PATH[0].y): Enemy {
+function createEnemy(s: GameState, type: EnemyType, x?: number, y?: number): Enemy {
+  const map = getMapGeometry(s.mapId)
+  x ??= map.waypoints[0].x
+  y ??= map.waypoints[0].y
   const def = ENEMIES[type]
   const boss = type === 'bugPrince' || type === 'bugQueen' || type === 'bugKing'
   const helmet = (s.bugPrinceDefeated || s.bugQueenDefeated) && s.seenEnemyTypes.includes(type)
@@ -420,9 +425,10 @@ const COMMS_BUILDING_OVERCLOCK_INTERVAL = 12
 
 export const isBuildable = (s: GameState, col: number, row: number, type?: TowerType) => {
   const cell = `${col},${row}`
-  const farmPad = FARM_CELLS.has(cell)
+  const map = getMapGeometry(s.mapId)
+  const farmPad = map.farmCells.has(cell)
   return col >= 0 && row >= 0 && col < COLS && row < ROWS &&
-    !PATH_CELLS.has(cell) &&
+    !map.pathCells.has(cell) &&
     !s.towers.some((t) => t.col === col && t.row === row) &&
     (type ? (INCOME_TOWERS.includes(type) ? farmPad : !farmPad) : true)
 }
@@ -558,12 +564,13 @@ export function sellTower(s: GameState, id: number) {
 
 export function startWave(s: GameState) {
   if (s.waveActive || s.status !== 'playing') return
+  const farmCells = getMapGeometry(s.mapId).farmCells
   s.wave++
   s.waveActive = true
   for (const tower of s.towers) {
-    if (tower.type === 'incomeFarm' && FARM_CELLS.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 5; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
-    else if (tower.type === 'incomeTax' && FARM_CELLS.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 7; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
-    else if (tower.type === 'economyHouse' && FARM_CELLS.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 8; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
+    if (tower.type === 'incomeFarm' && farmCells.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 5; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
+    else if (tower.type === 'incomeTax' && farmCells.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 7; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
+    else if (tower.type === 'economyHouse' && farmCells.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 8; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
   }
   s.spawnQueue = buildWave(s.wave)
   s.spawnTimer = 0
@@ -804,6 +811,17 @@ function findChainTargets(s: GameState, first: Enemy, linkRange = 76, towerType?
   return targets
 }
 
+interface MapGeometry {
+  waypoints: { x: number; y: number }[]
+  pathCells: Set<string>
+  farmCells: Set<string>
+  smoothPath: { x: number; y: number }[]
+  pathDistances: number[]
+  distanceScale: number
+  totalLength: number
+}
+const mapGeometryCache = new Map<MapId, MapGeometry>()
+
 function createSmoothedPath(points: readonly { x: number; y: number }[], samplesPerTurn = 20) {
   if (points.length < 3) return [...points]
   const smooth: { x: number; y: number }[] = [{ ...points[0] }]
@@ -843,7 +861,6 @@ function createSmoothedPath(points: readonly { x: number; y: number }[], samples
   push({ ...points[points.length - 1] })
   return smooth
 }
-const SMOOTH_PATH = createSmoothedPath(PATH)
 function pathMetrics(points: readonly { x: number; y: number }[]) {
   const lengths = [0]
   for (let i = 1; i < points.length; i++) {
@@ -851,52 +868,84 @@ function pathMetrics(points: readonly { x: number; y: number }[]) {
   }
   return lengths
 }
-const RAW_PATH_LENGTH = pathMetrics(PATH).at(-1) ?? 0
-const SMOOTH_PATH_LENGTHS = pathMetrics(SMOOTH_PATH)
-const PATH_DISTANCE_SCALE = RAW_PATH_LENGTH / (SMOOTH_PATH_LENGTHS.at(-1) || 1)
-const REVERSE_PATH_LENGTHS = SMOOTH_PATH_LENGTHS.map(distance => distance * PATH_DISTANCE_SCALE)
-const TOTAL_PATH_LENGTH = REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1]
-function pointOnPath(distance: number) {
-  const d = Math.max(0, Math.min(TOTAL_PATH_LENGTH, distance))
+function getMapGeometry(mapId: MapId): MapGeometry {
+  const cached = mapGeometryCache.get(mapId)
+  if (cached) return cached
+  const definition = getMapDefinition(mapId)
+  const waypoints = definition.waypoints.map(([col, row]) => ({
+    x: col * CELL + CELL / 2,
+    y: row * CELL + CELL / 2,
+  }))
+  const pathCells = new Set<string>()
+  for (let i = 0; i < definition.waypoints.length - 1; i++) {
+    const [c1, r1] = definition.waypoints[i]
+    const [c2, r2] = definition.waypoints[i + 1]
+    const steps = Math.max(Math.abs(c2 - c1), Math.abs(r2 - r1))
+    for (let step = 0; step <= steps; step++) {
+      const col = c1 + Math.sign(c2 - c1) * step
+      const row = r1 + Math.sign(r2 - r1) * step
+      pathCells.add(`${col},${row}`)
+    }
+  }
+  const smoothPath = createSmoothedPath(waypoints)
+  const rawLength = pathMetrics(waypoints).at(-1) ?? 0
+  const smoothLengths = pathMetrics(smoothPath)
+  const distanceScale = rawLength / (smoothLengths.at(-1) || 1)
+  const pathDistances = smoothLengths.map(distance => distance * distanceScale)
+  const geometry: MapGeometry = {
+    waypoints,
+    pathCells,
+    farmCells: new Set(definition.farmCells),
+    smoothPath,
+    pathDistances,
+    distanceScale,
+    totalLength: pathDistances[pathDistances.length - 1] ?? 0,
+  }
+  mapGeometryCache.set(mapId, geometry)
+  return geometry
+}
+function pointOnPath(map: MapGeometry, distance: number) {
+  const d = Math.max(0, Math.min(map.totalLength, distance))
   let i = 1
-  while (i < REVERSE_PATH_LENGTHS.length - 1 && REVERSE_PATH_LENGTHS[i] < d) i++
-  const span = REVERSE_PATH_LENGTHS[i] - REVERSE_PATH_LENGTHS[i - 1]
-  const k = span > 0 ? (d - REVERSE_PATH_LENGTHS[i - 1]) / span : 0
+  while (i < map.pathDistances.length - 1 && map.pathDistances[i] < d) i++
+  const span = map.pathDistances[i] - map.pathDistances[i - 1]
+  const k = span > 0 ? (d - map.pathDistances[i - 1]) / span : 0
   return {
-    x: SMOOTH_PATH[i - 1].x + (SMOOTH_PATH[i].x - SMOOTH_PATH[i - 1].x) * k,
-    y: SMOOTH_PATH[i - 1].y + (SMOOTH_PATH[i].y - SMOOTH_PATH[i - 1].y) * k,
+    x: map.smoothPath[i - 1].x + (map.smoothPath[i].x - map.smoothPath[i - 1].x) * k,
+    y: map.smoothPath[i - 1].y + (map.smoothPath[i].y - map.smoothPath[i - 1].y) * k,
   }
 }
-function pathAngleAt(distance: number) {
-  const before = pointOnPath(Math.max(0, distance - 6))
-  const after = pointOnPath(Math.min(TOTAL_PATH_LENGTH, distance + 6))
+function pathAngleAt(map: MapGeometry, distance: number) {
+  const before = pointOnPath(map, Math.max(0, distance - 6))
+  const after = pointOnPath(map, Math.min(map.totalLength, distance + 6))
   return Math.atan2(after.y - before.y, after.x - before.x)
 }
-function pathWaypointIndex(distance: number) {
+function pathWaypointIndex(map: MapGeometry, distance: number) {
   let i = 1
-  while (i < REVERSE_PATH_LENGTHS.length - 1 && REVERSE_PATH_LENGTHS[i] < distance) i++
+  while (i < map.pathDistances.length - 1 && map.pathDistances[i] < distance) i++
   return i
 }
-function placeEnemyOnPath(enemy: Enemy, distance: number) {
-  const clamped = Math.max(0, Math.min(TOTAL_PATH_LENGTH, distance))
-  const point = pointOnPath(clamped)
+function placeEnemyOnPath(map: MapGeometry, enemy: Enemy, distance: number) {
+  const clamped = Math.max(0, Math.min(map.totalLength, distance))
+  const point = pointOnPath(map, clamped)
   enemy.dist = clamped
   enemy.x = point.x
   enemy.y = point.y
-  enemy.wp = pathWaypointIndex(clamped)
-  enemy.angle = pathAngleAt(clamped)
+  enemy.wp = pathWaypointIndex(map, clamped)
+  enemy.angle = pathAngleAt(map, clamped)
 }
-function projectToPath(x: number, y: number) {
-  let best = { distance: 0, x: SMOOTH_PATH[0].x, y: SMOOTH_PATH[0].y, error: Infinity }
-  for (let i = 1; i < SMOOTH_PATH.length; i++) {
-    const a = SMOOTH_PATH[i - 1], b = SMOOTH_PATH[i], dx = b.x - a.x, dy = b.y - a.y
+function projectToPath(map: MapGeometry, x: number, y: number) {
+  let best = { distance: 0, x: map.smoothPath[0].x, y: map.smoothPath[0].y, error: Infinity }
+  for (let i = 1; i < map.smoothPath.length; i++) {
+    const a = map.smoothPath[i - 1], b = map.smoothPath[i], dx = b.x - a.x, dy = b.y - a.y
     const lenSq = dx * dx + dy * dy
     const k = lenSq ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / lenSq)) : 0
     const px = a.x + dx * k, py = a.y + dy * k, error = Math.hypot(x - px, y - py)
-    if (error < best.error) best = { distance: REVERSE_PATH_LENGTHS[i - 1] + Math.sqrt(lenSq) * k * PATH_DISTANCE_SCALE, x: px, y: py, error }
+    if (error < best.error) best = { distance: map.pathDistances[i - 1] + Math.sqrt(lenSq) * k * map.distanceScale, x: px, y: py, error }
   }
   return best
 }
+
 function findReversePathTarget(s: GameState, t: Tower, range: number) {
   const projection = projectToPath(t.x, t.y)
   if (projection.error > range) return null
