@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight, Atom, BookOpen, Bug, Coins, Gamepad2, Layers3, Plus, Search, ShoppingBag, Sparkles, Swords, Zap } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Atom, BookOpen, Bug, Gamepad2, Layers3, Plus, Search, ShoppingBag, Sparkles, Swords } from 'lucide-react'
 import { ENEMIES, FUSION_LIST, TOWERS, type EnemyType, type TowerType } from '@/lib/game/data'
 import { SpriteIcon } from './sprite-icon'
 
@@ -67,10 +67,12 @@ export function MainMenu({ onPlay, onTowers }: { onPlay: () => void; onTowers: (
   )
 }
 
+const TOWER_TYPES = Object.keys(TOWERS) as TowerType[]
+
 export function TowersCodex({ onBack }: { onBack: () => void }) {
   const [search, setSearch] = useState('')
   const [tier, setTier] = useState<'all' | '0' | '1' | '2' | '3'>('all')
-  const towerTypes = Object.keys(TOWERS) as TowerType[]
+  const towerTypes = TOWER_TYPES
   const filteredTowers = useMemo(() => towerTypes.filter((type) => {
     const tower = TOWERS[type]
     return (tier === 'all' || tower.tier === Number(tier)) &&
