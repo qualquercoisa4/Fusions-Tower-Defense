@@ -1390,12 +1390,18 @@ export function update(s: GameState, dt: number) {
       t.supportCooldown -= dt
       if (t.supportCooldown <= 0) {
         const maxDistance = REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1]
-        let chosen = pointOnPath(Math.random() * maxDistance)
-        for (let attempt = 0; attempt < 12; attempt++) {
-          const candidate = pointOnPath(Math.random() * maxDistance)
-          if (s.spikeTraps.every(trap => Math.hypot(trap.x-candidate.x,trap.y-candidate.y) > 72)) { chosen = candidate; break }
+        const candidates: { x: number; y: number }[] = []
+        for (let attempt = 0; attempt < 80; attempt++) {
+          const point = pointOnPath(Math.random() * maxDistance)
+          if (Math.hypot(point.x - t.x, point.y - t.y) <= baseDef.range &&
+              s.spikeTraps.every(trap => Math.hypot(trap.x - point.x, trap.y - point.y) > 72)) {
+            candidates.push(point)
+          }
         }
-        s.spikeTraps.push({id:s.nextId++,x:chosen.x,y:chosen.y,expiresWave:s.wave+2,usedEnemyIds:[]})
+        if (candidates.length > 0) {
+          const chosen = candidates[Math.floor(Math.random() * candidates.length)]
+          s.spikeTraps.push({ id: s.nextId++, x: chosen.x, y: chosen.y, expiresWave: s.wave + 2, usedEnemyIds: [] })
+        }
         t.supportCooldown = 12
       }
       continue
