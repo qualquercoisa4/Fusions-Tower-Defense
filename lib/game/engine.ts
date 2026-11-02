@@ -2527,6 +2527,23 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
   ctx.save()
   ctx.translate(x, y)
 
+  // Soft contact shadow and machined pedestal make every unit read as a placed object.
+  ctx.save()
+  ctx.shadowColor = 'rgba(0,0,0,0.8)'
+  ctx.shadowBlur = 12
+  ctx.fillStyle = 'rgba(0,0,0,0.42)'
+  ctx.beginPath(); ctx.ellipse(2, 8, 22, 12, 0, 0, Math.PI * 2); ctx.fill()
+  ctx.restore()
+  ctx.fillStyle = '#081321'
+  ctx.strokeStyle = 'rgba(148,197,224,0.42)'
+  ctx.lineWidth = 1.4
+  ctx.beginPath(); ctx.roundRect(-21, -18, 42, 39, 7); ctx.fill(); ctx.stroke()
+  ctx.strokeStyle = def.color
+  ctx.globalAlpha = 0.42 + Math.sin(Date.now() / 520) * 0.08
+  ctx.lineWidth = tier >= 2 ? 2.2 : 1.2
+  ctx.beginPath(); ctx.roundRect(-18, -15, 36, 33, 5); ctx.stroke()
+  ctx.globalAlpha = 1
+
   // Cada tier usa uma plataforma diferente, em vez de repetir o mesmo quadrado.
   ctx.shadowColor = def.color
   ctx.shadowBlur = tier === 2 ? 12 : tier === 1 ? 7 : 3
@@ -2779,23 +2796,39 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
 }
 
 export function render(ctx: CanvasRenderingContext2D, s: GameState) {
-  ctx.fillStyle = '#070d1f'
+  // Deep, layered arena floor with a restrained luminous grid.
+  const backdrop = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT)
+  backdrop.addColorStop(0, '#0a1a2d')
+  backdrop.addColorStop(0.48, '#071326')
+  backdrop.addColorStop(1, '#091022')
+  ctx.fillStyle = backdrop
   ctx.fillRect(0, 0, WIDTH, HEIGHT)
 
-  ctx.strokeStyle = 'rgba(56,189,248,0.07)'
+  const ambient = ctx.createRadialGradient(WIDTH * 0.48, HEIGHT * 0.42, 20, WIDTH * 0.48, HEIGHT * 0.42, WIDTH * 0.72)
+  ambient.addColorStop(0, 'rgba(14,116,144,0.12)')
+  ambient.addColorStop(1, 'rgba(2,6,23,0)')
+  ctx.fillStyle = ambient
+  ctx.fillRect(0, 0, WIDTH, HEIGHT)
+
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      if ((row + col) % 2 === 0) {
+        ctx.fillStyle = 'rgba(125,211,252,0.018)'
+        ctx.fillRect(col * CELL, row * CELL, CELL, CELL)
+      }
+    }
+  }
+  ctx.strokeStyle = 'rgba(125,211,252,0.075)'
   ctx.lineWidth = 1
   for (let c = 0; c <= COLS; c++) {
-    ctx.beginPath()
-    ctx.moveTo(c * CELL, 0)
-    ctx.lineTo(c * CELL, HEIGHT)
-    ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(c * CELL, 0); ctx.lineTo(c * CELL, HEIGHT); ctx.stroke()
   }
   for (let r = 0; r <= ROWS; r++) {
-    ctx.beginPath()
-    ctx.moveTo(0, r * CELL)
-    ctx.lineTo(WIDTH, r * CELL)
-    ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(0, r * CELL); ctx.lineTo(WIDTH, r * CELL); ctx.stroke()
   }
+  ctx.strokeStyle = 'rgba(56,189,248,0.13)'
+  ctx.lineWidth = 1
+  ctx.strokeRect(1, 1, WIDTH - 2, HEIGHT - 2)
 
   // Pads verdes exclusivos para torres de renda.
   for (const cell of FARM_CELLS) {
@@ -2813,22 +2846,38 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 
   ctx.lineJoin = 'round'
-  ctx.lineCap = 'square'
-  ctx.strokeStyle = 'rgba(56,189,248,0.35)'
-  ctx.lineWidth = CELL + 4
-  tracePath(ctx)
-  ctx.stroke()
-  ctx.strokeStyle = '#0f1a33'
-  ctx.lineWidth = CELL - 4
-  tracePath(ctx)
-  ctx.stroke()
-  ctx.setLineDash([6, 10])
-  ctx.lineDashOffset = -s.time * 20
-  ctx.strokeStyle = 'rgba(56,189,248,0.25)'
-  ctx.lineWidth = 2
-  tracePath(ctx)
-  ctx.stroke()
+  ctx.lineCap = 'round'
+  // Outer illuminated curb, layered asphalt and center lane.
+  ctx.save()
+  ctx.shadowColor = '#0ea5e9'
+  ctx.shadowBlur = 22
+  ctx.strokeStyle = 'rgba(56,189,248,0.28)'
+  ctx.lineWidth = CELL + 12
+  tracePath(ctx); ctx.stroke()
+  ctx.shadowBlur = 0
+  ctx.strokeStyle = '#152941'
+  ctx.lineWidth = CELL + 2
+  tracePath(ctx); ctx.stroke()
+  const lane = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT)
+  lane.addColorStop(0, '#1c3048')
+  lane.addColorStop(.5, '#12243a')
+  lane.addColorStop(1, '#1a2d43')
+  ctx.strokeStyle = lane
+  ctx.lineWidth = CELL - 5
+  tracePath(ctx); ctx.stroke()
+  ctx.strokeStyle = 'rgba(148,197,224,0.17)'
+  ctx.lineWidth = CELL - 9
+  ctx.setLineDash([2, 12])
+  ctx.lineDashOffset = -s.time * 14
+  tracePath(ctx); ctx.stroke()
   ctx.setLineDash([])
+  ctx.strokeStyle = 'rgba(103,232,249,0.52)'
+  ctx.lineWidth = 1.5
+  ctx.setLineDash([7, 13])
+  ctx.lineDashOffset = -s.time * 25
+  tracePath(ctx); ctx.stroke()
+  ctx.setLineDash([])
+  ctx.restore()
 
   for (const trap of s.electricTraps) {
     const pulse = 0.78 + Math.sin(s.time * 14) * 0.12
@@ -3006,11 +3055,19 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
     }
     if (e.hp < e.maxHp || e.cocooning) {
       const r = ENEMIES[e.type].radius
-      ctx.fillStyle = '#111827'
-      ctx.fillRect(e.x - r, e.y - r - 8, r * 2, 3)
-      ctx.fillStyle = e.cocooning ? '#f59e0b' : '#4ade80'
+      const barY = e.y - r - 10
+      ctx.save()
+      ctx.fillStyle = 'rgba(2,6,23,0.9)'
+      ctx.beginPath(); ctx.roundRect(e.x - r - 1, barY - 1, r * 2 + 2, 6, 3); ctx.fill()
       const ratio = e.cocooning ? Math.max(0, e.cocoonTimer / 5) : e.hp / e.maxHp
-      ctx.fillRect(e.x - r, e.y - r - 8, r * 2 * ratio, 3)
+      const hpGradient = ctx.createLinearGradient(e.x - r, 0, e.x + r, 0)
+      hpGradient.addColorStop(0, e.cocooning ? '#f59e0b' : '#22c55e')
+      hpGradient.addColorStop(1, e.cocooning ? '#fde68a' : '#86efac')
+      ctx.fillStyle = hpGradient
+      ctx.shadowColor = e.cocooning ? '#f59e0b' : '#22c55e'
+      ctx.shadowBlur = 5
+      ctx.beginPath(); ctx.roundRect(e.x - r, barY, r * 2 * ratio, 4, 2); ctx.fill()
+      ctx.restore()
     }
   }
 
@@ -3253,16 +3310,25 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 
   for (const x of s.explosions) {
-    const k = x.t / x.dur
-    ctx.globalAlpha = 1 - k
+    const k = Math.min(1, x.t / x.dur)
+    const fade = 1 - k
+    const radius = x.r * (0.25 + k * 0.95)
+    ctx.save()
+    ctx.globalAlpha = fade * 0.16
     ctx.fillStyle = x.color
-    ctx.beginPath()
-    ctx.arc(x.x, x.y, x.r * (0.4 + k * 0.6), 0, Math.PI * 2)
-    ctx.fill()
-    ctx.strokeStyle = '#fff'
-    ctx.lineWidth = 2
-    ctx.stroke()
-    ctx.globalAlpha = 1
+    ctx.shadowColor = x.color
+    ctx.shadowBlur = 18
+    ctx.beginPath(); ctx.arc(x.x, x.y, radius * 0.72, 0, Math.PI * 2); ctx.fill()
+    ctx.globalAlpha = fade
+    ctx.strokeStyle = x.color
+    ctx.shadowBlur = 12
+    ctx.lineWidth = Math.max(1, 3 * fade)
+    ctx.beginPath(); ctx.arc(x.x, x.y, radius, 0, Math.PI * 2); ctx.stroke()
+    ctx.globalAlpha = fade * 0.8
+    ctx.strokeStyle = '#f8fafc'
+    ctx.lineWidth = Math.max(1, 1.4 * fade)
+    ctx.beginPath(); ctx.arc(x.x, x.y, radius * 0.72, 0, Math.PI * 2); ctx.stroke()
+    ctx.restore()
   }
 }
 

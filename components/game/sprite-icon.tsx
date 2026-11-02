@@ -29,5 +29,5 @@ export function SpriteIcon({ size = 48, label, tower, enemy }: Props) {
     }
   }, [size, tower, enemy])
 
-  return <canvas ref={ref} role="img" aria-label={label} style={{ width: size, height: size }} />
+  return <span className="ftd-sprite-frame" style={{ width: size + 10, height: size + 10 }}><canvas ref={ref} role="img" aria-label={label} style={{ width: size, height: size }} /></span>
 }
