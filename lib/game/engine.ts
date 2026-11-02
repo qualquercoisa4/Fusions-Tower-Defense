@@ -1415,7 +1415,7 @@ export function update(s: GameState, dt: number) {
         if (portal) {
           portal.usedEnemyIds.push(e.id)
           portal.remainingHp -= e.hp
-          placeEnemyOnPath(e, portal.purpleDistance)
+          placeEnemyOnPath(map, e, portal.purpleDistance)
           const blue = pointOnPath(map, portal.blueDistance), purple = pointOnPath(map, portal.purpleDistance)
           s.explosions.push({ x: blue.x, y: blue.y, r: 20, t: 0, dur: 0.3, color: '#38bdf8' })
           s.explosions.push({ x: purple.x, y: purple.y, r: 23, t: 0, dur: 0.35, color: '#c084fc' })
@@ -1433,9 +1433,9 @@ export function update(s: GameState, dt: number) {
     )
     const isolatedSupportSpeed = supportRadius > 0 && !hasAlliesInSupportRange ? 2.2 : 1
     const step = def.speed * isolatedSupportSpeed * (e.splitGeneration > 0 ? 2 : 1) * (e.type === 'bombug' ? 1.35 : 1) * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
-    const nextDistance = Math.min(TOTAL_PATH_LENGTH, e.dist + step)
+    const nextDistance = Math.min(map.totalLength, e.dist + step)
     placeEnemyOnPath(e, nextDistance)
-    if (nextDistance >= TOTAL_PATH_LENGTH && e.alive) {
+    if (nextDistance >= map.totalLength && e.alive) {
       e.alive = false
       s.lives -= def.damage
     }
@@ -1444,7 +1444,7 @@ export function update(s: GameState, dt: number) {
       if (portal) {
         portal.usedEnemyIds.push(e.id)
         portal.remainingHp -= e.hp
-        placeEnemyOnPath(e, portal.purpleDistance)
+        placeEnemyOnPath(map, e, portal.purpleDistance)
         const blue = pointOnPath(map, portal.blueDistance), purple = pointOnPath(map, portal.purpleDistance)
         s.explosions.push({ x: blue.x, y: blue.y, r: 20, t: 0, dur: 0.3, color: '#38bdf8' })
         s.explosions.push({ x: purple.x, y: purple.y, r: 23, t: 0, dur: 0.35, color: '#c084fc' })
@@ -1556,7 +1556,7 @@ export function update(s: GameState, dt: number) {
       } else {
         t.meteorTimer -= dt
         if (t.meteorTimer <= 0) {
-          const point = pointOnPath(t.meteorDistance)
+          const point = pointOnPath(map, t.meteorDistance)
           s.projectiles.push({ kind: 'arc', sx: point.x + 18, sy: point.y - 190, tx: point.x, ty: point.y, t: 0, duration: 0.62, height: 24, damage: baseDef.damage, splash: baseDef.splash, cluster: false, color: baseDef.color, size: 10, sourceType: t.type, sourceTowerId: t.id })
           t.meteorDistance -= CELL
           t.meteorTimer = 0.11
@@ -2190,7 +2190,7 @@ export function update(s: GameState, dt: number) {
     if (p.kind === 'boulder') {
       const old = { x: p.x, y: p.y }
       const nextDistance = Math.max(0, p.pathDistance - p.speed * dt)
-      const next = pointOnPath(nextDistance)
+      const next = pointOnPath(map, nextDistance)
       p.traveled += p.pathDistance - nextDistance
       p.pathDistance = nextDistance
       p.x = next.x; p.y = next.y
@@ -2575,7 +2575,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 
   for (const pair of s.portalPairs) {
-    const blue = pointOnPath(pair.blueDistance), purple = pointOnPath(pair.purpleDistance)
+    const blue = pointOnPath(map, pair.blueDistance), purple = pointOnPath(map, pair.purpleDistance)
     const fade = Math.max(0.25, 1 - pair.t / pair.duration)
     for (const item of [{ point: blue, color: '#38bdf8', rotation: s.time * 2 }, { point: purple, color: '#c084fc', rotation: -s.time * 2 }]) {
       ctx.save(); ctx.globalAlpha = fade; ctx.translate(item.point.x, item.point.y); ctx.rotate(item.rotation)
