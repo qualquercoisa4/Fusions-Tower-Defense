@@ -1434,7 +1434,7 @@ export function update(s: GameState, dt: number) {
     const isolatedSupportSpeed = supportRadius > 0 && !hasAlliesInSupportRange ? 2.2 : 1
     const step = def.speed * isolatedSupportSpeed * (e.splitGeneration > 0 ? 2 : 1) * (e.type === 'bombug' ? 1.35 : 1) * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
     const nextDistance = Math.min(map.totalLength, e.dist + step)
-    placeEnemyOnPath(e, nextDistance)
+    placeEnemyOnPath(map, e, nextDistance)
     if (nextDistance >= map.totalLength && e.alive) {
       e.alive = false
       s.lives -= def.damage
