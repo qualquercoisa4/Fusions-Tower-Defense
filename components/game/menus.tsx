@@ -74,6 +74,23 @@ const MAP_DIFFICULTIES: { id: MapDifficulty; label: string; subtitle: string; co
   { id: 'expert', label: 'EXPERT', subtitle: 'Desafio máximo', color: 'rose' },
 ]
 
+function smoothRouteSvgPath(points: readonly (readonly [number, number])[]) {
+  if (points.length < 2) return ''
+  let path = `M ${points[0][0]} ${points[0][1]}`
+  for (let i = 0; i < points.length - 1; i++) {
+    const previous = points[Math.max(0, i - 1)]
+    const current = points[i]
+    const next = points[i + 1]
+    const after = points[Math.min(points.length - 1, i + 2)]
+    const c1x = current[0] + (next[0] - previous[0]) / 6
+    const c1y = current[1] + (next[1] - previous[1]) / 6
+    const c2x = next[0] - (after[0] - current[0]) / 6
+    const c2y = next[1] - (after[1] - current[1]) / 6
+    path += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${next[0]} ${next[1]}`
+  }
+  return path
+}
+
 function MapPreview({ map, large = false }: { map: typeof GAME_MAPS[number]; large?: boolean }) {
   const routes = map.routes?.length ? map.routes : [{ id: 'main', waypoints: map.waypoints }]
   return (
@@ -87,12 +104,12 @@ function MapPreview({ map, large = false }: { map: typeof GAME_MAPS[number]; lar
         <rect x="-1.2" y="0" width="19.4" height="12" fill="#061326" />
         <rect x="-1.2" y="0" width="19.4" height="12" fill={`url(#ftd-map-grid-${map.id}-${large ? 'large' : 'small'})`} />
         {routes.map((route, index) => {
-          const points = route.waypoints.map(([x, y]) => `${x},${y}`).join(' ')
+          const path = smoothRouteSvgPath(route.waypoints)
           const start = route.waypoints[0], end = route.waypoints[route.waypoints.length - 1]
           return <g key={route.id}>
-            <polyline points={points} fill="none" stroke="rgba(14,165,233,.22)" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
-            <polyline points={points} fill="none" stroke="#38536d" strokeWidth="1.72" strokeLinecap="round" strokeLinejoin="round" />
-            <polyline points={points} fill="none" stroke={index % 2 ? '#c4b5fd' : '#80dff2'} strokeWidth=".055" strokeDasharray=".18 .2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d={path} fill="none" stroke="rgba(14,165,233,.22)" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+            <path d={path} fill="none" stroke="#38536d" strokeWidth="1.72" strokeLinecap="round" strokeLinejoin="round" />
+            <path d={path} fill="none" stroke={index % 2 ? '#c4b5fd' : '#80dff2'} strokeWidth=".055" strokeDasharray=".18 .2" strokeLinecap="round" strokeLinejoin="round" />
             <circle cx={start[0]} cy={start[1]} r=".17" fill="#4ade80" stroke="#dcfce7" strokeWidth=".05" />
             <circle cx={end[0]} cy={end[1]} r=".17" fill="#fb7185" stroke="#ffe4e6" strokeWidth=".05" />
           </g>
@@ -107,7 +124,7 @@ function mapRouteLength(map: typeof GAME_MAPS[number]) {
   const routes = map.routes?.length ? map.routes : [{ id: 'main', waypoints: map.waypoints }]
   return routes.reduce((grandTotal, route) => grandTotal + route.waypoints.slice(1).reduce((total, point, index) => {
     const previous = route.waypoints[index]
-    return total + Math.abs(point[0] - previous[0]) + Math.abs(point[1] - previous[1])
+    return total + Math.hypot(point[0] - previous[0], point[1] - previous[1])
   }, 0), 0)
 }
 
