@@ -2464,12 +2464,18 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
   }
 
   if (type === 'masterBank') {
-    ctx.fillStyle='#78350f';ctx.fillRect(-14,-12,28,24);ctx.strokeStyle='#fbbf24';ctx.lineWidth=2.5;ctx.strokeRect(-14,-12,28,24)
-    ctx.fillStyle='#fef3c7';ctx.font='bold 16px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('
-    ctx.strokeStyle = def.color; ctx.lineWidth=2; ctx.strokeRect(-12,-12,24,24)
-    ctx.fillStyle=def.color; ctx.font='bold 15px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'
-    ctx.fillText(type==='economyHouse'?'$$$':type==='incomeTax'?'$$':'$',0,1)
-    if(type==='economyHouse'){ctx.strokeStyle='#fef3c7';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-8,-16);ctx.lineTo(-8,-20);ctx.moveTo(8,-16);ctx.lineTo(8,-20);ctx.stroke()}
+    ctx.fillStyle = '#78350f'; ctx.fillRect(-14,-12,28,24)
+    ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2.5; ctx.strokeRect(-14,-12,28,24)
+    ctx.fillStyle = '#fef3c7'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('$',0,1)
+    ctx.strokeStyle = '#fde68a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0,0,19,-Math.PI*.8,Math.PI*.8); ctx.stroke()
+    ctx.restore(); return
+  }
+  if (['incomeFarm','incomeTax','economyHouse'].includes(type)) {
+    ctx.fillStyle = def.accent; ctx.fillRect(-12,-12,24,24)
+    ctx.strokeStyle = def.color; ctx.lineWidth = 2; ctx.strokeRect(-12,-12,24,24)
+    ctx.fillStyle = def.color; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    ctx.fillText(type === 'economyHouse' ? '$$$' : type === 'incomeTax' ? '$$' : '$',0,1)
+    if (type === 'economyHouse') { ctx.strokeStyle = '#fef3c7'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-8,-16); ctx.lineTo(-8,-20); ctx.moveTo(8,-16); ctx.lineTo(8,-20); ctx.stroke() }
     ctx.restore(); return
   }
   if (['buffer','commsLanHouse','commsBuilding','electricalStation'].includes(type)) {
