@@ -634,22 +634,20 @@ export const ROWS = 12
 export const WIDTH = CELL * COLS
 export const HEIGHT = CELL * ROWS
 
-// Percurso conforme o esboço: dois retornos retangulares ligados
-// por um trecho inferior longo, com dois cruzamentos do traçado.
+// Percurso serpenteado contínuo, sem cruzamentos ou segmentos sobrepostos.
+// O comprimento permanece próximo ao traçado anterior para preservar o ritmo das ondas.
 const WAYPOINT_CELLS: [number, number][] = [
   [-1, 6],
-  [3, 6],
-  [3, 2],
-  [7, 2],
-  [7, 6],
-  [3, 6],
-  [3, 10],
-  [14, 10],
-  [14, 6],
-  [11, 6],
-  [11, 3],
-  [14, 2],
-  [14, 6],
+  [2, 6],
+  [2, 2],
+  [11, 2],
+  [11, 4],
+  [4, 4],
+  [4, 8],
+  [11, 8],
+  [11, 10],
+  [9, 10],
+  [9, 6],
   [18, 6],
 ]
 
