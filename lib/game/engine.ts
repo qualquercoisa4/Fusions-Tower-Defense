@@ -3039,6 +3039,29 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 
   for (const e of s.enemies) {
+    const enemyRadius = ENEMIES[e.type].radius
+    // Small contact shadow anchors ground units; airborne enemies get a soft aura instead.
+    ctx.save()
+    ctx.globalAlpha = e.airborneTimer > 0 || e.type === 'flyBug' ? 0.16 : 0.34
+    ctx.fillStyle = '#020617'
+    ctx.beginPath()
+    ctx.ellipse(e.x, e.y + (e.airborneTimer > 0 || e.type === 'flyBug' ? 9 : enemyRadius * 0.55), enemyRadius * 1.25, enemyRadius * 0.42, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+    if (e.type === 'bugPrince' || e.type === 'bugQueen' || e.type === 'bugKing') {
+      const pulse = 0.5 + Math.sin(s.time * 4.5) * 0.16
+      const bossColor = e.type === 'bugKing' ? '#fbbf24' : e.type === 'bugQueen' ? '#f472b6' : '#c084fc'
+      ctx.save()
+      ctx.globalAlpha = pulse
+      ctx.strokeStyle = bossColor
+      ctx.shadowColor = bossColor
+      ctx.shadowBlur = 13
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.arc(e.x, e.y, enemyRadius + 8 + Math.sin(s.time * 5) * 1.5, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.restore()
+    }
     drawBug(ctx, e.type, e.x, e.y-(e.type==='flyBug'?10:e.airborneTimer>0?14:0), e.angle, e.anim, e.cocooning, e.airborneTimer>0 || e.type==='flyBug', e.helmet, e.segmentHp, e.burrowTimer > 0)
     if (e.plasmaDotTimer > 0) {
       ctx.save(); ctx.strokeStyle = '#d8b4fe'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.8; ctx.beginPath(); ctx.arc(e.x, e.y, ENEMIES[e.type].radius + 7, s.time * 2, s.time * 2 + Math.PI * 1.5); ctx.stroke(); ctx.restore()
@@ -3053,7 +3076,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
       ctx.stroke()
       ctx.restore()
     }
-    if (e.hp < e.maxHp || e.cocooning) {
+    if (e.hp < e.maxHp || e.cocooning || e.type === 'bugPrince' || e.type === 'bugQueen' || e.type === 'bugKing') {
       const r = ENEMIES[e.type].radius
       const barY = e.y - r - 10
       ctx.save()
@@ -3104,6 +3127,24 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
       }
       ctx.restore()
       continue
+    }
+    // Directional energy trail: keeps fast shots readable without changing projectile motion.
+    if ('dirX' in p && 'dirY' in p && 'x' in p && 'y' in p && 'color' in p && p.color) {
+      ctx.save()
+      const trail = ctx.createLinearGradient(p.x - p.dirX * 24, p.y - p.dirY * 24, p.x, p.y)
+      trail.addColorStop(0, 'rgba(255,255,255,0)')
+      trail.addColorStop(1, p.color)
+      ctx.globalAlpha = p.kind === 'energy' ? 0.28 : 0.48
+      ctx.strokeStyle = trail
+      ctx.lineWidth = Math.max(1.2, ('size' in p ? p.size : 3) * 0.9)
+      ctx.lineCap = 'round'
+      ctx.shadowColor = p.color
+      ctx.shadowBlur = 8
+      ctx.beginPath()
+      ctx.moveTo(p.x - p.dirX * 24, p.y - p.dirY * 24)
+      ctx.lineTo(p.x, p.y)
+      ctx.stroke()
+      ctx.restore()
     }
     if (p.kind === 'hybrid') {
       ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(Math.atan2(p.dirY,p.dirX))
