@@ -2357,11 +2357,21 @@ export function update(s: GameState, dt: number) {
 /* ---------- Rendering ---------- */
 
 export function drawBug(ctx: CanvasRenderingContext2D, type: EnemyType, x: number, y: number, angle: number, anim: number, cocooning = false, airborne = false, helmet = false, segmentHp?: number[], burrowing = false) {
-  drawPremiumBug(ctx, type, x, y, angle, anim, cocooning, airborne, helmet, segmentHp, burrowing)
+  ctx.save()
+  try {
+    drawPremiumBug(ctx, type, x, y, angle, anim, cocooning, airborne, helmet, segmentHp, burrowing)
+  } finally {
+    ctx.restore()
+  }
 }
 
 export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: number, y: number, angle: number, recoil = 0) {
-  drawPremiumTower(ctx, type, x, y, angle, recoil)
+  ctx.save()
+  try {
+    drawPremiumTower(ctx, type, x, y, angle, recoil)
+  } finally {
+    ctx.restore()
+  }
 }
 
 export function render(ctx: CanvasRenderingContext2D, s: GameState) {
