@@ -149,6 +149,20 @@ export function drawPremiumTower(ctx:CanvasRenderingContext2D,type:TowerType,x:n
     ctx.save();ctx.rotate(time*(type==='mimic'?-.35:.3))
     for(let i=0;i<3;i++){ctx.strokeStyle=i===1?'#e9d5ff':c;ctx.globalAlpha=.9-i*.18;ctx.shadowColor=c;ctx.shadowBlur=10;ctx.lineWidth=2.3;ctx.beginPath();ctx.ellipse(0,0,17-i*3,9+i*2,i*.38,0,TAU);ctx.stroke()}
     ctx.restore();core(ctx,'#f5d0fe',a,type==='mimic'?6:4,time,recoil)
+  }else if(type==='droneFactory'){
+    ctx.fillStyle=metal(ctx,-14,-13,28,26,a);ctx.beginPath();ctx.roundRect(-13,-12,26,23,5);ctx.fill();ctx.strokeStyle=c;ctx.lineWidth=2;ctx.stroke()
+    ctx.fillStyle='#0f172a';ctx.fillRect(-8,-7,16,13);ctx.strokeStyle='#94a3b8';ctx.strokeRect(-8,-7,16,13)
+    ctx.strokeStyle=c;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-10,-13);ctx.lineTo(-10,-19);ctx.lineTo(10,-19);ctx.lineTo(10,-13);ctx.stroke()
+    for(const [dx,dy] of [[-5,-2],[5,-2],[0,4]] as Point[]){ctx.fillStyle='#64748b';ctx.beginPath();ctx.arc(dx,dy,2.5,0,TAU);ctx.fill();glow(ctx,dx,dy,1.5,c,5)}
+    ctx.strokeStyle='#cbd5e1';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(-17,-17);ctx.lineTo(-12,-12);ctx.moveTo(17,-17);ctx.lineTo(12,-12);ctx.stroke()
+  }else if(type==='spikeLayer'){
+    ctx.fillStyle=metal(ctx,-14,-13,28,26,a);ctx.beginPath();ctx.roundRect(-13,-12,26,23,5);ctx.fill();ctx.strokeStyle=c;ctx.lineWidth=2;ctx.stroke()
+    for(let i=-2;i<=2;i++){path(ctx,[[i*6-4,5],[i*6,-15-Math.abs(i)*1.5],[i*6+4,5]],'#94a3b8','#f8fafc',1.1);ctx.strokeStyle=c;ctx.beginPath();ctx.moveTo(i*6,-13);ctx.lineTo(i*6,-17);ctx.stroke()}
+    glow(ctx,0,8,3,c,9)
+  }else if(type==='electricSyringe'){
+    ctx.fillStyle=metal(ctx,-12,-8,26,16,a);ctx.beginPath();ctx.roundRect(-11,-7,22,14,3);ctx.fill();ctx.strokeStyle=c;ctx.lineWidth=1.8;ctx.stroke()
+    ctx.fillStyle='#cffafe';ctx.fillRect(-5,-4,10,8);ctx.strokeStyle='#0891b2';ctx.strokeRect(-5,-4,10,8)
+    ctx.strokeStyle='#e0f2fe';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(11,0);ctx.lineTo(22,0);ctx.lineTo(25,-2);ctx.stroke();glow(ctx,0,0,3,c,8)
   }else if(type==='singularity'||type==='plasmaCannon'){
     ctx.fillStyle='#08051b';ctx.beginPath();ctx.arc(0,0,13,0,TAU);ctx.fill();ctx.strokeStyle=c;ctx.shadowColor=c;ctx.shadowBlur=18;ctx.lineWidth=3
     for(let i=0;i<3;i++){ctx.beginPath();ctx.ellipse(0,0,15+i*3,7+i*2,time*.35+i,0,TAU);ctx.stroke()}
