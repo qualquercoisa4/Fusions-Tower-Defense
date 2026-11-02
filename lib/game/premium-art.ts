@@ -227,7 +227,7 @@ export function drawPremiumTower(ctx:CanvasRenderingContext2D,type:TowerType,x:n
   ctx.strokeStyle='rgba(226,232,240,.48)';ctx.lineWidth=.7
   ctx.beginPath();ctx.moveTo(-8,-5);ctx.lineTo(-5,-8);ctx.moveTo(-8,5);ctx.lineTo(-5,8);ctx.stroke()
   ctx.restore()
-  ctx.restore();ctx.restore()
+  ctx.restore()
 }
 
 function bugLegs(ctx:CanvasRenderingContext2D,r:number,anim:number,color:string,speed:number){
@@ -254,6 +254,7 @@ function eye(ctx:CanvasRenderingContext2D,x:number,y:number,r:number){
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x-r*.15,y-r*.2,r*.18,0,TAU);ctx.fill()
 }
 export function drawPremiumBug(ctx:CanvasRenderingContext2D,type:EnemyType,x:number,y:number,angle:number,anim:number,cocooning=false,airborne=false,helmet=false,segmentHp?:number[],burrowing=false){
+  ctx.save()
   const d=ENEMIES[type],r=d.radius
   ctx.save();ctx.translate(x,y)
   if(burrowing){ctx.fillStyle='rgba(120,113,108,.65)';ctx.strokeStyle='#e7e5e4';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(0,3,r*1.5,r*.52,0,0,TAU);ctx.fill();ctx.stroke();for(let i=0;i<5;i++){ctx.fillStyle=i%2?'#78716c':'#d6d3d1';ctx.beginPath();ctx.arc((i-2)*r*.48,-3+(i%2)*4,2.5,0,TAU);ctx.fill()}ctx.restore();return}
