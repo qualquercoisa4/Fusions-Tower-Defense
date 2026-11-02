@@ -641,6 +641,11 @@ export type MapId =
   | 'breakline' | 'unstable-frontier'
   | 'reactor-core' | 'total-blackout'
 
+export interface GameMapRoute {
+  id: string
+  waypoints: readonly (readonly [number, number])[]
+}
+
 export interface GameMapDefinition {
   id: MapId
   name: string
@@ -648,6 +653,7 @@ export interface GameMapDefinition {
   description: string
   rating: 1 | 2 | 3 | 4 | 5
   waypoints: readonly (readonly [number, number])[]
+  routes?: readonly GameMapRoute[]
   farmCells: readonly string[]
 }
 
@@ -684,24 +690,40 @@ export const GAME_MAPS: readonly GameMapDefinition[] = [
     id: 'breakline', name: 'Linha de Ruptura', difficulty: 'advanced',
     description: 'Trechos longos alternam com curvas fechadas. Torres mal distribuídas deixam pontos cegos.',
     rating: 3, farmCells: STANDARD_FARMS,
+    routes: [
+      { id: 'north', waypoints: [[-1,2],[2,2],[2,5],[6,5],[6,1],[10,1],[10,4],[14,4],[14,2],[18,2]] },
+      { id: 'south', waypoints: [[-1,9],[2,9],[2,7],[6,7],[6,10],[10,10],[10,7],[14,7],[14,9],[18,9]] },
+    ],
     waypoints: [[-1,5],[2,5],[2,1],[5,1],[5,10],[8,10],[8,3],[11,3],[11,9],[14,9],[14,2],[18,2]],
   },
   {
     id: 'unstable-frontier', name: 'Fronteira Instável', difficulty: 'advanced',
     description: 'Uma rota extensa com pouco tempo de cobertura entre algumas curvas.',
     rating: 3, farmCells: STANDARD_FARMS,
+    routes: [
+      { id: 'upper', waypoints: [[-1,1],[3,1],[3,4],[6,4],[6,1],[10,1],[10,5],[14,5],[14,2],[18,2]] },
+      { id: 'lower', waypoints: [[-1,10],[3,10],[3,7],[6,7],[6,10],[10,10],[10,6],[14,6],[14,9],[18,9]] },
+    ],
     waypoints: [[-1,9],[2,9],[2,3],[5,3],[5,8],[8,8],[8,1],[11,1],[11,10],[14,10],[14,4],[18,4]],
   },
   {
     id: 'reactor-core', name: 'Núcleo do Reator', difficulty: 'expert',
     description: 'Muitas mudanças de direção e longos corredores tornam cada posição importante.',
     rating: 4, farmCells: STANDARD_FARMS,
+    routes: [
+      { id: 'reactor-a', waypoints: [[-1,2],[2,2],[2,5],[5,5],[5,1],[8,1],[8,4],[11,4],[11,2],[14,2],[14,4],[18,4]] },
+      { id: 'reactor-b', waypoints: [[-1,9],[2,9],[2,7],[5,7],[5,10],[8,10],[8,7],[11,7],[11,9],[14,9],[14,7],[18,7]] },
+    ],
     waypoints: [[-1,6],[2,6],[2,1],[4,1],[4,10],[6,10],[6,2],[8,2],[8,9],[10,9],[10,1],[12,1],[12,10],[14,10],[14,5],[18,5]],
   },
   {
     id: 'total-blackout', name: 'Apagão Total', difficulty: 'expert',
     description: 'O percurso mais longo e exigente. Requer cobertura consistente e fusões bem planejadas.',
     rating: 5, farmCells: STANDARD_FARMS,
+    routes: [
+      { id: 'blackout-a', waypoints: [[-1,1],[2,1],[2,4],[5,4],[5,1],[8,1],[8,5],[11,5],[11,1],[14,1],[14,3],[18,3]] },
+      { id: 'blackout-b', waypoints: [[-1,10],[2,10],[2,7],[5,7],[5,10],[8,10],[8,6],[11,6],[11,10],[14,10],[14,8],[18,8]] },
+    ],
     waypoints: [[-1,2],[2,2],[2,9],[4,9],[4,1],[6,1],[6,10],[8,10],[8,2],[10,2],[10,9],[12,9],[12,1],[14,1],[14,10],[15,10],[15,5],[18,5]],
   },
 ] as const
