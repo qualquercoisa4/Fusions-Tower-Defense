@@ -634,48 +634,100 @@ export const ROWS = 12
 export const WIDTH = CELL * COLS
 export const HEIGHT = CELL * ROWS
 
-// Percurso conforme o esboço: dois retornos retangulares ligados
-// por um trecho inferior longo, com dois cruzamentos do traçado.
-const WAYPOINT_CELLS: [number, number][] = [
-  [-1, 6],
-  [3, 6],
-  [3, 2],
-  [7, 2],
-  [7, 6],
-  [3, 6],
-  [3, 10],
-  [14, 10],
-  [14, 6],
-  [11, 6],
-  [11, 3],
-  [14, 2],
-  [14, 6],
-  [18, 6],
-]
+export type MapDifficulty = 'beginner' | 'intermediate' | 'advanced' | 'expert'
+export type MapId =
+  | 'training-field' | 'green-circuit'
+  | 'split-valley' | 'zigzag-lab'
+  | 'breakline' | 'unstable-frontier'
+  | 'reactor-core' | 'total-blackout'
 
-// Oito espaços de farms: dois em cada canto/extremidade do tabuleiro.
-export const FARM_CELLS = new Set([
-  '0,0', '1,0',
-  '0,11', '1,11',
-  '16,0', '17,0',
-  '16,11', '17,11',
-])
+export interface GameMapDefinition {
+  id: MapId
+  name: string
+  difficulty: MapDifficulty
+  description: string
+  rating: 1 | 2 | 3 | 4 | 5
+  waypoints: readonly (readonly [number, number])[]
+  farmCells: readonly string[]
+}
 
-export const PATH = WAYPOINT_CELLS.map(([c, r]) => ({
-  x: c * CELL + CELL / 2,
-  y: r * CELL + CELL / 2,
+const STANDARD_FARMS = ['0,0', '1,0', '0,11', '1,11', '16,0', '17,0', '16,11', '17,11'] as const
+
+// Mapas são desenhados em coordenadas de células. Todos os percursos avançam
+// da esquerda para a direita, evitando cruzamentos e segmentos sobrepostos.
+export const GAME_MAPS: readonly GameMapDefinition[] = [
+  {
+    id: 'training-field', name: 'Campo de Treinamento', difficulty: 'beginner',
+    description: 'Uma rota aberta, com curvas largas e bons espaços para posicionar torres.',
+    rating: 1, farmCells: STANDARD_FARMS,
+    waypoints: [[-1,6],[3,6],[3,2],[7,2],[7,9],[11,9],[11,4],[15,4],[15,7],[18,7]],
+  },
+  {
+    id: 'green-circuit', name: 'Circuito Verde', difficulty: 'beginner',
+    description: 'Uma pista mais curta, com mudanças de altura simples e áreas de construção previsíveis.',
+    rating: 1, farmCells: STANDARD_FARMS,
+    waypoints: [[-1,5],[4,5],[4,10],[8,10],[8,2],[12,2],[12,8],[15,8],[15,5],[18,5]],
+  },
+  {
+    id: 'split-valley', name: 'Vale Dividido', difficulty: 'intermediate',
+    description: 'Corredores alternados exigem cobertura equilibrada ao longo de toda a arena.',
+    rating: 2, farmCells: STANDARD_FARMS,
+    waypoints: [[-1,3],[3,3],[3,9],[6,9],[6,2],[9,2],[9,10],[12,10],[12,4],[15,4],[15,7],[18,7]],
+  },
+  {
+    id: 'zigzag-lab', name: 'Laboratório em Z', difficulty: 'intermediate',
+    description: 'Uma sequência de zigue-zagues que testa alcance, cadência e posicionamento.',
+    rating: 2, farmCells: STANDARD_FARMS,
+    waypoints: [[-1,8],[2,8],[2,2],[5,2],[5,10],[8,10],[8,1],[11,1],[11,9],[14,9],[14,5],[18,5]],
+  },
+  {
+    id: 'breakline', name: 'Linha de Ruptura', difficulty: 'advanced',
+    description: 'Trechos longos alternam com curvas fechadas. Torres mal distribuídas deixam pontos cegos.',
+    rating: 3, farmCells: STANDARD_FARMS,
+    waypoints: [[-1,5],[2,5],[2,1],[5,1],[5,10],[8,10],[8,3],[11,3],[11,9],[14,9],[14,2],[18,2]],
+  },
+  {
+    id: 'unstable-frontier', name: 'Fronteira Instável', difficulty: 'advanced',
+    description: 'Uma rota extensa com pouco tempo de cobertura entre algumas curvas.',
+    rating: 3, farmCells: STANDARD_FARMS,
+    waypoints: [[-1,9],[2,9],[2,3],[5,3],[5,8],[8,8],[8,1],[11,1],[11,10],[14,10],[14,4],[18,4]],
+  },
+  {
+    id: 'reactor-core', name: 'Núcleo do Reator', difficulty: 'expert',
+    description: 'Muitas mudanças de direção e longos corredores tornam cada posição importante.',
+    rating: 4, farmCells: STANDARD_FARMS,
+    waypoints: [[-1,6],[2,6],[2,1],[4,1],[4,10],[6,10],[6,2],[8,2],[8,9],[10,9],[10,1],[12,1],[12,10],[14,10],[14,5],[18,5]],
+  },
+  {
+    id: 'total-blackout', name: 'Apagão Total', difficulty: 'expert',
+    description: 'O percurso mais longo e exigente. Requer cobertura consistente e fusões bem planejadas.',
+    rating: 5, farmCells: STANDARD_FARMS,
+    waypoints: [[-1,2],[2,2],[2,9],[4,9],[4,1],[6,1],[6,10],[8,10],[8,2],[10,2],[10,9],[12,9],[12,1],[14,1],[14,10],[15,10],[15,5],[18,5]],
+  },
+] as const
+
+export const DEFAULT_MAP_ID: MapId = 'training-field'
+export function getMapDefinition(mapId: MapId): GameMapDefinition {
+  return GAME_MAPS.find(map => map.id === mapId) ?? GAME_MAPS[0]
+}
+
+const DEFAULT_MAP = getMapDefinition(DEFAULT_MAP_ID)
+export const FARM_CELLS = new Set(DEFAULT_MAP.farmCells)
+export const PATH = DEFAULT_MAP.waypoints.map(([col, row]) => ({
+  x: col * CELL + CELL / 2,
+  y: row * CELL + CELL / 2,
 }))
 
 export const PATH_CELLS = (() => {
   const set = new Set<string>()
-  for (let i = 0; i < WAYPOINT_CELLS.length - 1; i++) {
-    const [c1, r1] = WAYPOINT_CELLS[i]
-    const [c2, r2] = WAYPOINT_CELLS[i + 1]
+  for (let i = 0; i < DEFAULT_MAP.waypoints.length - 1; i++) {
+    const [c1, r1] = DEFAULT_MAP.waypoints[i]
+    const [c2, r2] = DEFAULT_MAP.waypoints[i + 1]
     const steps = Math.max(Math.abs(c2 - c1), Math.abs(r2 - r1))
-    for (let s = 0; s <= steps; s++) {
-      const c = c1 + Math.sign(c2 - c1) * s
-      const r = r1 + Math.sign(r2 - r1) * s
-      set.add(`${c},${r}`)
+    for (let step = 0; step <= steps; step++) {
+      const col = c1 + Math.sign(c2 - c1) * step
+      const row = r1 + Math.sign(r2 - r1) * step
+      set.add(`${col},${row}`)
     }
   }
   return set
