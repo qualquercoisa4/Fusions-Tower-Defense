@@ -177,6 +177,14 @@ export function drawPremiumTower(ctx:CanvasRenderingContext2D,type:TowerType,x:n
     barrel(ctx,22,4,c,a,recoil);core(ctx,c,a,4,time,recoil)
   }
   if(t>=2){ctx.strokeStyle=c;ctx.globalAlpha=.75;ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(0,0,24+Math.sin(time*4)*1.5,-2.7,2.7);ctx.stroke();ctx.globalAlpha=1}
+  // Recoil becomes a short, directional muzzle flash rather than a static glow.
+  if(recoil>.035){
+    const flash=Math.min(1,recoil*1.8)
+    ctx.save();ctx.globalAlpha=flash;ctx.translate(type==='mortar'||type==='cryoMortar'||type==='cluster'?3:25,0)
+    ctx.shadowColor=c;ctx.shadowBlur=20;ctx.fillStyle=c;ctx.strokeStyle='#fff7ed';ctx.lineWidth=1
+    ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(8,-5*flash);ctx.lineTo(15*flash,0);ctx.lineTo(8,5*flash);ctx.closePath();ctx.fill();ctx.stroke()
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(2,0,2.2*flash,0,TAU);ctx.fill();ctx.restore()
+  }
   ctx.restore();ctx.restore()
 }
 
