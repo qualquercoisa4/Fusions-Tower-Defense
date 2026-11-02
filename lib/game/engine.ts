@@ -885,13 +885,19 @@ function pathMetrics(points: readonly { x: number; y: number }[]) {
 function buildPathGeometry(rawWaypoints: readonly (readonly [number, number])[]): PathGeometry {
   const waypoints = rawWaypoints.map(([col, row]) => ({ x: col * CELL + CELL / 2, y: row * CELL + CELL / 2 }))
   const pathCells = new Set<string>()
+  // Marca qualquer célula cujo centro fique sob a largura visual da pista,
+  // inclusive nas diagonais e nas curvas suaves.
   for (let i = 0; i < rawWaypoints.length - 1; i++) {
     const [c1, r1] = rawWaypoints[i], [c2, r2] = rawWaypoints[i + 1]
-    const steps = Math.max(Math.abs(c2 - c1), Math.abs(r2 - r1))
-    for (let step = 0; step <= steps; step++) {
-      const col = c1 + Math.sign(c2 - c1) * step
-      const row = r1 + Math.sign(r2 - r1) * step
-      pathCells.add(`${col},${row}`)
+    const dx = c2 - c1, dy = r2 - r1
+    const lengthSq = dx * dx + dy * dy
+    const minCol = Math.floor(Math.min(c1, c2) - 1), maxCol = Math.ceil(Math.max(c1, c2) + 1)
+    const minRow = Math.floor(Math.min(r1, r2) - 1), maxRow = Math.ceil(Math.max(r1, r2) + 1)
+    for (let row = minRow; row <= maxRow; row++) for (let col = minCol; col <= maxCol; col++) {
+      const px = col - c1, py = row - r1
+      const t = lengthSq ? Math.max(0, Math.min(1, (px * dx + py * dy) / lengthSq)) : 0
+      const distance = Math.hypot(c1 + dx * t - col, r1 + dy * t - row)
+      if (distance <= 0.48) pathCells.add(`${col},${row}`)
     }
   }
   const smoothPath = createSmoothedPath(waypoints)
