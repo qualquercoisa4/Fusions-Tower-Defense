@@ -646,6 +646,15 @@ export interface GameMapRoute {
   waypoints: readonly (readonly [number, number])[]
 }
 
+export interface MapPalette {
+  background: string
+  grid: string
+  glow: string
+  roadBorder: string
+  roadA: string
+  roadB: string
+  roadLine: string
+}
 export interface GameMapDefinition {
   id: MapId
   name: string
@@ -655,83 +664,87 @@ export interface GameMapDefinition {
   waypoints: readonly (readonly [number, number])[]
   routes?: readonly GameMapRoute[]
   farmCells: readonly string[]
+  palette: MapPalette
 }
 
 const STANDARD_FARMS = ['0,0', '1,0', '0,11', '1,11', '16,0', '17,0', '16,11', '17,11'] as const
 
-// Mapas são desenhados em coordenadas de células. Todos os percursos avançam
-// da esquerda para a direita, evitando cruzamentos e segmentos sobrepostos.
+// Rotas deliberadamente simples: curvas largas, sem cruzamentos ou retornos apertados.
 export const GAME_MAPS: readonly GameMapDefinition[] = [
   {
     id: 'training-field', name: 'Campo de Treinamento', difficulty: 'beginner',
-    description: 'Uma grande curva em S atravessa a arena em diagonal, com bastante terreno livre para construir.',
+    description: 'Uma única curva em S, larga e aberta, com bastante espaço para construir.',
     rating: 1, farmCells: STANDARD_FARMS,
-    waypoints: [[-1,2],[2,2],[4,3],[6,5],[8,7],[10,9],[13,9],[15,8],[17,6],[18,6]],
+    palette: { background: '#172b24', grid: '#a7f3d0', glow: '#4ade80', roadBorder: '#334b3d', roadA: '#647b5b', roadB: '#526b4c', roadLine: '#d9f99d' },
+    waypoints: [[-1,5],[2,5],[5,3],[9,3],[12,6],[15,9],[18,9]],
   },
   {
     id: 'green-circuit', name: 'Circuito Verde', difficulty: 'beginner',
-    description: 'Uma espiral que gira ao redor do centro e termina em um corredor interno.',
+    description: 'Um grande circuito oval com uma passagem interna curta e fácil de acompanhar.',
     rating: 1, farmCells: STANDARD_FARMS,
-    waypoints: [[-1,6],[1,6],[2,3],[4,1],[7,1],[10,2],[12,4],[12,7],[10,9],[7,10],[4,9],[3,7],[4,5],[6,4],[8,4],[9,5],[9,7],[8,8],[6,8],[5,7],[5,6],[7,5],[10,5],[13,6],[16,6],[18,6]],
+    palette: { background: '#102b2a', grid: '#99f6e4', glow: '#2dd4bf', roadBorder: '#28504b', roadA: '#477e70', roadB: '#35695f', roadLine: '#ccfbf1' },
+    waypoints: [[-1,6],[2,6],[3,3],[6,1],[11,1],[14,3],[15,7],[12,10],[7,10],[4,8],[4,6],[7,5],[11,5],[14,6],[18,6]],
   },
   {
     id: 'split-valley', name: 'Vale Dividido', difficulty: 'intermediate',
-    description: 'Duas trilhas curvas começam em extremos opostos, se encontram no vale e compartilham a saída.',
+    description: 'Duas entradas bem separadas se unem apenas no último trecho da pista.',
     rating: 2, farmCells: STANDARD_FARMS,
+    palette: { background: '#17263a', grid: '#bfdbfe', glow: '#60a5fa', roadBorder: '#344b68', roadA: '#55779a', roadB: '#41658a', roadLine: '#dbeafe' },
     routes: [
-      { id: 'upper-arc', waypoints: [[-1,1],[2,1],[4,2],[6,4],[8,5],[10,6],[12,6],[14,5],[16,5],[18,6]] },
-      { id: 'lower-arc', waypoints: [[-1,10],[2,10],[4,9],[6,8],[8,7],[10,6],[12,6],[14,5],[16,5],[18,6]] },
+      { id: 'upper', waypoints: [[-1,2],[3,2],[6,3],[9,5],[12,6],[15,6],[18,6]] },
+      { id: 'lower', waypoints: [[-1,10],[3,10],[6,9],[9,7],[12,6],[15,6],[18,6]] },
     ],
-    waypoints: [[-1,1],[2,1],[4,2],[6,4],[8,5],[10,6],[12,6],[14,5],[16,5],[18,6]],
+    waypoints: [[-1,2],[3,2],[6,3],[9,5],[12,6],[15,6],[18,6]],
   },
   {
     id: 'zigzag-lab', name: 'Laboratório em Z', difficulty: 'intermediate',
-    description: 'Um percurso serpentino com dois grandes laços e uma curva de retorno pelo centro.',
+    description: 'Uma serpentina ampla com três retas longas e retornos arredondados.',
     rating: 2, farmCells: STANDARD_FARMS,
-    waypoints: [[-1,6],[1,6],[2,3],[4,2],[6,3],[7,6],[9,9],[11,10],[13,8],[13,5],[11,3],[9,3],[8,5],[9,6],[11,6],[14,6],[18,6]],
+    palette: { background: '#25213b', grid: '#ddd6fe', glow: '#a78bfa', roadBorder: '#494064', roadA: '#76669b', roadB: '#625486', roadLine: '#ede9fe' },
+    waypoints: [[-1,2],[3,2],[4,4],[4,8],[7,10],[11,10],[13,8],[13,4],[15,2],[18,2]],
   },
   {
     id: 'breakline', name: 'Linha de Ruptura', difficulty: 'advanced',
-    description: 'Duas rotas independentes serpenteiam em sentidos opostos e só convergem perto da saída.',
+    description: 'Duas pistas paralelas fazem curvas largas e mantêm entradas e saídas independentes.',
     rating: 3, farmCells: STANDARD_FARMS,
+    palette: { background: '#30251d', grid: '#fed7aa', glow: '#fb923c', roadBorder: '#59402d', roadA: '#956746', roadB: '#805638', roadLine: '#ffedd5' },
     routes: [
-      { id: 'north', waypoints: [[-1,1],[2,1],[4,2],[5,4],[7,5],[9,4],[11,2],[13,2],[14,4],[15,6],[18,6]] },
-      { id: 'south', waypoints: [[-1,10],[2,10],[4,9],[5,7],[7,6],[9,7],[11,9],[13,9],[14,7],[15,6],[18,6]] },
+      { id: 'north', waypoints: [[-1,2],[3,2],[6,4],[10,4],[13,2],[18,2]] },
+      { id: 'south', waypoints: [[-1,9],[3,9],[6,7],[10,7],[13,9],[18,9]] },
     ],
-    waypoints: [[-1,1],[2,1],[4,2],[5,4],[7,5],[9,4],[11,2],[13,2],[14,4],[15,6],[18,6]],
+    waypoints: [[-1,2],[3,2],[6,4],[10,4],[13,2],[18,2]],
   },
   {
     id: 'unstable-frontier', name: 'Fronteira Instável', difficulty: 'advanced',
-    description: 'Duas pistas em arcos largos contornam um núcleo central, com pouca área segura entre elas.',
+    description: 'Uma rota em formato de ferradura contorna uma grande área central de construção.',
     rating: 3, farmCells: STANDARD_FARMS,
-    routes: [
-      { id: 'outer-orbit', waypoints: [[-1,3],[1,3],[2,1],[5,0],[8,1],[10,3],[12,5],[14,5],[16,4],[18,4]] },
-      { id: 'inner-orbit', waypoints: [[-1,9],[1,9],[3,11],[6,11],[8,9],[10,7],[12,6],[14,7],[16,9],[18,9]] },
-    ],
-    waypoints: [[-1,3],[1,3],[2,1],[5,0],[8,1],[10,3],[12,5],[14,5],[16,4],[18,4]],
+    palette: { background: '#30202a', grid: '#fbcfe8', glow: '#f472b6', roadBorder: '#5b3448', roadA: '#94566f', roadB: '#7d435f', roadLine: '#fce7f3' },
+    waypoints: [[-1,6],[2,6],[3,3],[6,1],[11,1],[14,3],[15,6],[14,9],[11,10],[6,10],[3,8],[3,6],[7,6],[11,6],[15,6],[18,6]],
   },
   {
     id: 'reactor-core', name: 'Núcleo do Reator', difficulty: 'expert',
-    description: 'Duas rotas orbitais circulam o reator por lados diferentes e terminam em saídas separadas.',
+    description: 'Duas rotas independentes contornam o centro em arcos simples, sem se cruzar.',
     rating: 4, farmCells: STANDARD_FARMS,
+    palette: { background: '#202b32', grid: '#a5f3fc', glow: '#22d3ee', roadBorder: '#3b515b', roadA: '#5d7b82', roadB: '#496a73', roadLine: '#cffafe' },
     routes: [
-      { id: 'clockwise', waypoints: [[-1,5],[1,5],[2,2],[5,1],[8,2],[10,4],[10,6],[8,8],[5,9],[2,8],[1,6],[3,5],[5,4],[7,5],[8,6],[10,6],[13,5],[16,5],[18,4]] },
-      { id: 'counterclockwise', waypoints: [[-1,8],[1,8],[3,10],[6,10],[9,9],[11,7],[12,5],[11,3],[9,1],[6,1],[4,3],[4,5],[6,6],[8,6],[10,7],[12,8],[15,8],[18,9]] },
+      { id: 'upper-orbit', waypoints: [[-1,3],[3,3],[6,1],[11,1],[14,3],[18,3]] },
+      { id: 'lower-orbit', waypoints: [[-1,9],[3,9],[6,11],[11,11],[14,9],[18,9]] },
     ],
-    waypoints: [[-1,5],[1,5],[2,2],[5,1],[8,2],[10,4],[10,6],[8,8],[5,9],[2,8],[1,6],[3,5],[5,4],[7,5],[8,6],[10,6],[13,5],[16,5],[18,4]],
+    waypoints: [[-1,3],[3,3],[6,1],[11,1],[14,3],[18,3]],
   },
   {
     id: 'total-blackout', name: 'Apagão Total', difficulty: 'expert',
-    description: 'Três entradas alternadas atravessam corredores em espiral e escapam por saídas distintas.',
+    description: 'Três corredores largos e quase paralelos exigem dividir a defesa entre as entradas.',
     rating: 5, farmCells: STANDARD_FARMS,
+    palette: { background: '#252525', grid: '#d4d4d4', glow: '#facc15', roadBorder: '#505050', roadA: '#77715c', roadB: '#625d4d', roadLine: '#fef3c7' },
     routes: [
-      { id: 'upper', waypoints: [[-1,1],[2,1],[4,2],[5,4],[7,5],[9,4],[10,2],[12,1],[14,2],[15,4],[16,5],[18,5]] },
-      { id: 'middle', waypoints: [[-1,6],[1,6],[3,4],[5,3],[7,4],[8,6],[7,8],[5,9],[3,8],[2,6],[4,6],[6,6],[8,7],[10,9],[13,10],[16,9],[18,9]] },
-      { id: 'lower', waypoints: [[-1,10],[2,10],[4,9],[5,7],[7,6],[9,7],[11,9],[13,10],[15,10],[16,8],[17,7],[18,7]] },
+      { id: 'upper', waypoints: [[-1,2],[3,2],[6,3],[10,3],[14,2],[18,2]] },
+      { id: 'middle', waypoints: [[-1,6],[3,6],[6,5],[10,5],[14,6],[18,6]] },
+      { id: 'lower', waypoints: [[-1,10],[3,10],[6,9],[10,9],[14,10],[18,10]] },
     ],
-    waypoints: [[-1,1],[2,1],[4,2],[5,4],[7,5],[9,4],[10,2],[12,1],[14,2],[15,4],[16,5],[18,5]],
+    waypoints: [[-1,2],[3,2],[6,3],[10,3],[14,2],[18,2]],
   },
-] as const
+]
 
 export const DEFAULT_MAP_ID: MapId = 'training-field'
 export function getMapDefinition(mapId: MapId): GameMapDefinition {
