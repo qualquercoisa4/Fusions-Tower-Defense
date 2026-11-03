@@ -494,7 +494,8 @@ export function isBuildableAt(s: GameState, x: number, y: number, type: TowerTyp
   } else {
     const col = Math.floor(x / CELL), row = Math.floor(y / CELL)
     if (map.id === 'frostline') {
-      // No mapa aquático, construção só nas ilhas de terra ou no casco do barco.
+      // No mapa aquático, não usar blockedCells: elas também cobrem as ilhas de terra.
+      // A validação é geométrica para liberar apenas terra e casco do barco.
       const landPatches = map.terrainPatches.filter(p => p.color.toLowerCase() === '#176b49')
       const boatPatch = map.terrainPatches.find(p => p.color.toLowerCase() === '#176747')
       const onLand = landPatches.some(p => pointInPolygon(x, y, p.points))
