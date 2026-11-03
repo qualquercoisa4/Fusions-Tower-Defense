@@ -760,6 +760,8 @@ function defineMap(
   const pathCells = new Set<string>()
   for (let i = 1; i < path.length; i++) {
     pathLengths[i] = pathLengths[i - 1] + Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y)
+  }
+  for (let i = 1; i < waypoints.length; i++) {
     const [c1, r1] = waypoints[i - 1]
     const [c2, r2] = waypoints[i]
     const steps = Math.max(Math.abs(c2 - c1), Math.abs(r2 - r1))
