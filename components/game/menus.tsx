@@ -140,6 +140,8 @@ export function MapSelection({ onBack, onSelect }: { onBack: () => void; onSelec
                       <div className="flex flex-wrap gap-2 text-[10px] font-medium text-slate-300">
                         <span className="rounded bg-white/5 px-2 py-1">Vida inimiga +{hpIncrease}%</span>
                         <span className="rounded bg-white/5 px-2 py-1">Velocidade +{speedIncrease}%</span>
+                        {map.routes.length > 1 && <span className="rounded bg-sky-400/10 px-2 py-1 text-sky-200">{map.routes.length} rotas · alternância 1:1</span>}
+                        <span className="rounded bg-emerald-400/10 px-2 py-1 text-emerald-200">{map.farmCells.size} farms</span>
                       </div>
                     </div>
                   </button>
