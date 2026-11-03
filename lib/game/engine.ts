@@ -4,6 +4,8 @@ import {
   ENEMIES,
   HEIGHT,
   MAPS,
+  MAP_SCALE_X,
+  MAP_SCALE_Y,
   ROWS,
   TOWERS,
   TOWER_ELEMENTS,
