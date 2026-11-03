@@ -334,7 +334,9 @@ export interface GameState {
   buildType: TowerType | null
   selectedId: number | null
   fuseMode: boolean
-  hover: { col: number; row: number } | null
+  hover: { x: number; y: number; col: number; row: number } | null
+  placementDragging: boolean
+  pendingPlacement: { type: TowerType; x: number; y: number; free: boolean } | null
   time: number
   seenEnemyTypes: EnemyType[]
   bugPrinceDefeated: boolean
@@ -374,6 +376,8 @@ export function createGame(mapId: MapId = 'original'): GameState {
     selectedId: null,
     fuseMode: false,
     hover: null,
+    placementDragging: false,
+    pendingPlacement: null,
     time: 0,
     seenEnemyTypes: [],
     bugPrinceDefeated: false,
@@ -434,18 +438,64 @@ export const SOULSTORM_ESSENCE_REQUIRED = 10
 const COMMS_BUILDING_OVERCLOCK_DURATION = 4
 const COMMS_BUILDING_OVERCLOCK_INTERVAL = 12
 
-export const isBuildable = (s: GameState, col: number, row: number, type?: TowerType) => {
-  const cell = `${col},${row}`
-  const farmPad = MAPS[s.mapId].farmCells.has(cell)
-  return col >= 0 && row >= 0 && col < COLS && row < ROWS &&
-    !MAPS[s.mapId].pathCells.has(cell) &&
-    !MAPS[s.mapId].blockedCells.has(cell) &&
-    !s.towers.some((t) => t.col === col && t.row === row) &&
-    (type ? (INCOME_TOWERS.includes(type) ? farmPad : !farmPad) : true)
+const INCOME_TOWER_TYPES: TowerType[] = ['incomeFarm','incomeTax','economyHouse','masterBank']
+export const isIncomeTower = (type: TowerType) => INCOME_TOWER_TYPES.includes(type)
+
+function distanceToSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number) {
+  const dx = bx - ax, dy = by - ay
+  const lengthSq = dx * dx + dy * dy
+  const t = lengthSq > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSq)) : 0
+  return Math.hypot(px - (ax + dx * t), py - (ay + dy * t))
 }
+
+function distanceToMapPath(map: GameMap, x: number, y: number) {
+  let best = Infinity
+  for (const route of map.routes) {
+    for (let i = 1; i < route.path.length; i++) {
+      const a = route.path[i - 1], b = route.path[i]
+      best = Math.min(best, distanceToSegment(x, y, a.x, a.y, b.x, b.y))
+    }
+  }
+  return best
+}
+
+export function getTowerFootprint(type: TowerType) {
+  return isIncomeTower(type) ? 27 : 19
+}
+
+export function getTowerCoverageRange(type: TowerType) {
+  return TOWERS[type].range * (isIncomeTower(type) ? 1.65 : 1)
+}
+
+export function isBuildableAt(s: GameState, x: number, y: number, type: TowerType, ignoreTowerId?: number) {
+  const map = MAPS[s.mapId]
+  const footprint = getTowerFootprint(type)
+  if (x < footprint || y < footprint || x > WIDTH - footprint || y > HEIGHT - footprint) return false
+
+  const pathDistance = distanceToMapPath(map, x, y)
+  if (pathDistance < map.pathWidth / 2 + footprint * 0.7) return false
+
+  if (map.sandOnly) {
+    // Na ilha, só a faixa de areia entre a pista verde e o mar aceita construções.
+    const sandOuterRadius = 67
+    if (pathDistance > sandOuterRadius - footprint * 0.45) return false
+  } else {
+    const col = Math.floor(x / CELL), row = Math.floor(y / CELL)
+    if (map.blockedCells.has(`${col},${row}`)) return false
+  }
+
+  return !s.towers.some(t => t.id !== ignoreTowerId &&
+    Math.hypot(t.x - x, t.y - y) < getTowerFootprint(t.type) + footprint + 5)
+}
+
+export const isBuildable = (s: GameState, col: number, row: number, type?: TowerType) =>
+  isBuildableAt(s, col * CELL + CELL / 2, row * CELL + CELL / 2, type ?? 'shooter')
 
 export const towerAt = (s: GameState, col: number, row: number) =>
   s.towers.find((t) => t.col === col && t.row === row)
+
+export const towerAtPoint = (s: GameState, x: number, y: number) =>
+  s.towers.find(t => Math.hypot(t.x - x, t.y - y) <= Math.max(20, getTowerFootprint(t.type)))
 
 
 export function getTowerMaxHp(type: TowerType) {
@@ -483,17 +533,18 @@ export function repairTower(s: GameState, id: number) {
   return restored
 }
 
-export function placeTower(s: GameState, type: TowerType, col: number, row: number, free = false) {
+export function placeTowerAt(s: GameState, type: TowerType, x: number, y: number, free = false) {
   const cost = free ? 0 : TOWERS[type].cost
-  if ((!free && s.money < TOWERS[type].cost) || !isBuildable(s, col, row, type)) return false
+  if ((!free && s.money < cost) || !isBuildableAt(s, x, y, type)) return false
+  const col = Math.floor(x / CELL), row = Math.floor(y / CELL)
   s.money -= cost
   s.towers.push({
     id: s.nextId++,
     type,
     col,
     row,
-    x: col * CELL + CELL / 2,
-    y: row * CELL + CELL / 2,
+    x: x,
+    y: y,
     cooldown: 0,
     angle: -Math.PI / 2,
     invested: cost,
@@ -522,6 +573,10 @@ export function placeTower(s: GameState, type: TowerType, col: number, row: numb
     helicopterMissileCooldown: 1.2,
   })
   return true
+}
+
+export function placeTower(s: GameState, type: TowerType, col: number, row: number, free = false) {
+  return placeTowerAt(s, type, col * CELL + CELL / 2, row * CELL + CELL / 2, free)
 }
 
 export function getFusionCost(a: Tower, b: Tower): number {
@@ -578,9 +633,9 @@ export function startWave(s: GameState) {
   s.wave++
   s.waveActive = true
   for (const tower of s.towers) {
-    if (tower.type === 'incomeFarm' && MAPS[s.mapId].farmCells.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 5; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
-    else if (tower.type === 'incomeTax' && MAPS[s.mapId].farmCells.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 7; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
-    else if (tower.type === 'economyHouse' && MAPS[s.mapId].farmCells.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 8; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
+    if (tower.type === 'incomeFarm') { tower.incomeSignalsLeft = 5; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
+    else if (tower.type === 'incomeTax') { tower.incomeSignalsLeft = 7; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
+    else if (tower.type === 'economyHouse') { tower.incomeSignalsLeft = 8; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
   }
   s.spawnQueue = buildWave(s.wave)
   s.spawnTimer = 0
@@ -1431,7 +1486,7 @@ export function update(s: GameState, dt: number) {
     }
     if (t.type === 'skybreaker') {
       if (s.hover) {
-        const tx=s.hover.col*CELL+CELL/2,ty=s.hover.row*CELL+CELL/2
+        const tx=s.hover.x,ty=s.hover.y
         t.helicopterX+=(tx-t.helicopterX)*Math.min(1,dt*1.4)
         t.helicopterY+=(ty-t.helicopterY)*Math.min(1,dt*1.4)
       }
@@ -1538,7 +1593,7 @@ export function update(s: GameState, dt: number) {
       continue
     }
     if (t.type === 'incomeFarm' || t.type === 'incomeTax' || t.type === 'economyHouse') {
-      if (s.waveActive && MAPS[s.mapId].farmCells.has(`${t.col},${t.row}`) && t.incomeWave === s.wave && t.incomeSignalsLeft > 0 && t.cooldown <= 0) {
+      if (s.waveActive && t.incomeWave === s.wave && t.incomeSignalsLeft > 0 && t.cooldown <= 0) {
         const baseIncome = t.type === 'incomeFarm' ? 30 : t.type === 'incomeTax' ? 70 : 80
         const stationNearby = s.towers.some(other => other.type === 'electricalStation' && Math.hypot(other.x-t.x,other.y-t.y) <= TOWERS.electricalStation.range)
         s.money += Math.round(baseIncome * (stationNearby ? 1.5 : 1))
@@ -2933,18 +2988,19 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
 
   const selected = s.towers.find((t) => t.id === s.selectedId)
 
-  if (s.hover && s.buildType) {
-    const ok = isBuildable(s, s.hover.col, s.hover.row, s.buildType) && s.money >= TOWERS[s.buildType].cost
-    const hx = s.hover.col * CELL + CELL / 2
-    const hy = s.hover.row * CELL + CELL / 2
-    ctx.fillStyle = ok ? 'rgba(56,189,248,0.08)' : 'rgba(239,68,68,0.1)'
-    ctx.strokeStyle = ok ? 'rgba(56,189,248,0.5)' : 'rgba(239,68,68,0.5)'
-    ctx.beginPath()
-    ctx.arc(hx, hy, TOWERS[s.buildType].range, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.stroke()
-    ctx.globalAlpha = 0.55
-    drawTower(ctx, s.buildType, hx, hy, -Math.PI / 2)
+  const placement = s.pendingPlacement ?? (s.hover && s.buildType ? { type: s.buildType, x: s.hover.x, y: s.hover.y, free: false } : null)
+  if (placement) {
+    const ok = isBuildableAt(s, placement.x, placement.y, placement.type) &&
+      (placement.free || s.money >= TOWERS[placement.type].cost)
+    const radius = getTowerCoverageRange(placement.type)
+    ctx.fillStyle = ok ? 'rgba(34,197,94,0.10)' : 'rgba(239,68,68,0.12)'
+    ctx.strokeStyle = ok ? 'rgba(34,197,94,0.75)' : 'rgba(239,68,68,0.8)'
+    ctx.lineWidth = 2
+    ctx.beginPath(); ctx.arc(placement.x, placement.y, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+    ctx.beginPath(); ctx.arc(placement.x, placement.y, getTowerFootprint(placement.type), 0, Math.PI * 2)
+    ctx.strokeStyle = ok ? '#4ade80' : '#fb7185'; ctx.lineWidth = 3; ctx.stroke()
+    ctx.globalAlpha = 0.72
+    drawTower(ctx, placement.type, placement.x, placement.y, -Math.PI / 2)
     ctx.globalAlpha = 1
   }
 
@@ -2952,7 +3008,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
     ctx.fillStyle = 'rgba(56,189,248,0.07)'
     ctx.strokeStyle = 'rgba(56,189,248,0.5)'
     ctx.beginPath()
-    ctx.arc(selected.x, selected.y, TOWERS[selected.type].range, 0, Math.PI * 2)
+    ctx.arc(selected.x, selected.y, getTowerCoverageRange(selected.type), 0, Math.PI * 2)
     ctx.fill()
     ctx.stroke()
   }
