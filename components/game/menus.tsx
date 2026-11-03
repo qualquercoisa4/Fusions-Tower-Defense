@@ -56,10 +56,10 @@ const MAP_DIFFICULTY_GROUPS: {
   color: string
   maps: MapId[]
 }[] = [
-  { title: 'INICIANTE', subtitle: 'Aprenda o básico e prepare sua defesa.', color: '#4ade80', maps: ['original', 'meadow'] },
-  { title: 'INTERMEDIÁRIO', subtitle: 'Rotas mais exigentes e inimigos reforçados.', color: '#38bdf8', maps: ['frostline', 'emberCrossing'] },
-  { title: 'AVANÇADO', subtitle: 'Pouco espaço para erros. Planeje cada fusão.', color: '#f59e0b', maps: ['quarrySpiral', 'neonGauntlet'] },
-  { title: 'EXPERT', subtitle: 'Desafios extremos para defesas completas.', color: '#fb7185', maps: ['voidLabyrinth', 'infernoCircuit'] },
+  { title: 'INICIANTE', subtitle: 'Aprenda as rotas e construa sua economia.', color: '#4ade80', maps: ['original', 'meadow'] },
+  { title: 'INTERMEDIÁRIO', subtitle: 'Duas rotas exigem uma defesa mais distribuída.', color: '#38bdf8', maps: ['frostline', 'emberCrossing'] },
+  { title: 'AVANÇADO', subtitle: 'Percursos exigentes, terreno limitado e rotas separadas.', color: '#f59e0b', maps: ['quarrySpiral', 'neonGauntlet'] },
+  { title: 'EXPERT', subtitle: 'Desafios extremos com caminhos alternados.', color: '#fb7185', maps: ['voidLabyrinth', 'infernoCircuit'] },
 ]
 
 export function MapSelection({ onBack, onSelect }: { onBack: () => void; onSelect: (mapId: MapId) => void }) {
@@ -97,7 +97,7 @@ export function MapSelection({ onBack, onSelect }: { onBack: () => void; onSelec
                 const map = MAPS[mapId]
                 const hpIncrease = Math.round((map.hpMultiplier - 1) * 100)
                 const speedIncrease = Math.round((map.speedMultiplier - 1) * 100)
-                const points = map.path.map(point => `${point.x},${point.y}`).join(' ')
+                const routePoints = map.routes.map(route => route.path.map(point => `${point.x},${point.y}`).join(' '))
                 return (
                   <button
                     key={mapId}
@@ -112,11 +112,21 @@ export function MapSelection({ onBack, onSelect }: { onBack: () => void; onSelec
                           const [col, row] = cell.split(',').map(Number)
                           return <g key={cell}><rect x={col * 48 + 2} y={row * 48 + 2} width="44" height="44" rx="5" fill="#020617" fillOpacity="0.78" stroke={map.colors.accent} strokeOpacity="0.28" /><path d={`M ${col * 48 + 10} ${row * 48 + 34} l 10 -22 14 19 z`} fill={map.colors.accent} fillOpacity="0.16" /></g>
                         })}
-                        <polyline points={points} fill="none" stroke={map.colors.accent} strokeOpacity="0.24" strokeWidth="78" strokeLinecap="round" strokeLinejoin="round" />
-                        <polyline points={points} fill="none" stroke={map.colors.path} strokeWidth="58" strokeLinecap="round" strokeLinejoin="round" />
-                        <polyline points={points} fill="none" stroke={map.colors.accent} strokeOpacity="0.95" strokeWidth="3" strokeDasharray="12 15" strokeLinecap="round" strokeLinejoin="round" />
-                        <circle cx={map.path[0].x} cy={map.path[0].y} r="13" fill="#4ade80" stroke="#dcfce7" strokeWidth="4" />
-                        <circle cx={map.path[map.path.length - 1].x} cy={map.path[map.path.length - 1].y} r="13" fill="#fb7185" stroke="#ffe4e6" strokeWidth="4" />
+                        {map.routes.map((route, routeIndex) => {
+                          const points = routePoints[routeIndex]
+                          const start = route.path[0], finish = route.path[route.path.length - 1]
+                          return <g key={routeIndex}>
+                            <polyline points={points} fill="none" stroke={map.colors.accent} strokeOpacity="0.24" strokeWidth="78" strokeLinecap="round" strokeLinejoin="round" />
+                            <polyline points={points} fill="none" stroke={map.colors.path} strokeWidth="58" strokeLinecap="round" strokeLinejoin="round" />
+                            <polyline points={points} fill="none" stroke={map.colors.accent} strokeOpacity="0.95" strokeWidth="3" strokeDasharray="12 15" strokeLinecap="round" strokeLinejoin="round" />
+                            <circle cx={start.x} cy={start.y} r="13" fill="#0ea5e9" stroke="#e0f2fe" strokeWidth="4" />
+                            <circle cx={finish.x} cy={finish.y} r="13" fill="#ef4444" stroke="#fee2e2" strokeWidth="4" />
+                          </g>
+                        })}
+                        {Array.from(map.farmCells).map((cell) => {
+                          const [col, row] = cell.split(',').map(Number)
+                          return <g key={cell}><rect x={col * 48 + 5} y={row * 48 + 5} width="38" height="38" rx="7" fill={map.colors.farmFill} stroke={map.colors.farmStroke} strokeWidth="2" /><text x={col * 48 + 24} y={row * 48 + 28} fontSize="8" fontWeight="bold" textAnchor="middle" fill={map.colors.farmText}>{map.id === 'quarrySpiral' && cell === '15,5' ? 'BOAT' : 'FARM'}</text></g>
+                        })}
                       </svg>
                       <span className="absolute left-3 top-3 rounded-md border border-white/15 bg-black/45 px-2 py-1 text-[10px] font-bold tracking-widest text-white/90">75 ONDAS</span>
                       <span className="absolute bottom-3 right-3 rounded-md px-2 py-1 text-[10px] font-bold tracking-wider text-slate-950" style={{ backgroundColor: map.colors.accent }}>{map.difficulty.toUpperCase()}</span>
