@@ -6,16 +6,13 @@ import { BUILDABLE, CELL, ENEMIES, HEIGHT, MAPS, TARGET_MODES, TOWERS, TOWER_ELE
 import {
   createGame,
   fuseTowers,
-  placeTower,
   placeTowerAt,
   isBuildableAt,
-  getTowerCoverageRange,
   towerAtPoint,
   render,
   spawnDebugEnemy,
   sellTower,
   startWave,
-  towerAt,
   update,
   type GameState,
   getFusionCost,
@@ -169,6 +166,7 @@ export function GameScreen({ onExit, mapId }: { onExit: () => void; mapId: MapId
         return
       }
       s.pendingPlacement = null
+      if (isDebugPlacement && debugTowerType) s.buildType = debugTowerType
       s.placementDragging = true
       s.hover = point
       e.currentTarget.setPointerCapture(e.pointerId)
