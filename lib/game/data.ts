@@ -760,27 +760,42 @@ const MAP_COLORS = {
 } satisfies Record<MapId, GameMap['colors']>
 
 export const MAPS: Record<MapId, GameMap> = {
+  // O mapa original permanece exatamente com o percurso clássico.
   original: defineMap('original', 'Circuito Original', 'Iniciante', 'O percurso clássico do Fusion TD. Duas voltas conectadas e bastante espaço para posicionar torres.', 1, 1, MAP_COLORS.original, WAYPOINT_CELLS),
-  meadow: defineMap('meadow', 'Pradaria Verde', 'Iniciante', 'Curvas abertas e uma rota longa para aprender a combinar torres.', 1.04, 1.02, MAP_COLORS.meadow, [
-    [-1, 2], [4, 2], [4, 9], [8, 9], [8, 4], [13, 4], [13, 10], [18, 10],
+
+  // Pradaria: um S largo, com retornos alternados e áreas abertas.
+  meadow: defineMap('meadow', 'Pradaria Verde', 'Iniciante', 'Um percurso amplo em formato de S, com retornos longos e bastante espaço para posicionar torres.', 1.04, 1.02, MAP_COLORS.meadow, [
+    [-1, 2], [3, 2], [3, 5], [7, 5], [7, 1], [11, 1], [11, 6], [15, 6], [15, 9], [18, 9],
   ]),
-  frostline: defineMap('frostline', 'Passagem Glacial', 'Intermediário', 'Uma rota sinuosa com mudanças de direção e menos posições seguras.', 1.12, 1.05, MAP_COLORS.frostline, [
-    [-1, 9], [3, 9], [3, 3], [6, 3], [6, 7], [10, 7], [10, 2], [14, 2], [14, 9], [18, 9],
+
+  // Geleira: duas grandes alças conectadas por um corredor central.
+  frostline: defineMap('frostline', 'Passagem Glacial', 'Intermediário', 'Duas alças estreitas conectadas por um corredor central. O caminho passa perto de si mesmo e exige cobertura planejada.', 1.12, 1.05, MAP_COLORS.frostline, [
+    [-1, 8], [2, 8], [2, 3], [5, 3], [5, 9], [9, 9], [9, 2], [13, 2], [13, 7], [16, 7], [16, 4], [18, 4],
   ]),
-  emberCrossing: defineMap('emberCrossing', 'Travessia das Brasas', 'Intermediário', 'Trechos longos alternados com curvas fechadas. Os inimigos chegam um pouco mais fortes.', 1.16, 1.07, MAP_COLORS.emberCrossing, [
-    [-1, 4], [4, 4], [4, 10], [8, 10], [8, 2], [12, 2], [12, 7], [15, 7], [15, 4], [18, 4],
+
+  // Brasas: uma sequência de degraus altos e baixos, quase como uma onda quadrada.
+  emberCrossing: defineMap('emberCrossing', 'Travessia das Brasas', 'Intermediário', 'Uma travessia em degraus: o caminho alterna entre vales profundos e corredores elevados, com curvas fechadas.', 1.16, 1.07, MAP_COLORS.emberCrossing, [
+    [-1, 3], [2, 3], [2, 9], [6, 9], [6, 4], [9, 4], [9, 10], [13, 10], [13, 2], [16, 2], [16, 6], [18, 6],
   ]),
-  quarrySpiral: defineMap('quarrySpiral', 'Espiral da Pedreira', 'Avançado', 'Várias curvas próximas exigem cobertura eficiente e torres de longo alcance.', 1.3, 1.1, MAP_COLORS.quarrySpiral, [
-    [-1, 8], [2, 8], [2, 3], [5, 3], [5, 6], [9, 6], [9, 2], [13, 2], [13, 9], [16, 9], [16, 5], [18, 5],
+
+  // Pedreira: espiral aberta que se fecha no centro e sai pela parte inferior.
+  quarrySpiral: defineMap('quarrySpiral', 'Espiral da Pedreira', 'Avançado', 'Uma espiral quadrada que conduz os inimigos para dentro antes de lançá-los por um corredor inferior.', 1.3, 1.1, MAP_COLORS.quarrySpiral, [
+    [-1, 6], [2, 6], [2, 2], [14, 2], [14, 9], [5, 9], [5, 5], [12, 5], [12, 7], [9, 7], [9, 10], [18, 10],
   ]),
-  neonGauntlet: defineMap('neonGauntlet', 'Circuito Neon', 'Avançado', 'Um trajeto compacto com mudanças rápidas de direção e inimigos mais velozes.', 1.36, 1.12, MAP_COLORS.neonGauntlet, [
-    [-1, 3], [3, 3], [3, 8], [7, 8], [7, 4], [11, 4], [11, 9], [15, 9], [15, 2], [18, 2],
+
+  // Neon: rota angular diagonal, com picos e vales em sequência.
+  neonGauntlet: defineMap('neonGauntlet', 'Circuito Neon', 'Avançado', 'Um traçado agressivo em zigue-zague diagonal, com mudanças bruscas de direção e corredores expostos.', 1.36, 1.12, MAP_COLORS.neonGauntlet, [
+    [-1, 9], [2, 9], [4, 6], [7, 9], [10, 5], [13, 8], [16, 4], [18, 6],
   ]),
-  voidLabyrinth: defineMap('voidLabyrinth', 'Labirinto do Vazio', 'Expert', 'Um labirinto apertado, com pouco tempo de reação e inimigos extremamente resistentes.', 1.52, 1.15, MAP_COLORS.voidLabyrinth, [
-    [-1, 6], [2, 6], [2, 2], [5, 2], [5, 9], [8, 9], [8, 3], [12, 3], [12, 8], [15, 8], [15, 5], [18, 5],
+
+  // Vazio: labirinto concêntrico com uma entrada longa e saída pelo lado oposto.
+  voidLabyrinth: defineMap('voidLabyrinth', 'Labirinto do Vazio', 'Expert', 'Um labirinto de corredores concêntricos e curvas próximas. O percurso se enrola sobre si mesmo sem se cruzar.', 1.52, 1.15, MAP_COLORS.voidLabyrinth, [
+    [-1, 10], [3, 10], [3, 3], [14, 3], [14, 8], [6, 8], [6, 5], [11, 5], [11, 6], [9, 6], [9, 10], [18, 10],
   ]),
-  infernoCircuit: defineMap('infernoCircuit', 'Circuito do Inferno', 'Expert', 'O desafio máximo: rota curta, curvas consecutivas e os maiores multiplicadores de dificuldade.', 1.62, 1.18, MAP_COLORS.infernoCircuit, [
-    [-1, 10], [2, 10], [2, 4], [6, 4], [6, 8], [10, 8], [10, 2], [14, 2], [14, 6], [17, 6], [17, 3], [18, 3],
+
+  // Inferno: serpentina compacta com um corredor central longo e retornos alternados.
+  infernoCircuit: defineMap('infernoCircuit', 'Circuito do Inferno', 'Expert', 'Uma serpentina compacta com retornos alternados, corredores estreitos e pouco espaço para reagir.', 1.62, 1.18, MAP_COLORS.infernoCircuit, [
+    [-1, 2], [2, 2], [2, 6], [5, 6], [5, 1], [8, 1], [8, 9], [11, 9], [11, 3], [14, 3], [14, 8], [17, 8], [17, 5], [18, 5],
   ]),
 }
 
