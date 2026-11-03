@@ -461,7 +461,7 @@ function distanceToMapPath(map: GameMap, x: number, y: number) {
 }
 
 export function getTowerFootprint(type: TowerType) {
-  return isIncomeTower(type) ? 27 : 19
+  return isIncomeTower(type) ? 38 : 19
 }
 
 export function getTowerCoverageRange(type: TowerType) {
@@ -2623,6 +2623,8 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
   const tier = def.tier
   ctx.save()
   ctx.translate(x, y)
+  // Torres econômicas ocupam uma área 2x2: quatro vezes a área de uma torre comum.
+  if (isIncomeTower(type)) ctx.scale(2, 2)
 
   // Cada tier usa uma plataforma diferente, em vez de repetir o mesmo quadrado.
   ctx.shadowColor = def.color
@@ -2964,17 +2966,24 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   ctx.fillStyle = map.colors.background
   ctx.fillRect(0, 0, WIDTH, HEIGHT)
 
-  // Os seis mapas de referência usam campos de cor chapada, sem grade por cima.
-  if (map.id === 'original' || map.id === 'infernoCircuit') {
-    ctx.strokeStyle = map.colors.grid
-    ctx.lineWidth = 1
-    for (let c = 0; c <= COLS; c++) {
-      ctx.beginPath(); ctx.moveTo(c * CELL, 0); ctx.lineTo(c * CELL, HEIGHT); ctx.stroke()
-    }
-    for (let r = 0; r <= ROWS; r++) {
-      ctx.beginPath(); ctx.moveTo(0, r * CELL); ctx.lineTo(WIDTH, r * CELL); ctx.stroke()
-    }
+  const shade = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT)
+  shade.addColorStop(0, 'rgba(255,255,255,0.055)')
+  shade.addColorStop(0.55, 'rgba(0,0,0,0.015)')
+  shade.addColorStop(1, 'rgba(0,0,0,0.16)')
+  ctx.fillStyle = shade
+  ctx.fillRect(0, 0, WIDTH, HEIGHT)
+
+  // Grade fina, discreta e tingida pela paleta de cada bioma.
+  ctx.save()
+  ctx.strokeStyle = map.colors.grid
+  ctx.lineWidth = 1
+  for (let c = 0; c <= COLS; c++) {
+    ctx.beginPath(); ctx.moveTo(c * CELL, 0); ctx.lineTo(c * CELL, HEIGHT); ctx.stroke()
   }
+  for (let r = 0; r <= ROWS; r++) {
+    ctx.beginPath(); ctx.moveTo(0, r * CELL); ctx.lineTo(WIDTH, r * CELL); ctx.stroke()
+  }
+  ctx.restore()
 
   // Terrenos são polígonos traçados diretamente sobre as áreas das referências.
   for (const patch of map.terrainPatches) {
@@ -3011,27 +3020,56 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   ctx.lineCap = 'round'
   for (const route of map.routes) {
     if (map.sandOnly) {
-      // Banco de areia largo em torno do caminho verde; a água continua bloqueada.
-      ctx.strokeStyle = '#f6ff93'
-      ctx.lineWidth = 220
+      ctx.strokeStyle = '#e8c98e'
+      ctx.lineWidth = map.pathWidth + 34
       tracePath(ctx, route.path); ctx.stroke()
-      ctx.strokeStyle = '#66ff4b'
+      ctx.strokeStyle = '#b98b55'
+      ctx.lineWidth = map.pathWidth + 10
+      tracePath(ctx, route.path); ctx.stroke()
+      ctx.strokeStyle = '#65bd49'
       ctx.lineWidth = map.pathWidth
       tracePath(ctx, route.path); ctx.stroke()
+      ctx.strokeStyle = 'rgba(220,255,160,0.55)'
+      ctx.lineWidth = 3
+      tracePath(ctx, route.path); ctx.stroke()
     } else {
+      // Ombra, borda, asfalto/terra e brilho interno formam uma estrada legível.
+      ctx.strokeStyle = 'rgba(22,28,20,0.34)'
+      ctx.lineWidth = map.pathWidth + 16
+      tracePath(ctx, route.path); ctx.stroke()
       ctx.strokeStyle = map.colors.pathGlow
-      ctx.lineWidth = map.pathWidth + 8
+      ctx.lineWidth = map.pathWidth + 9
       tracePath(ctx, route.path); ctx.stroke()
       ctx.strokeStyle = map.colors.path
       ctx.lineWidth = map.pathWidth
       tracePath(ctx, route.path); ctx.stroke()
+      ctx.strokeStyle = 'rgba(255,245,220,0.16)'
+      ctx.lineWidth = Math.max(3, map.pathWidth * 0.72)
+      tracePath(ctx, route.path); ctx.stroke()
+      ctx.save()
+      ctx.strokeStyle = map.colors.pathDash
+      ctx.lineWidth = 2.2
+      ctx.setLineDash([11, 13])
+      ctx.lineDashOffset = -s.time * 7
+      tracePath(ctx, route.path); ctx.stroke()
+      ctx.setLineDash([])
+      ctx.restore()
     }
     const start = route.path[0], finish = route.path[route.path.length - 1]
-    const markerRadius = 25
-    ctx.fillStyle = '#00cfff'; ctx.strokeStyle = '#e0f2fe'; ctx.lineWidth = 3
-    ctx.beginPath(); ctx.arc(start.x, start.y, markerRadius, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
-    ctx.fillStyle = '#ef0800'; ctx.strokeStyle = '#fee2e2'
-    ctx.beginPath(); ctx.arc(finish.x, finish.y, markerRadius, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+    const markerRadius = 17
+    for (const marker of [{point:start,color:'#00cfff',stroke:'#d9f7ff'},{point:finish,color:'#ef4444',stroke:'#ffe1e1'}]) {
+      ctx.save()
+      ctx.shadowColor = marker.color; ctx.shadowBlur = 14
+      ctx.fillStyle = marker.color; ctx.strokeStyle = marker.stroke; ctx.lineWidth = 2.5
+      ctx.beginPath(); ctx.arc(marker.point.x, marker.point.y, markerRadius, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+      ctx.shadowBlur = 0; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3
+      ctx.beginPath()
+      ctx.moveTo(marker.point.x - 6, marker.point.y - 3)
+      ctx.lineTo(marker.point.x, marker.point.y + 3)
+      ctx.lineTo(marker.point.x + 6, marker.point.y - 3)
+      ctx.stroke()
+      ctx.restore()
+    }
   }
 
   for (const trap of s.electricTraps) {
@@ -3128,7 +3166,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
     if (selected && t.id === selected.id) {
       ctx.strokeStyle = '#e0f2fe'
       ctx.lineWidth = 2
-      ctx.strokeRect(t.x - 22, t.y - 22, 44, 44)
+      ctx.strokeRect(t.x - getTowerFootprint(t.type), t.y - getTowerFootprint(t.type), getTowerFootprint(t.type) * 2, getTowerFootprint(t.type) * 2)
     } else if (selected && s.fuseMode) {
       const ok = !!fusionResult(selected.type, t.type)
       const pulse = 0.5 + Math.sin(s.time * 8) * 0.3
