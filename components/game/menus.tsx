@@ -127,7 +127,7 @@ export function MapSelection({ onBack, onSelect }: { onBack: () => void; onSelec
                               { point: start, next: route.path[1], color: '#00bff3', stroke: '#b9f2ff' },
                               { point: finish, next: route.path[route.path.length - 2], color: '#ed3347', stroke: '#ffd5d9' }
                             ].map((marker, markerIndex) => {
-                              const angle = Math.atan2(marker.point.y - marker.next.y, marker.point.x - marker.next.x) * 180 / Math.PI
+                              const angle = Math.atan2((markerIndex === 0 ? marker.next.y - marker.point.y : marker.point.y - marker.next.y), (markerIndex === 0 ? marker.next.x - marker.point.x : marker.point.x - marker.next.x)) * 180 / Math.PI
                               return <g key={markerIndex} transform={`translate(${marker.point.x} ${marker.point.y}) rotate(${angle})`}>
                                 <rect x="-22" y="-15" width="44" height="30" rx="8" fill={marker.color} stroke={marker.stroke} strokeWidth="3" />
                                 <path d="M -8 -7 L 0 0 L -8 7 M 3 -7 L 11 0 L 3 7" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
