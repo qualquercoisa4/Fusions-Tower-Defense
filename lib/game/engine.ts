@@ -266,7 +266,7 @@ interface ElectricTrap {
   x: number; y: number; radius: number; t: number; duration: number; tickTimer: number; damage: number
 }
 interface PortalPair {
-  blueDistance: number; purpleDistance: number; t: number; duration: number; usedEnemyIds: number[]; remainingHp: number
+  blueDistance: number; purpleDistance: number; routeIndex: number; t: number; duration: number; usedEnemyIds: number[]; remainingHp: number
 }
 interface PlasmaBeam {
   x1: number
@@ -577,8 +577,8 @@ export function startWave(s: GameState) {
   s.waveActive = true
   for (const tower of s.towers) {
     if (tower.type === 'incomeFarm' && MAPS[s.mapId].farmCells.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 5; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
-    else if (tower.type === 'incomeTax' && FARM_CELLS.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 7; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
-    else if (tower.type === 'economyHouse' && FARM_CELLS.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 8; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
+    else if (tower.type === 'incomeTax' && MAPS[s.mapId].farmCells.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 7; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
+    else if (tower.type === 'economyHouse' && MAPS[s.mapId].farmCells.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 8; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
   }
   s.spawnQueue = buildWave(s.wave)
   s.spawnTimer = 0
@@ -842,10 +842,11 @@ function placeEnemyOnPath(s: GameState, enemy: Enemy, distance: number) {
   const point = pointOnPath(s, clamped, enemy.routeIndex)
   enemy.dist = clamped; enemy.x = point.x; enemy.y = point.y; enemy.wp = pathWaypointIndex(s, clamped, enemy.routeIndex)
 }
-function projectToPath(s: GameState, x: number, y: number) {
+function projectToPath(s: GameState, x: number, y: number, preferredRouteIndex?: number) {
   const routes = MAPS[s.mapId].routes
   let best = { distance: 0, x: routes[0].path[0].x, y: routes[0].path[0].y, error: Infinity, routeIndex: 0 }
-  for (let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
+  const routeIndices = preferredRouteIndex == null ? routes.map((_, index) => index) : [preferredRouteIndex]
+  for (const routeIndex of routeIndices) {
     const { path, pathLengths: lengths } = routes[routeIndex]
     for (let i = 1; i < path.length; i++) {
     const a = path[i - 1], b = path[i], dx = b.x - a.x, dy = b.y - a.y
@@ -860,18 +861,18 @@ function projectToPath(s: GameState, x: number, y: number) {
 function findReversePathTarget(s: GameState, t: Tower, range: number) {
   const projection = projectToPath(s, t.x, t.y)
   if (projection.error > range) return null
-  return s.enemies.filter(e => e.alive && canTowerTargetEnemy(e, t.type, s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && Math.hypot(other.x - t.x, other.y - t.y) <= TOWERS.commsCenter.range)) && e.dist <= projection.distance + 4)
+  return s.enemies.filter(e => e.alive && e.routeIndex === projection.routeIndex && canTowerTargetEnemy(e, t.type, s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && Math.hypot(other.x - t.x, other.y - t.y) <= TOWERS.commsCenter.range)) && e.dist <= projection.distance + 4)
     .sort((a, b) => b.dist - a.dist)[0] ?? null
 }
 function launchPathBoulder(s: GameState, t: Tower, def = TOWERS[t.type]) {
   const projection = projectToPath(s, t.x, t.y)
-  const point = pointOnPath(s, projection.distance)
-  const towardStart = pointOnPath(s, Math.max(0, projection.distance - 3))
+  const point = pointOnPath(s, projection.distance, projection.routeIndex)
+  const towardStart = pointOnPath(s, Math.max(0, projection.distance - 3), projection.routeIndex)
   const angle = Math.atan2(towardStart.y - point.y, towardStart.x - point.x)
   const rock = t.type === 'rockLauncher', pebble = t.type === 'pebblesLauncher', giant = t.type === 'boulderCannon'
   s.projectiles.push({
     kind: 'boulder', x: point.x, y: point.y, dirX: Math.cos(angle), dirY: Math.sin(angle),
-    traveled: 0, pathDistance: projection.distance, maxDistance: projection.distance + 20,
+    traveled: 0, pathDistance: projection.distance, routeIndex: projection.routeIndex, maxDistance: projection.distance + 20,
     speed: def.projectileSpeed, damage: def.damage, damageDecay: rock || pebble ? 10 : 20,
     sizeDecay: rock ? 0.38 : pebble ? 0.55 : 0.82, hitLimit: rock ? 13 : pebble ? 10 : giant ? 1 : 10, hitIds: [],
     color: def.color, size: giant ? 17 : rock ? 7 : pebble ? 5 : 12, shatterOnHit: giant,
@@ -953,11 +954,11 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
     return
   }
   if (t.type === 'snowballLauncher') {
-    const projection = projectToPath(s, t.x, t.y), point = pointOnPath(s, projection.distance)
-    const towardStart = pointOnPath(s, Math.max(0, projection.distance - 3))
+    const projection = projectToPath(s, t.x, t.y), point = pointOnPath(s, projection.distance, projection.routeIndex)
+    const towardStart = pointOnPath(s, Math.max(0, projection.distance - 3), projection.routeIndex)
     const angle = Math.atan2(towardStart.y - point.y, towardStart.x - point.x)
     s.projectiles.push({ kind: 'snowball', x: point.x, y: point.y, dirX: Math.cos(angle), dirY: Math.sin(angle),
-      traveled: 0, pathDistance: projection.distance, speed: def.projectileSpeed, damage: def.damage,
+      traveled: 0, pathDistance: projection.distance, routeIndex: projection.routeIndex, speed: def.projectileSpeed, damage: def.damage,
       splash: def.splash, carriedIds: [], carrierId: s.nextId++, color: def.color, size: 12,
       sourceType: t.type, sourceTowerId: t.id })
     return
@@ -972,8 +973,8 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
     const total = (MAPS[s.mapId].routes[e.routeIndex] ?? MAPS[s.mapId].routes[0]).pathLengths.slice(-1)[0]
     const blueDistance = Math.max(160, Math.min(total - 80, target.dist + 20))
     const purpleDistance = blueDistance - 160
-    s.portalPairs.push({ blueDistance, purpleDistance, t: 0, duration: 2, usedEnemyIds: [], remainingHp: 2000 })
-    const blue = pointOnPath(s, blueDistance), purple = pointOnPath(s, purpleDistance)
+    s.portalPairs.push({ blueDistance, purpleDistance, routeIndex: target.routeIndex, t: 0, duration: 2, usedEnemyIds: [], remainingHp: 2000 })
+    const blue = pointOnPath(s, blueDistance, target.routeIndex), purple = pointOnPath(s, purpleDistance, target.routeIndex)
     s.explosions.push({ x: blue.x, y: blue.y, r: 25, t: 0, dur: 0.45, color: '#38bdf8' })
     s.explosions.push({ x: purple.x, y: purple.y, r: 25, t: 0, dur: 0.45, color: '#c084fc' })
     return
@@ -2080,7 +2081,7 @@ export function update(s: GameState, dt: number) {
     if (p.kind === 'snowball') {
       const old = { x: p.x, y: p.y }
       const nextDistance = Math.max(0, p.pathDistance - p.speed * dt)
-      const next = pointOnPath(s, nextDistance)
+      const next = pointOnPath(s, nextDistance, p.routeIndex ?? 0)
       p.traveled += p.pathDistance - nextDistance; p.pathDistance = nextDistance
       p.x = next.x; p.y = next.y
       for (let i = 0; i < p.carriedIds.length; i++) {
@@ -2121,7 +2122,7 @@ export function update(s: GameState, dt: number) {
     if (p.kind === 'boulder') {
       const old = { x: p.x, y: p.y }
       const nextDistance = Math.max(0, p.pathDistance - p.speed * dt)
-      const next = pointOnPath(s, nextDistance)
+      const next = pointOnPath(s, nextDistance, p.routeIndex ?? 0)
       p.traveled += p.pathDistance - nextDistance
       p.pathDistance = nextDistance
       p.x = next.x; p.y = next.y
@@ -2851,22 +2852,29 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 
   ctx.lineJoin = 'round'
-  ctx.lineCap = 'square'
-  ctx.strokeStyle = map.colors.pathGlow
-  ctx.lineWidth = CELL + 4
-  tracePath(ctx, map.path)
-  ctx.stroke()
-  ctx.strokeStyle = map.colors.path
-  ctx.lineWidth = CELL - 4
-  tracePath(ctx, map.path)
-  ctx.stroke()
-  ctx.setLineDash([6, 10])
-  ctx.lineDashOffset = -s.time * 20
-  ctx.strokeStyle = map.colors.pathDash
-  ctx.lineWidth = 2
-  tracePath(ctx, map.path)
-  ctx.stroke()
-  ctx.setLineDash([])
+  ctx.lineCap = 'round'
+  for (const route of map.routes) {
+    ctx.strokeStyle = map.colors.pathGlow
+    ctx.lineWidth = CELL + 7
+    tracePath(ctx, route.path)
+    ctx.stroke()
+    ctx.strokeStyle = map.colors.path
+    ctx.lineWidth = CELL - 5
+    tracePath(ctx, route.path)
+    ctx.stroke()
+    ctx.setLineDash([6, 10])
+    ctx.lineDashOffset = -s.time * 20
+    ctx.strokeStyle = map.colors.pathDash
+    ctx.lineWidth = 2
+    tracePath(ctx, route.path)
+    ctx.stroke()
+    ctx.setLineDash([])
+    const start = route.path[0], finish = route.path[route.path.length - 1]
+    ctx.fillStyle = '#0ea5e9'; ctx.strokeStyle = '#e0f2fe'; ctx.lineWidth = 3
+    ctx.beginPath(); ctx.arc(start.x, start.y, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+    ctx.fillStyle = '#ef4444'; ctx.strokeStyle = '#fee2e2'
+    ctx.beginPath(); ctx.arc(finish.x, finish.y, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+  }
 
   for (const trap of s.electricTraps) {
     const pulse = 0.78 + Math.sin(s.time * 14) * 0.12
@@ -2879,7 +2887,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 
   for (const pair of s.portalPairs) {
-    const blue = pointOnPath(s, pair.blueDistance), purple = pointOnPath(s, pair.purpleDistance)
+    const blue = pointOnPath(s, pair.blueDistance, pair.routeIndex), purple = pointOnPath(s, pair.purpleDistance, pair.routeIndex)
     const fade = Math.max(0.25, 1 - pair.t / pair.duration)
     for (const item of [{ point: blue, color: '#38bdf8', rotation: s.time * 2 }, { point: purple, color: '#c084fc', rotation: -s.time * 2 }]) {
       ctx.save(); ctx.globalAlpha = fade; ctx.translate(item.point.x, item.point.y); ctx.rotate(item.rotation)
