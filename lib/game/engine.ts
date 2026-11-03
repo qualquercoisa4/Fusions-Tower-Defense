@@ -4,7 +4,6 @@ import {
   ENEMIES,
   HEIGHT,
   MAPS,
-  FARM_CELLS,
   ROWS,
   TOWERS,
   TOWER_ELEMENTS,
