@@ -832,22 +832,22 @@ export const MAPS: Record<MapId, GameMap> = {
 
   // Pedreira: espiral aberta que se fecha no centro e sai pela parte inferior.
   quarrySpiral: defineMap('quarrySpiral', 'Espiral da Pedreira', 'Avançado', 'Uma espiral quadrada que conduz os inimigos para dentro antes de lançá-los por um corredor inferior.', 1.3, 1.1, MAP_COLORS.quarrySpiral, [
-    [-1, 6], [2, 6], [2, 2], [14, 2], [14, 9], [5, 9], [5, 5], [12, 5], [12, 7], [9, 7], [9, 10], [18, 10],
+    [-1, 6], [2, 6], [2, 2], [5, 2], [5, 5], [3, 5], [3, 8], [7, 8], [7, 5], [10, 5], [10, 9], [18, 9],
   ]),
 
   // Neon: rota angular diagonal, com picos e vales em sequência.
   neonGauntlet: defineMap('neonGauntlet', 'Circuito Neon', 'Avançado', 'Um percurso em forma de raio, com alternância brusca entre corredores curtos e longos.', 1.36, 1.12, MAP_COLORS.neonGauntlet, [
-    [-1, 5], [2, 5], [2, 2], [5, 2], [5, 10], [8, 10], [8, 4], [11, 4], [11, 9], [14, 9], [14, 1], [17, 1], [17, 6], [18, 6],
+    [-1, 5], [2, 5], [2, 2], [5, 2], [5, 6], [8, 6], [8, 3], [11, 3], [11, 7], [14, 7], [14, 4], [18, 4],
   ]),
 
   // Vazio: labirinto concêntrico com uma entrada longa e saída pelo lado oposto.
   voidLabyrinth: defineMap('voidLabyrinth', 'Labirinto do Vazio', 'Expert', 'Um labirinto de corredores concêntricos e curvas próximas. O percurso se enrola sobre si mesmo sem se cruzar.', 1.52, 1.15, MAP_COLORS.voidLabyrinth, [
-    [-1, 10], [3, 10], [3, 3], [14, 3], [14, 8], [6, 8], [6, 5], [11, 5], [11, 6], [9, 6], [9, 10], [18, 10],
+    [-1, 10], [2, 10], [2, 7], [5, 7], [5, 4], [8, 4], [8, 7], [11, 7], [11, 10], [14, 10], [14, 6], [18, 6],
   ]),
 
   // Inferno: serpentina compacta com um corredor central longo e retornos alternados.
   infernoCircuit: defineMap('infernoCircuit', 'Circuito do Inferno', 'Expert', 'Uma serpentina compacta com retornos alternados, corredores estreitos e pouco espaço para reagir.', 1.62, 1.18, MAP_COLORS.infernoCircuit, [
-    [-1, 2], [2, 2], [2, 6], [5, 6], [5, 1], [8, 1], [8, 9], [11, 9], [11, 3], [14, 3], [14, 8], [17, 8], [17, 5], [18, 5],
+    [-1, 2], [2, 2], [2, 5], [5, 5], [5, 2], [8, 2], [8, 6], [11, 6], [11, 3], [14, 3], [14, 6], [18, 6],
   ]),
 }
 
