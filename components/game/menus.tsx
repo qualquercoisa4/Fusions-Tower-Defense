@@ -59,7 +59,7 @@ const MAP_DIFFICULTY_GROUPS: {
   { title: 'INICIANTE', subtitle: 'Aprenda as rotas e construa sua economia.', color: '#4ade80', maps: ['original', 'meadow'] },
   { title: 'INTERMEDIÁRIO', subtitle: 'Duas rotas exigem uma defesa mais distribuída.', color: '#38bdf8', maps: ['frostline', 'emberCrossing'] },
   { title: 'AVANÇADO', subtitle: 'Percursos exigentes, terreno limitado e curvas fechadas.', color: '#f59e0b', maps: ['quarrySpiral', 'voidLabyrinth'] },
-  { title: 'EXPERT', subtitle: 'Múltiplas pistas e rotas alternadas.', color: '#fb7185', maps: ['neonGauntlet', 'infernoCircuit'] },
+  { title: 'EXPERT', subtitle: 'Pistas separadas, obstáculos e poucas posições de cobertura.', color: '#fb7185', maps: ['neonGauntlet', 'infernoCircuit'] },
 ]
 
 export function MapSelection({ onBack, onSelect }: { onBack: () => void; onSelect: (mapId: MapId) => void }) {
