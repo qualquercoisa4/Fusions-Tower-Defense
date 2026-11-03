@@ -862,13 +862,13 @@ const MAP_COLORS = {
 
 const ARENA_COLORS: Record<MapId, GameMap['colors']> = {
   original: MAP_COLORS.original,
-  meadow: { background:'#e7b653',grid:'transparent',pathGlow:'#743d2b',path:'#8e4c32',pathDash:'#c77b43',farmFill:'#e9b85d',farmStroke:'#f6d38b',farmText:'#56351f',preview:'#e7b653',accent:'#9a5536' },
-  frostline: { background:'#397a35',grid:'transparent',pathGlow:'#9c5b25',path:'#eaa84c',pathDash:'#ffe0a1',farmFill:'#2c7435',farmStroke:'#9bce69',farmText:'#f4f8d9',preview:'#397a35',accent:'#eaa84c' },
-  emberCrossing: { background:'#42494c',grid:'transparent',pathGlow:'#a75e26',path:'#f4b34f',pathDash:'#ffe0a1',farmFill:'#58635c',farmStroke:'#8b9b8d',farmText:'#edf5e8',preview:'#42494c',accent:'#f4b34f' },
-  quarrySpiral: { background:'#079db5',grid:'transparent',pathGlow:'#f6e5a6',path:'#62bd43',pathDash:'#b9e66d',farmFill:'#f6e5a6',farmStroke:'#fff1c7',farmText:'#385e31',preview:'#079db5',accent:'#62bd43' },
-  neonGauntlet: { background:'#d8b64b',grid:'transparent',pathGlow:'#f7e4ac',path:'#f5e2a5',pathDash:'#fff4d4',farmFill:'#a9a49b',farmStroke:'#ded8c9',farmText:'#333',preview:'#d8b64b',accent:'#f5e2a5' },
-  voidLabyrinth: { background:'#ed6514',grid:'transparent',pathGlow:'#ffb52e',path:'#552c25',pathDash:'#ff8b1a',farmFill:'#51403b',farmStroke:'#aa7760',farmText:'#fff0cf',preview:'#ed6514',accent:'#ffb52e' },
-  infernoCircuit: MAP_COLORS.original,
+  meadow: { background:'#173d2b',grid:'rgba(143,205,151,0.10)',pathGlow:'#503d2c',path:'#d9bd91',pathDash:'#fff1d1',farmFill:'#205c3b',farmStroke:'#53d77a',farmText:'#e5ffe9',preview:'#173d2b',accent:'#55c979' },
+  frostline: { background:'#174a36',grid:'rgba(120,220,170,0.10)',pathGlow:'#51432e',path:'#d8bd98',pathDash:'#fff0d5',farmFill:'#1b6043',farmStroke:'#63d9a1',farmText:'#e8fff4',preview:'#174a36',accent:'#65d6a0' },
+  emberCrossing: { background:'#555b5d',grid:'rgba(230,235,232,0.10)',pathGlow:'#765039',path:'#e8c99e',pathDash:'#fff0d2',farmFill:'#626a6c',farmStroke:'#b4c2c4',farmText:'#f1f5f5',preview:'#555b5d',accent:'#d6a96d' },
+  quarrySpiral: { background:'#153d32',grid:'rgba(135,210,174,0.10)',pathGlow:'#544431',path:'#ddc49d',pathDash:'#fff0d7',farmFill:'#1d5942',farmStroke:'#66d69a',farmText:'#e8fff1',preview:'#153d32',accent:'#62cf91' },
+  neonGauntlet: { background:'#e96b19',grid:'rgba(255,226,155,0.13)',pathGlow:'#f7a42a',path:'#612d22',pathDash:'#f08a32',farmFill:'#8e3d20',farmStroke:'#ffbd56',farmText:'#fff1d0',preview:'#e96b19',accent:'#ffb13e' },
+  voidLabyrinth: { background:'#d9b45b',grid:'rgba(255,248,218,0.16)',pathGlow:'#68432f',path:'#895036',pathDash:'#d99a61',farmFill:'#b28b4b',farmStroke:'#f0d28d',farmText:'#fff4d7',preview:'#d9b45b',accent:'#a56b3d' },
+  infernoCircuit: { background:'#078fa6',grid:'rgba(181,244,247,0.15)',pathGlow:'#d9c58a',path:'#e8d89f',pathDash:'#fff4d1',farmFill:'#086d7b',farmStroke:'#7edfe4',farmText:'#e9ffff',preview:'#078fa6',accent:'#b5e6a1' },
 }
 export const MAPS: Record<MapId, GameMap> = {
   original: defineMap('original','Circuito Original','Iniciante','O percurso clássico original, preservado.',1,1,ARENA_COLORS.original,WAYPOINT_CELLS,{
@@ -897,7 +897,7 @@ export const MAPS: Record<MapId, GameMap> = {
       ]}),
 
   // Referência 3: espiral ampla, afunilando até o centro e saindo pela parte inferior.
-  emberCrossing: defineMap('emberCrossing','Espiral Central','Avançado','A pista contorna a arena em uma espiral que termina em uma saída central.',1.28,1.1,ARENA_COLORS.emberCrossing,
+  emberCrossing: defineMap('emberCrossing','Espiral Central','Intermediário','A pista contorna a arena em uma espiral que termina em uma saída central.',1.2,1.08,ARENA_COLORS.emberCrossing,
     [[128,-8],[128,22],[146,24],[169,36],[185,56],[193,81],[189,108],[175,132],[151,149],[123,155],[94,148],[72,131],[58,107],[55,80],[65,54],[84,35],[108,25],[134,27],[157,40],[171,60],[177,84],[171,108],[155,127],[132,138],[108,135],[89,121],[79,100],[81,79],[94,61],[112,53],[132,56],[148,69],[156,88],[151,106],[137,119],[119,121],[103,110],[98,93],[105,77],[119,70],[134,75],[142,88],[139,102],[128,111],[116,107],[111,95],[117,84],[128,82],[135,90],[134,100],[126,105],[119,99],[121,91],[128,89],[133,95],[131,101],[126,103],[126,121],[126,145],[126,174],[126,205],[126,232]],
     {pixelCoordinates:true,theme:'stone',pathWidth:36,farms:['2,2','29,2','2,25','29,25'],
       terrainPatches:[
@@ -934,7 +934,7 @@ export const MAPS: Record<MapId, GameMap> = {
       ]}),
 
   // Alternativa adicional: um circuito de curvas largas com retorno lateral.
-  voidLabyrinth: defineMap('voidLabyrinth','Trilha do Deserto','Expert','Uma pista de curvas fechadas contorna formações rochosas no deserto.',1.48,1.15,ARENA_COLORS.voidLabyrinth,
+  voidLabyrinth: defineMap('voidLabyrinth','Trilha do Deserto','Avançado','Uma pista de curvas fechadas contorna formações rochosas no deserto.',1.34,1.12,ARENA_COLORS.voidLabyrinth,
     [[-8,55],[18,55],[39,48],[57,35],[78,31],[99,38],[112,54],[116,75],[108,95],[91,108],[70,112],[51,105],[39,90],[39,72],[50,57],[68,49],[89,52],[108,65],[128,83],[148,101],[168,116],[189,123],[211,119],[230,107],[244,90],[250,70],[244,51],[230,39],[210,35],[190,40],[174,53],[164,72],[164,93],[175,111],[193,127],[214,145],[236,164],[264,178]],
     {pixelCoordinates:true,theme:'desert',pathWidth:35,farms:['2,2','29,2','2,25','29,25'],
       terrainPatches:[
