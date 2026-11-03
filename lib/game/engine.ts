@@ -2449,16 +2449,17 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
 
 export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   const map = getMapGeometry(s.mapId)
-  // Deep, layered arena floor with a restrained luminous grid.
+  const palette = getMapDefinition(s.mapId).palette
+  // A paleta de cada arena também aparece durante a partida.
   const backdrop = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT)
-  backdrop.addColorStop(0, '#0a1a2d')
-  backdrop.addColorStop(0.48, '#071326')
-  backdrop.addColorStop(1, '#091022')
+  backdrop.addColorStop(0, palette.background)
+  backdrop.addColorStop(0.48, palette.background)
+  backdrop.addColorStop(1, '#080d16')
   ctx.fillStyle = backdrop
   ctx.fillRect(0, 0, WIDTH, HEIGHT)
 
   const ambient = ctx.createRadialGradient(WIDTH * 0.48, HEIGHT * 0.42, 20, WIDTH * 0.48, HEIGHT * 0.42, WIDTH * 0.72)
-  ambient.addColorStop(0, 'rgba(14,116,144,0.12)')
+  ambient.addColorStop(0, palette.glow + '22')
   ambient.addColorStop(1, 'rgba(2,6,23,0)')
   ctx.fillStyle = ambient
   ctx.fillRect(0, 0, WIDTH, HEIGHT)
@@ -2466,12 +2467,12 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   for (let row = 0; row < ROWS; row++) {
     for (let col = 0; col < COLS; col++) {
       if ((row + col) % 2 === 0) {
-        ctx.fillStyle = 'rgba(125,211,252,0.018)'
+        ctx.fillStyle = palette.grid + '08'
         ctx.fillRect(col * CELL, row * CELL, CELL, CELL)
       }
     }
   }
-  ctx.strokeStyle = 'rgba(125,211,252,0.075)'
+  ctx.strokeStyle = palette.grid + '20'
   ctx.lineWidth = 1
   for (let c = 0; c <= COLS; c++) {
     ctx.beginPath(); ctx.moveTo(c * CELL, 0); ctx.lineTo(c * CELL, HEIGHT); ctx.stroke()
@@ -2479,7 +2480,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   for (let r = 0; r <= ROWS; r++) {
     ctx.beginPath(); ctx.moveTo(0, r * CELL); ctx.lineTo(WIDTH, r * CELL); ctx.stroke()
   }
-  ctx.strokeStyle = 'rgba(56,189,248,0.13)'
+  ctx.strokeStyle = palette.glow + '35'
   ctx.lineWidth = 1
   ctx.strokeRect(1, 1, WIDTH - 2, HEIGHT - 2)
 
@@ -2533,17 +2534,17 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   // Desenha todas as rotas da arena, cada uma com entrada e saída próprias.
   for (const route of map.routes) {
     ctx.save()
-    ctx.shadowColor = '#0ea5e9'; ctx.shadowBlur = 22
-    ctx.strokeStyle = 'rgba(56,189,248,0.28)'; ctx.lineWidth = CELL + 12
+    ctx.shadowColor = palette.glow; ctx.shadowBlur = 14
+    ctx.strokeStyle = palette.glow + '35'; ctx.lineWidth = CELL + 12
     tracePath(ctx, route); ctx.stroke()
-    ctx.shadowBlur = 0; ctx.strokeStyle = '#152941'; ctx.lineWidth = CELL + 2
+    ctx.shadowBlur = 0; ctx.strokeStyle = palette.roadBorder; ctx.lineWidth = CELL + 2
     tracePath(ctx, route); ctx.stroke()
     const lane = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT)
-    lane.addColorStop(0, '#1c3048'); lane.addColorStop(.5, '#12243a'); lane.addColorStop(1, '#1a2d43')
+    lane.addColorStop(0, palette.roadA); lane.addColorStop(.5, palette.roadB); lane.addColorStop(1, palette.roadA)
     ctx.strokeStyle = lane; ctx.lineWidth = CELL - 5; tracePath(ctx, route); ctx.stroke()
-    ctx.strokeStyle = 'rgba(148,197,224,0.17)'; ctx.lineWidth = CELL - 9
+    ctx.strokeStyle = palette.roadLine + '35'; ctx.lineWidth = CELL - 9
     ctx.setLineDash([2, 12]); ctx.lineDashOffset = -s.time * 14; tracePath(ctx, route); ctx.stroke()
-    ctx.setLineDash([]); ctx.strokeStyle = 'rgba(103,232,249,0.52)'; ctx.lineWidth = 1.5
+    ctx.setLineDash([]); ctx.strokeStyle = palette.roadLine + 'aa'; ctx.lineWidth = 1.5
     ctx.setLineDash([7, 13]); ctx.lineDashOffset = -s.time * 25; tracePath(ctx, route); ctx.stroke()
     ctx.setLineDash([]); ctx.restore()
   }
