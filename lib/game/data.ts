@@ -803,12 +803,24 @@ const MAP_COLORS = {
   infernoCircuit: { background: '#260d13', grid: 'rgba(251,113,133,0.1)', pathGlow: 'rgba(244,63,94,0.45)', path: '#4a1c28', pathDash: 'rgba(253,164,175,0.48)', farmFill: 'rgba(249,115,22,0.15)', farmStroke: 'rgba(251,146,60,0.9)', farmText: '#fed7aa', preview: '#4a1821', accent: '#fb7185' },
 } satisfies Record<MapId, GameMap['colors']>
 
+
+const ARENA_COLORS: Record<MapId, GameMap['colors']> = {
+  original: ARENA_COLORS.original,
+  meadow: { background: '#ead36f', grid: 'rgba(138,112,54,0.12)', pathGlow: 'rgba(130,96,54,0.28)', path: '#9a7652', pathDash: '#f8e8a0', farmFill: 'rgba(26,214,235,0.28)', farmStroke: '#13cde5', farmText: '#075985', preview: '#d9c15f', accent: '#13cde5' },
+  frostline: { background: '#62ed00', grid: 'rgba(42,92,18,0.14)', pathGlow: 'rgba(83,72,40,0.25)', path: '#8d8662', pathDash: '#c6bb83', farmFill: 'rgba(34,197,94,0.2)', farmStroke: '#166534', farmText: '#14532d', preview: '#55d900', accent: '#a3e635' },
+  emberCrossing: { background: '#b9b18c', grid: 'rgba(86,77,53,0.13)', pathGlow: 'rgba(236,213,105,0.35)', path: '#e5d36e', pathDash: '#fff0a6', farmFill: 'rgba(20,199,202,0.2)', farmStroke: '#0faaa9', farmText: '#075985', preview: '#aaa27d', accent: '#e8d36f' },
+  quarrySpiral: { background: '#12d7e5', grid: 'rgba(0,89,111,0.14)', pathGlow: 'rgba(230,245,95,0.38)', path: '#d7e85b', pathDash: '#f7ff9c', farmFill: 'rgba(148,163,184,0.22)', farmStroke: '#64748b', farmText: '#334155', preview: '#0fbfcf', accent: '#d7e85b' },
+  neonGauntlet: { background: '#f0d900', grid: 'rgba(111,91,12,0.14)', pathGlow: 'rgba(255,250,157,0.35)', path: '#fff07a', pathDash: '#fff9c4', farmFill: 'rgba(148,163,184,0.2)', farmStroke: '#64748b', farmText: '#334155', preview: '#d7c400', accent: '#fff07a' },
+  voidLabyrinth: { background: '#ff8700', grid: 'rgba(128,42,0,0.16)', pathGlow: 'rgba(220,20,0,0.25)', path: '#e51b00', pathDash: '#ffb199', farmFill: 'rgba(250,204,21,0.2)', farmStroke: '#fef08a', farmText: '#7c2d12', preview: '#e97600', accent: '#f3290a' },
+  infernoCircuit: { background: '#111c46', grid: 'rgba(103,232,249,0.12)', pathGlow: 'rgba(103,232,249,0.3)', path: '#38bdf8', pathDash: '#cffafe', farmFill: 'rgba(34,211,238,0.16)', farmStroke: '#67e8f9', farmText: '#cffafe', preview: '#172554', accent: '#67e8f9' },
+}
+
 export const MAPS: Record<MapId, GameMap> = {
-  original: defineMap('original', 'Circuito Original', 'Iniciante', 'O percurso clássico original, preservado como era.', 1, 1, MAP_COLORS.original, WAYPOINT_CELLS, {
+  original: defineMap('original', 'Circuito Original', 'Iniciante', 'O percurso clássico original, preservado como era.', 1, 1, ARENA_COLORS.original, WAYPOINT_CELLS, {
     farms: [...FARM_CELLS], theme: 'classic',
   }),
   // Referência 1: arquipélago amarelo com canais de água e duas rotas alternadas.
-  meadow: defineMap('meadow', 'Arquipélago Dourado', 'Iniciante', 'Duas trilhas sinuosas entre ilhas e canais rasos. Os insetos alternam entre as duas rotas.', 1.04, 1.02, MAP_COLORS.meadow,
+  meadow: defineMap('meadow', 'Arquipélago Dourado', 'Iniciante', 'Duas trilhas sinuosas entre ilhas e canais rasos. Os insetos alternam entre as duas rotas.', 1.04, 1.02, ARENA_COLORS.meadow,
     [[-1,3],[2,3],[2,1],[5,1],[7,3],[5,5],[2,5],[2,7],[5,7],[7,9],[10,9],[12,7],[15,7],[15,5],[18,5]], {
       extraRoutes: [[-1,8],[1,8],[1,10],[4,10],[6,8],[8,6],[11,6],[13,8],[16,8],[16,10],[18,10]],
       farms: ['0,0','1,0','16,0','17,0','0,11','1,11','16,11','17,11'],
@@ -816,7 +828,7 @@ export const MAPS: Record<MapId, GameMap> = {
       theme: 'water',
     }),
   // Referência 2: duas pistas paralelas que serpenteiam em sentidos complementares.
-  frostline: defineMap('frostline', 'Trilhas Paralelas', 'Iniciante', 'Duas rotas paralelas, cada uma com suas próprias curvas e saída. O envio alterna um inseto por rota.', 1.06, 1.03, MAP_COLORS.frostline,
+  frostline: defineMap('frostline', 'Trilhas Paralelas', 'Iniciante', 'Duas rotas paralelas, cada uma com suas próprias curvas e saída. O envio alterna um inseto por rota.', 1.06, 1.03, ARENA_COLORS.frostline,
     [[-1,2],[2,2],[4,1],[7,1],[9,3],[12,3],[14,1],[18,1]], {
       extraRoutes: [[-1,9],[2,9],[4,10],[7,10],[9,8],[12,8],[14,10],[18,10]],
       farms: ['0,0','1,0','8,0','9,0','0,11','1,11','16,11','17,11'],
@@ -824,7 +836,7 @@ export const MAPS: Record<MapId, GameMap> = {
       theme: 'grass',
     }),
   // Referência 3: cânion de areia com duas rotas independentes que chegam ao topo.
-  emberCrossing: defineMap('emberCrossing', 'Cânion das Duas Trilhas', 'Intermediário', 'Dois caminhos rochosos atravessam o cânion em curvas sinuosas e chegam a saídas separadas no alto.', 1.14, 1.06, MAP_COLORS.emberCrossing,
+  emberCrossing: defineMap('emberCrossing', 'Cânion das Duas Trilhas', 'Intermediário', 'Dois caminhos rochosos atravessam o cânion em curvas sinuosas e chegam a saídas separadas no alto.', 1.14, 1.06, ARENA_COLORS.emberCrossing,
     [[-1,8],[2,8],[4,6],[6,6],[7,3],[10,3],[11,1],[13,1],[15,-1]], {
       extraRoutes: [[-1,10],[1,10],[3,9],[4,7],[7,7],[8,5],[11,5],[13,3],[15,2],[17,0]],
       farms: ['0,0','1,0','16,0','17,0','0,11','1,11'],
@@ -832,21 +844,21 @@ export const MAPS: Record<MapId, GameMap> = {
       theme: 'desert',
     }),
   // Referência 4: lagoa com uma trilha longa; o barco funciona como um espaço de farm.
-  quarrySpiral: defineMap('quarrySpiral', 'Lagoa da Caravela', 'Intermediário', 'Uma rota sinuosa atravessa a lagoa entre pequenas ilhas. O barco ancorado é um dos espaços exclusivos de farm.', 1.18, 1.07, MAP_COLORS.frostline,
+  quarrySpiral: defineMap('quarrySpiral', 'Lagoa da Caravela', 'Intermediário', 'Uma rota sinuosa atravessa a lagoa entre pequenas ilhas. O barco ancorado é um dos espaços exclusivos de farm.', 1.18, 1.07, ARENA_COLORS.frostline,
     [[4,-1],[4,1],[6,3],[9,3],[12,2],[15,3],[16,5],[14,7],[11,7],[8,9],[5,9],[3,7],[1,7],[1,10],[5,11]], {
       farms: ['0,0','1,0','15,5','0,11','1,11','16,11','17,11'],
       blocked: [[0,2,2,2],[7,0,2,1],[10,5,2,1],[17,2,1,2],[8,10,2,2]],
       theme: 'water',
     }),
   // Referência 5: mina amarela com espiral central e rochedos cinzentos.
-  neonGauntlet: defineMap('neonGauntlet', 'Mina Espiral', 'Avançado', 'Uma espiral apertada contorna os blocos de minério e exige coberturas bem posicionadas.', 1.3, 1.1, MAP_COLORS.quarrySpiral,
+  neonGauntlet: defineMap('neonGauntlet', 'Mina Espiral', 'Avançado', 'Uma espiral apertada contorna os blocos de minério e exige coberturas bem posicionadas.', 1.3, 1.1, ARENA_COLORS.quarrySpiral,
     [[4,-1],[4,2],[7,2],[9,4],[7,6],[5,5],[6,3],[9,3],[11,5],[10,8],[7,9],[4,8],[2,6],[2,10],[9,11]], {
       farms: ['0,0','1,0','16,0','17,0','0,11','1,11'],
       blocked: [[0,3,2,2],[13,0,3,3],[13,5,3,3],[0,8,1,2],[11,9,2,2]],
       theme: 'stone',
     }),
   // Referência 6: forja laranja com duas pistas em zigue-zague.
-  voidLabyrinth: defineMap('voidLabyrinth', 'Forja Zigue-Zague', 'Avançado', 'Duas pistas de fogo serpenteiam em zigue-zague. Cada inseto escolhe a próxima rota da alternância.', 1.36, 1.12, MAP_COLORS.emberCrossing,
+  voidLabyrinth: defineMap('voidLabyrinth', 'Forja Zigue-Zague', 'Avançado', 'Duas pistas de fogo serpenteiam em zigue-zague. Cada inseto escolhe a próxima rota da alternância.', 1.36, 1.12, ARENA_COLORS.emberCrossing,
     [[-1,3],[2,3],[3,1],[4,4],[6,1],[8,4],[10,1],[12,4],[14,1],[16,3],[18,3]], {
       extraRoutes: [[-1,8],[2,8],[3,10],[4,7],[6,10],[8,7],[10,10],[12,7],[14,10],[16,8],[18,8]],
       farms: ['0,0','1,0','16,0','17,0','0,11','1,11'],
@@ -854,7 +866,7 @@ export const MAPS: Record<MapId, GameMap> = {
       theme: 'lava',
     }),
   // Mapa novo: jardim de cristais com duas rotas curvas e plataformas de construção.
-  infernoCircuit: defineMap('infernoCircuit', 'Jardim Cristalino', 'Expert', 'Um jardim alienígena de cristais, com duas rotas entrelaçadas e poucas plataformas seguras para torres.', 1.52, 1.15, MAP_COLORS.voidLabyrinth,
+  infernoCircuit: defineMap('infernoCircuit', 'Jardim Cristalino', 'Expert', 'Um jardim alienígena de cristais, com duas rotas entrelaçadas e poucas plataformas seguras para torres.', 1.52, 1.15, ARENA_COLORS.voidLabyrinth,
     [[-1,2],[2,2],[4,4],[6,2],[8,4],[10,2],[12,4],[15,2],[18,2]], {
       extraRoutes: [[-1,9],[2,9],[4,7],[6,9],[8,7],[10,9],[12,7],[15,9],[18,9]],
       farms: ['0,0','1,0','16,0','17,0','0,11','1,11'],
