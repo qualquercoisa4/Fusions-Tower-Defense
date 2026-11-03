@@ -306,6 +306,7 @@ interface Explosion {
 
 export interface GameState {
   mapId: MapId
+  mapHpMultiplier: number
   enemySpeedMultiplier: number
   enemies: Enemy[]
   towers: Tower[]
@@ -343,6 +344,7 @@ export function createGame(mapId: MapId = 'original'): GameState {
   const map = MAPS[mapId]
   return {
     mapId,
+    mapHpMultiplier: map.hpMultiplier,
     enemySpeedMultiplier: map.speedMultiplier,
     enemies: [],
     towers: [],
@@ -373,7 +375,7 @@ export function createGame(mapId: MapId = 'original'): GameState {
     bugPrinceDefeated: false,
     swarmCounter: 0,
     bugQueenDefeated: false,
-    enemyHpMultiplier: map.hpMultiplier,
+    enemyHpMultiplier: 1,
   }
 }
 
@@ -389,7 +391,7 @@ function createEnemy(s: GameState, type: EnemyType, x?: number, y?: number): Ene
   const helmet = (s.bugPrinceDefeated || s.bugQueenDefeated) && s.seenEnemyTypes.includes(type)
   const queenArmor = s.bugQueenDefeated && s.seenEnemyTypes.includes(type)
   const hp = Math.max(1, Math.round((def.hp * (boss ? 1 : hpScale(Math.max(1, s.wave))) / 1.5) *
-    (helmet ? 1.25 : 1) * (queenArmor ? 1.25 : 1) * (type === 'bugKing' ? 1 : s.enemyHpMultiplier)))
+    (helmet ? 1.25 : 1) * (queenArmor ? 1.25 : 1) * s.mapHpMultiplier * (type === 'bugKing' ? 1 : s.enemyHpMultiplier)))
   if (!boss && !s.seenEnemyTypes.includes(type)) s.seenEnemyTypes.push(type)
   return {
     id: s.nextId++, type, x, y, hp, maxHp: hp, reviveHp: hp,
@@ -1249,7 +1251,7 @@ export function update(s: GameState, dt: number) {
     if (e.type === 'dirtBug') {
       e.burrowCooldown -= dt
       if (e.burrowTimer > 0) {
-        const travel = Math.min(e.burrowRemaining, 118 * dt)
+        const travel = Math.min(e.burrowRemaining, 118 * s.enemySpeedMultiplier * dt)
         if (travel > 0) {
           placeEnemyOnPath(s, e, e.dist + travel)
           e.burrowRemaining -= travel
