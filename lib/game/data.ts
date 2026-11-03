@@ -845,7 +845,7 @@ export const MAPS: Record<MapId, GameMap> = {
     }),
   // Referência 4: lagoa com uma trilha longa; o barco funciona como um espaço de farm.
   quarrySpiral: defineMap('quarrySpiral', 'Lagoa da Caravela', 'Intermediário', 'Uma rota sinuosa atravessa a lagoa entre pequenas ilhas. O barco ancorado é um dos espaços exclusivos de farm.', 1.18, 1.07, ARENA_COLORS.frostline,
-    [[4,-1],[4,1],[6,3],[9,3],[12,2],[15,3],[16,5],[14,7],[11,7],[8,9],[5,9],[3,7],[1,7],[1,10],[5,11]], {
+    [[4,-1],[4,1],[6,3],[9,3],[12,2],[17,2],[17,4],[14,7],[11,7],[8,9],[5,9],[3,7],[1,7],[1,10],[5,11]], {
       farms: ['0,0','1,0','15,5','0,11','1,11','16,11','17,11'],
       blocked: [[0,2,2,2],[7,0,2,1],[10,5,2,1],[17,2,1,2],[8,10,2,2]],
       theme: 'water',
