@@ -804,43 +804,63 @@ const MAP_COLORS = {
 } satisfies Record<MapId, GameMap['colors']>
 
 export const MAPS: Record<MapId, GameMap> = {
-  // O mapa original permanece exatamente com o percurso clássico.
-  original: defineMap('original', 'Circuito Original', 'Iniciante', 'O percurso clássico do Fusion TD. Duas voltas conectadas e bastante espaço para posicionar torres.', 1, 1, MAP_COLORS.original, WAYPOINT_CELLS),
-
-  // Pradaria: um S largo, com retornos alternados e áreas abertas.
-  meadow: defineMap('meadow', 'Pradaria Verde', 'Iniciante', 'Um percurso amplo em formato de S, com retornos longos e bastante espaço para posicionar torres.', 1.04, 1.02, MAP_COLORS.meadow, [
-    [-1, 2], [3, 2], [3, 5], [7, 5], [7, 1], [11, 1], [11, 6], [15, 6], [15, 9], [12, 9], [12, 7], [16, 7], [16, 10], [13, 10], [13, 8], [18, 8],
-  ]),
-
-  // Geleira: duas grandes alças conectadas por um corredor central.
-  frostline: defineMap('frostline', 'Passagem Glacial', 'Intermediário', 'Duas alças estreitas conectadas por um corredor central. O caminho passa perto de si mesmo e exige cobertura planejada.', 1.12, 1.05, MAP_COLORS.frostline, [
-    [-1, 8], [2, 8], [2, 3], [5, 3], [5, 9], [9, 9], [9, 2], [13, 2], [13, 7], [16, 7], [16, 4], [18, 4],
-  ]),
-
-  // Brasas: uma sequência de degraus altos e baixos, quase como uma onda quadrada.
-  emberCrossing: defineMap('emberCrossing', 'Travessia das Brasas', 'Intermediário', 'Uma travessia em degraus: o caminho alterna entre vales profundos e corredores elevados, com curvas fechadas.', 1.16, 1.07, MAP_COLORS.emberCrossing, [
-    [-1, 3], [2, 3], [2, 9], [6, 9], [6, 4], [9, 4], [9, 10], [13, 10], [13, 2], [16, 2], [16, 6], [18, 6],
-  ]),
-
-  // Pedreira: espiral aberta que se fecha no centro e sai pela parte inferior.
-  quarrySpiral: defineMap('quarrySpiral', 'Espiral da Pedreira', 'Avançado', 'Uma espiral quadrada que conduz os inimigos para dentro antes de lançá-los por um corredor inferior.', 1.3, 1.1, MAP_COLORS.quarrySpiral, [
-    [-1, 6], [2, 6], [2, 2], [5, 2], [5, 5], [3, 5], [3, 8], [7, 8], [7, 5], [10, 5], [10, 9], [18, 9],
-  ]),
-
-  // Neon: rota angular diagonal, com picos e vales em sequência.
-  neonGauntlet: defineMap('neonGauntlet', 'Circuito Neon', 'Avançado', 'Um percurso em forma de raio, com alternância brusca entre corredores curtos e longos.', 1.36, 1.12, MAP_COLORS.neonGauntlet, [
-    [-1, 5], [2, 5], [2, 2], [5, 2], [5, 6], [8, 6], [8, 3], [11, 3], [11, 7], [14, 7], [14, 4], [18, 4],
-  ]),
-
-  // Vazio: labirinto concêntrico com uma entrada longa e saída pelo lado oposto.
-  voidLabyrinth: defineMap('voidLabyrinth', 'Labirinto do Vazio', 'Expert', 'Um labirinto de corredores concêntricos e curvas próximas. O percurso se enrola sobre si mesmo sem se cruzar.', 1.52, 1.15, MAP_COLORS.voidLabyrinth, [
-    [-1, 10], [2, 10], [2, 7], [5, 7], [5, 4], [8, 4], [8, 7], [11, 7], [11, 10], [14, 10], [14, 6], [18, 6],
-  ]),
-
-  // Inferno: serpentina compacta com um corredor central longo e retornos alternados.
-  infernoCircuit: defineMap('infernoCircuit', 'Circuito do Inferno', 'Expert', 'Uma serpentina compacta com retornos alternados, corredores estreitos e pouco espaço para reagir.', 1.62, 1.18, MAP_COLORS.infernoCircuit, [
-    [-1, 2], [2, 2], [2, 5], [5, 5], [5, 2], [8, 2], [8, 6], [11, 6], [11, 3], [14, 3], [14, 6], [18, 6],
-  ]),
+  original: defineMap('original', 'Circuito Original', 'Iniciante', 'O percurso clássico original, preservado como era.', 1, 1, MAP_COLORS.original, WAYPOINT_CELLS, {
+    farms: [...FARM_CELLS], theme: 'classic',
+  }),
+  // Referência 1: arquipélago amarelo com canais de água e duas rotas alternadas.
+  meadow: defineMap('meadow', 'Arquipélago Dourado', 'Iniciante', 'Duas trilhas sinuosas entre ilhas e canais rasos. Os insetos alternam entre as duas rotas.', 1.04, 1.02, MAP_COLORS.meadow,
+    [[-1,3],[2,3],[2,1],[5,1],[7,3],[5,5],[2,5],[2,7],[5,7],[7,9],[10,9],[12,7],[15,7],[15,5],[18,5]], {
+      extraRoutes: [[-1,8],[1,8],[1,10],[4,10],[6,8],[8,6],[11,6],[13,8],[16,8],[16,10],[18,10]],
+      farms: ['0,0','1,0','16,0','17,0','0,11','1,11','16,11','17,11'],
+      blocked: [[4,0,2,1],[9,0,2,2],[12,1,2,1],[8,3,2,1],[12,4,2,1],[4,9,2,1],[10,10,2,1]],
+      theme: 'water',
+    }),
+  // Referência 2: duas pistas paralelas que serpenteiam em sentidos complementares.
+  frostline: defineMap('frostline', 'Trilhas Paralelas', 'Iniciante', 'Duas rotas paralelas, cada uma com suas próprias curvas e saída. O envio alterna um inseto por rota.', 1.06, 1.03, MAP_COLORS.frostline,
+    [[-1,2],[2,2],[4,1],[7,1],[9,3],[12,3],[14,1],[18,1]], {
+      extraRoutes: [[-1,9],[2,9],[4,10],[7,10],[9,8],[12,8],[14,10],[18,10]],
+      farms: ['0,0','1,0','8,0','9,0','0,11','1,11','16,11','17,11'],
+      blocked: [[5,3,2,2],[10,5,2,2],[3,6,2,1],[14,5,2,1]],
+      theme: 'grass',
+    }),
+  // Referência 3: cânion de areia com duas rotas independentes que chegam ao topo.
+  emberCrossing: defineMap('emberCrossing', 'Cânion das Duas Trilhas', 'Intermediário', 'Dois caminhos rochosos atravessam o cânion em curvas sinuosas e chegam a saídas separadas no alto.', 1.14, 1.06, MAP_COLORS.emberCrossing,
+    [[-1,8],[2,8],[4,6],[6,6],[7,3],[10,3],[11,1],[13,1],[15,-1]], {
+      extraRoutes: [[-1,10],[1,10],[3,9],[4,7],[7,7],[8,5],[11,5],[13,3],[15,2],[17,0]],
+      farms: ['0,0','1,0','16,0','17,0','0,11','1,11'],
+      blocked: [[3,0,2,2],[8,0,2,1],[12,7,2,2],[16,8,2,2],[5,10,2,1]],
+      theme: 'desert',
+    }),
+  // Referência 4: lagoa com uma trilha longa; o barco funciona como um espaço de farm.
+  quarrySpiral: defineMap('quarrySpiral', 'Lagoa da Caravela', 'Intermediário', 'Uma rota sinuosa atravessa a lagoa entre pequenas ilhas. O barco ancorado é um dos espaços exclusivos de farm.', 1.18, 1.07, MAP_COLORS.frostline,
+    [[4,-1],[4,1],[6,3],[9,3],[12,2],[15,3],[16,5],[14,7],[11,7],[8,9],[5,9],[3,7],[1,7],[1,10],[5,11]], {
+      farms: ['0,0','1,0','15,5','0,11','1,11','16,11','17,11'],
+      blocked: [[0,2,2,2],[7,0,2,1],[10,5,2,1],[17,2,1,2],[8,10,2,2]],
+      theme: 'water',
+    }),
+  // Referência 5: mina amarela com espiral central e rochedos cinzentos.
+  neonGauntlet: defineMap('neonGauntlet', 'Mina Espiral', 'Avançado', 'Uma espiral apertada contorna os blocos de minério e exige coberturas bem posicionadas.', 1.3, 1.1, MAP_COLORS.quarrySpiral,
+    [[4,-1],[4,2],[7,2],[9,4],[7,6],[5,5],[6,3],[9,3],[11,5],[10,8],[7,9],[4,8],[2,6],[2,10],[9,11]], {
+      farms: ['0,0','1,0','16,0','17,0','0,11','1,11'],
+      blocked: [[0,3,2,2],[13,0,3,3],[13,5,3,3],[0,8,1,2],[11,9,2,2]],
+      theme: 'stone',
+    }),
+  // Referência 6: forja laranja com duas pistas em zigue-zague.
+  voidLabyrinth: defineMap('voidLabyrinth', 'Forja Zigue-Zague', 'Avançado', 'Duas pistas de fogo serpenteiam em zigue-zague. Cada inseto escolhe a próxima rota da alternância.', 1.36, 1.12, MAP_COLORS.emberCrossing,
+    [[-1,3],[2,3],[3,1],[4,4],[6,1],[8,4],[10,1],[12,4],[14,1],[16,3],[18,3]], {
+      extraRoutes: [[-1,8],[2,8],[3,10],[4,7],[6,10],[8,7],[10,10],[12,7],[14,10],[16,8],[18,8]],
+      farms: ['0,0','1,0','16,0','17,0','0,11','1,11'],
+      blocked: [[7,5,2,1],[15,5,2,1],[0,5,1,1]],
+      theme: 'lava',
+    }),
+  // Mapa novo: jardim de cristais com duas rotas curvas e plataformas de construção.
+  infernoCircuit: defineMap('infernoCircuit', 'Jardim Cristalino', 'Expert', 'Um jardim alienígena de cristais, com duas rotas entrelaçadas e poucas plataformas seguras para torres.', 1.52, 1.15, MAP_COLORS.voidLabyrinth,
+    [[-1,2],[2,2],[4,4],[6,2],[8,4],[10,2],[12,4],[15,2],[18,2]], {
+      extraRoutes: [[-1,9],[2,9],[4,7],[6,9],[8,7],[10,9],[12,7],[15,9],[18,9]],
+      farms: ['0,0','1,0','16,0','17,0','0,11','1,11'],
+      blocked: [[4,0,2,1],[8,0,2,1],[12,0,2,1],[4,10,2,1],[8,10,2,1],[12,10,2,1],[7,5,2,1]],
+      theme: 'crystal',
+    }),
 }
 
 type WaveGroup = { type: EnemyType; count: number; spacing: number; gapAfter?: number }
