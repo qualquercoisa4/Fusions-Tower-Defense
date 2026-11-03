@@ -489,7 +489,7 @@ export function isBuildableAt(s: GameState, x: number, y: number, type: TowerTyp
 
   if (map.sandOnly) {
     // Na ilha, só a faixa de areia entre a pista verde e o mar aceita construções.
-    const sandOuterRadius = 130
+    const sandOuterRadius = 105
     if (pathDistance > sandOuterRadius - footprint * 0.45) return false
   } else {
     const col = Math.floor(x / CELL), row = Math.floor(y / CELL)
@@ -2875,7 +2875,7 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
   ctx.restore()
 }
 
-function drawMapScenery(ctx: CanvasRenderingContext2D, map: GameMap, s: GameState) {
+function drawMapScenery(ctx: CanvasRenderingContext2D, map: GameMap) {
   const rand = (n: number) => {
     const value = Math.sin(n * 127.1 + map.id.length * 311.7) * 43758.5453
     return value - Math.floor(value)
@@ -2986,7 +2986,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
     })
     ctx.closePath(); ctx.fill()
   }
-  drawMapScenery(ctx, map, s)
+  drawMapScenery(ctx, map)
 
   // O mapa novo mantém seus obstáculos estilizados por célula.
   if (map.id === 'original' || map.id === 'infernoCircuit') {
@@ -3013,7 +3013,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
     if (map.sandOnly) {
       // Banco de areia largo em torno do caminho verde; a água continua bloqueada.
       ctx.strokeStyle = '#f6ff93'
-      ctx.lineWidth = 135
+      ctx.lineWidth = 220
       tracePath(ctx, route.path); ctx.stroke()
       ctx.strokeStyle = '#66ff4b'
       ctx.lineWidth = map.pathWidth
