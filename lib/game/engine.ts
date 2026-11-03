@@ -3,8 +3,7 @@ import {
   COLS,
   ENEMIES,
   HEIGHT,
-  PATH,
-  PATH_CELLS,
+  MAPS,
   FARM_CELLS,
   ROWS,
   TOWERS,
@@ -16,6 +15,7 @@ import {
   type EnemyType,
   type TowerType,
   type TargetMode,
+  type MapId,
 } from './data'
 
 export interface Enemy {
@@ -305,6 +305,8 @@ interface Explosion {
 }
 
 export interface GameState {
+  mapId: MapId
+  enemySpeedMultiplier: number
   enemies: Enemy[]
   towers: Tower[]
   projectiles: Projectile[]
@@ -337,8 +339,11 @@ export interface GameState {
   enemyHpMultiplier: number
 }
 
-export function createGame(): GameState {
+export function createGame(mapId: MapId = 'original'): GameState {
+  const map = MAPS[mapId]
   return {
+    mapId,
+    enemySpeedMultiplier: map.speedMultiplier,
     enemies: [],
     towers: [],
     projectiles: [],
@@ -368,14 +373,17 @@ export function createGame(): GameState {
     bugPrinceDefeated: false,
     swarmCounter: 0,
     bugQueenDefeated: false,
-    enemyHpMultiplier: 1,
+    enemyHpMultiplier: map.hpMultiplier,
   }
 }
 
 
 
 
-function createEnemy(s: GameState, type: EnemyType, x = PATH[0].x, y = PATH[0].y): Enemy {
+function createEnemy(s: GameState, type: EnemyType, x?: number, y?: number): Enemy {
+  const path = MAPS[s.mapId].path
+  x ??= path[0].x
+  y ??= path[0].y
   const def = ENEMIES[type]
   const boss = type === 'bugPrince' || type === 'bugQueen' || type === 'bugKing'
   const helmet = (s.bugPrinceDefeated || s.bugQueenDefeated) && s.seenEnemyTypes.includes(type)
@@ -421,7 +429,7 @@ export const isBuildable = (s: GameState, col: number, row: number, type?: Tower
   const cell = `${col},${row}`
   const farmPad = FARM_CELLS.has(cell)
   return col >= 0 && row >= 0 && col < COLS && row < ROWS &&
-    !PATH_CELLS.has(cell) &&
+    !MAPS[s.mapId].pathCells.has(cell) &&
     !s.towers.some((t) => t.col === col && t.row === row) &&
     (type ? (INCOME_TOWERS.includes(type) ? farmPad : !farmPad) : true)
 }
@@ -655,8 +663,8 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType
   }
   if (e.type === 'swarmer' && e.hp < previousHp) {
     const child = createEnemy(s, 'swarmBug', e.x + (Math.random() - 0.5) * 10, e.y + (Math.random() - 0.5) * 10)
-    const pathPosition = projectToPath(e.x, e.y)
-    placeEnemyOnPath(child, pathPosition.distance)
+    const pathPosition = projectToPath(s, e.x, e.y)
+    placeEnemyOnPath(s, child, pathPosition.distance)
     s.enemies.push(child)
     s.explosions.push({ x: e.x, y: e.y, r: 13, t: 0, dur: 0.16, color: '#fb7185' })
   }
@@ -803,52 +811,49 @@ function findChainTargets(s: GameState, first: Enemy, linkRange = 76, towerType?
   return targets
 }
 
-function pathMetrics() {
-  const lengths = [0]
-  for (let i = 1; i < PATH.length; i++) lengths[i] = lengths[i - 1] + Math.hypot(PATH[i].x - PATH[i - 1].x, PATH[i].y - PATH[i - 1].y)
-  return lengths
-}
-const REVERSE_PATH_LENGTHS = pathMetrics()
-function pointOnPath(distance: number) {
-  const d = Math.max(0, Math.min(REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1], distance))
+function pointOnPath(s: GameState, distance: number) {
+  const map = MAPS[s.mapId], lengths = map.pathLengths, path = map.path
+  const d = Math.max(0, Math.min(lengths[lengths.length - 1], distance))
   let i = 1
-  while (i < REVERSE_PATH_LENGTHS.length - 1 && REVERSE_PATH_LENGTHS[i] < d) i++
-  const span = REVERSE_PATH_LENGTHS[i] - REVERSE_PATH_LENGTHS[i - 1]
-  const k = span > 0 ? (d - REVERSE_PATH_LENGTHS[i - 1]) / span : 0
-  return { x: PATH[i - 1].x + (PATH[i].x - PATH[i - 1].x) * k, y: PATH[i - 1].y + (PATH[i].y - PATH[i - 1].y) * k }
+  while (i < lengths.length - 1 && lengths[i] < d) i++
+  const span = lengths[i] - lengths[i - 1]
+  const k = span > 0 ? (d - lengths[i - 1]) / span : 0
+  return { x: path[i - 1].x + (path[i].x - path[i - 1].x) * k, y: path[i - 1].y + (path[i].y - path[i - 1].y) * k }
 }
-function pathWaypointIndex(distance: number) {
+function pathWaypointIndex(s: GameState, distance: number) {
+  const lengths = MAPS[s.mapId].pathLengths
   let i = 1
-  while (i < REVERSE_PATH_LENGTHS.length - 1 && REVERSE_PATH_LENGTHS[i] < distance) i++
+  while (i < lengths.length - 1 && lengths[i] < distance) i++
   return i
 }
-function placeEnemyOnPath(enemy: Enemy, distance: number) {
-  const clamped = Math.max(0, Math.min(REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1], distance))
-  const point = pointOnPath(clamped)
-  enemy.dist = clamped; enemy.x = point.x; enemy.y = point.y; enemy.wp = pathWaypointIndex(clamped)
+function placeEnemyOnPath(s: GameState, enemy: Enemy, distance: number) {
+  const lengths = MAPS[s.mapId].pathLengths
+  const clamped = Math.max(0, Math.min(lengths[lengths.length - 1], distance))
+  const point = pointOnPath(s, clamped)
+  enemy.dist = clamped; enemy.x = point.x; enemy.y = point.y; enemy.wp = pathWaypointIndex(s, clamped)
 }
-function projectToPath(x: number, y: number) {
-  let best = { distance: 0, x: PATH[0].x, y: PATH[0].y, error: Infinity }
-  for (let i = 1; i < PATH.length; i++) {
-    const a = PATH[i - 1], b = PATH[i], dx = b.x - a.x, dy = b.y - a.y
+function projectToPath(s: GameState, x: number, y: number) {
+  const path = MAPS[s.mapId].path, lengths = MAPS[s.mapId].pathLengths
+  let best = { distance: 0, x: path[0].x, y: path[0].y, error: Infinity }
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1], b = path[i], dx = b.x - a.x, dy = b.y - a.y
     const lenSq = dx * dx + dy * dy
     const k = lenSq ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / lenSq)) : 0
     const px = a.x + dx * k, py = a.y + dy * k, error = Math.hypot(x - px, y - py)
-    if (error < best.error) best = { distance: REVERSE_PATH_LENGTHS[i - 1] + Math.sqrt(lenSq) * k, x: px, y: py, error }
+    if (error < best.error) best = { distance: lengths[i - 1] + Math.sqrt(lenSq) * k, x: px, y: py, error }
   }
   return best
 }
 function findReversePathTarget(s: GameState, t: Tower, range: number) {
-  const projection = projectToPath(t.x, t.y)
+  const projection = projectToPath(s, t.x, t.y)
   if (projection.error > range) return null
   return s.enemies.filter(e => e.alive && canTowerTargetEnemy(e, t.type, s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && Math.hypot(other.x - t.x, other.y - t.y) <= TOWERS.commsCenter.range)) && e.dist <= projection.distance + 4)
     .sort((a, b) => b.dist - a.dist)[0] ?? null
 }
-
 function launchPathBoulder(s: GameState, t: Tower, def = TOWERS[t.type]) {
-  const projection = projectToPath(t.x, t.y)
-  const point = pointOnPath(projection.distance)
-  const towardStart = pointOnPath(Math.max(0, projection.distance - 3))
+  const projection = projectToPath(s, t.x, t.y)
+  const point = pointOnPath(s, projection.distance)
+  const towardStart = pointOnPath(s, Math.max(0, projection.distance - 3))
   const angle = Math.atan2(towardStart.y - point.y, towardStart.x - point.x)
   const rock = t.type === 'rockLauncher', pebble = t.type === 'pebblesLauncher', giant = t.type === 'boulderCannon'
   s.projectiles.push({
@@ -935,8 +940,8 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
     return
   }
   if (t.type === 'snowballLauncher') {
-    const projection = projectToPath(t.x, t.y), point = pointOnPath(projection.distance)
-    const towardStart = pointOnPath(Math.max(0, projection.distance - 3))
+    const projection = projectToPath(s, t.x, t.y), point = pointOnPath(s, projection.distance)
+    const towardStart = pointOnPath(s, Math.max(0, projection.distance - 3))
     const angle = Math.atan2(towardStart.y - point.y, towardStart.x - point.x)
     s.projectiles.push({ kind: 'snowball', x: point.x, y: point.y, dirX: Math.cos(angle), dirY: Math.sin(angle),
       traveled: 0, pathDistance: projection.distance, speed: def.projectileSpeed, damage: def.damage,
@@ -951,11 +956,11 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
     return
   }
   if (t.type === 'portalGun') {
-    const total = REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1]
+    const total = MAPS[s.mapId].pathLengths[MAPS[s.mapId].pathLengths.length - 1]
     const blueDistance = Math.max(160, Math.min(total - 80, target.dist + 20))
     const purpleDistance = blueDistance - 160
     s.portalPairs.push({ blueDistance, purpleDistance, t: 0, duration: 2, usedEnemyIds: [], remainingHp: 2000 })
-    const blue = pointOnPath(blueDistance), purple = pointOnPath(purpleDistance)
+    const blue = pointOnPath(s, blueDistance), purple = pointOnPath(s, purpleDistance)
     s.explosions.push({ x: blue.x, y: blue.y, r: 25, t: 0, dur: 0.45, color: '#38bdf8' })
     s.explosions.push({ x: purple.x, y: purple.y, r: 25, t: 0, dur: 0.45, color: '#c084fc' })
     return
@@ -1090,6 +1095,7 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
 
 export function update(s: GameState, dt: number) {
   if (s.status !== 'playing') return
+  const path = MAPS[s.mapId].path
   s.time += dt
 
   for (const trap of s.electricTraps) {
@@ -1245,7 +1251,7 @@ export function update(s: GameState, dt: number) {
       if (e.burrowTimer > 0) {
         const travel = Math.min(e.burrowRemaining, 118 * dt)
         if (travel > 0) {
-          placeEnemyOnPath(e, e.dist + travel)
+          placeEnemyOnPath(s, e, e.dist + travel)
           e.burrowRemaining -= travel
         }
         e.burrowTimer = Math.max(0, e.burrowTimer - dt)
@@ -1254,7 +1260,7 @@ export function update(s: GameState, dt: number) {
           e.burrowCooldown = 3.6 + Math.random() * 2.2
           s.explosions.push({ x: e.x, y: e.y, r: 17, t: 0, dur: 0.28, color: '#a8a29e' })
         }
-        if (e.dist >= REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1]) {
+        if (e.dist >= MAPS[s.mapId].pathLengths[MAPS[s.mapId].pathLengths.length - 1]) {
           e.alive = false
           s.lives -= def.damage
         }
@@ -1270,10 +1276,10 @@ export function update(s: GameState, dt: number) {
     if (e.frozenTimer > 0) continue
     const previousDist = e.dist
     if (e.type === 'flyBug') {
-      const exit = PATH[PATH.length - 1]
+      const exit = path[path.length - 1]
       const dx = exit.x - e.x, dy = exit.y - e.y
       const distance = Math.hypot(dx, dy)
-      const step = def.speed * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
+      const step = def.speed * s.enemySpeedMultiplier * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
       if (distance > 0.001) e.angle = Math.atan2(dy, dx)
       if (distance <= step) {
         e.x = exit.x; e.y = exit.y; e.alive = false; s.lives -= def.damage
@@ -1291,9 +1297,9 @@ export function update(s: GameState, dt: number) {
       // Each jump covers up to 70 world units over 0.52s, smoothly following
       // the waypoint path instead of teleporting. Crossing a waypoint never stalls it.
       if(e.airborneTimer>0){
-        let step=82*dt/.55
-        while(step>0&&e.alive&&e.wp<PATH.length){
-          const target=PATH[e.wp]
+        let step=82*dt/.55*s.enemySpeedMultiplier
+        while(step>0&&e.alive&&e.wp<path.length){
+          const target=path[e.wp]
           const dx=target.x-e.x,dy=target.y-e.y,distance=Math.hypot(dx,dy)
           if(distance<=.001){e.x=target.x;e.y=target.y;e.wp++;continue}
           e.angle=Math.atan2(dy,dx)
@@ -1303,15 +1309,15 @@ export function update(s: GameState, dt: number) {
             e.x+=(dx/distance)*step;e.y+=(dy/distance)*step;e.dist+=step;step=0
           }
         }
-        if(e.wp>=PATH.length&&e.alive){e.alive=false;s.lives-=def.damage}
+        if(e.wp>=path.length&&e.alive){e.alive=false;s.lives-=def.damage}
       }
       if (e.alive && e.dist > previousDist) {
         const portal = e.type === 'flyBug' ? undefined : s.portalPairs.find(pair => !pair.usedEnemyIds.includes(e.id) && pair.remainingHp >= e.hp && previousDist < pair.blueDistance && e.dist >= pair.blueDistance)
         if (portal) {
           portal.usedEnemyIds.push(e.id)
           portal.remainingHp -= e.hp
-          placeEnemyOnPath(e, portal.purpleDistance)
-          const blue = pointOnPath(portal.blueDistance), purple = pointOnPath(portal.purpleDistance)
+          placeEnemyOnPath(s, e, portal.purpleDistance)
+          const blue = pointOnPath(s, portal.blueDistance), purple = pointOnPath(s, portal.purpleDistance)
           s.explosions.push({ x: blue.x, y: blue.y, r: 20, t: 0, dur: 0.3, color: '#38bdf8' })
           s.explosions.push({ x: purple.x, y: purple.y, r: 23, t: 0, dur: 0.35, color: '#c084fc' })
         }
@@ -1327,9 +1333,9 @@ export function update(s: GameState, dt: number) {
       Math.hypot(other.x - e.x, other.y - e.y) <= supportRadius
     )
     const isolatedSupportSpeed = supportRadius > 0 && !hasAlliesInSupportRange ? 2.2 : 1
-    let step = def.speed * isolatedSupportSpeed * (e.splitGeneration > 0 ? 2 : 1) * (e.type === 'bombug' ? 1.35 : 1) * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
+    let step = def.speed * s.enemySpeedMultiplier * isolatedSupportSpeed * (e.splitGeneration > 0 ? 2 : 1) * (e.type === 'bombug' ? 1.35 : 1) * (e.slowTimer > 0 ? e.slowFactor : 1) * dt
     while (step > 0 && e.alive) {
-      const target = PATH[e.wp]
+      const target = path[e.wp]
       const dx = target.x - e.x
       const dy = target.y - e.y
       const d = Math.hypot(dx, dy)
@@ -1340,7 +1346,7 @@ export function update(s: GameState, dt: number) {
         e.dist += d
         step -= d
         e.wp++
-        if (e.wp >= PATH.length) {
+        if (e.wp >= path.length) {
           e.alive = false
           s.lives -= def.damage
         }
@@ -1356,8 +1362,8 @@ export function update(s: GameState, dt: number) {
       if (portal) {
         portal.usedEnemyIds.push(e.id)
         portal.remainingHp -= e.hp
-        placeEnemyOnPath(e, portal.purpleDistance)
-        const blue = pointOnPath(portal.blueDistance), purple = pointOnPath(portal.purpleDistance)
+        placeEnemyOnPath(s, e, portal.purpleDistance)
+        const blue = pointOnPath(s, portal.blueDistance), purple = pointOnPath(s, portal.purpleDistance)
         s.explosions.push({ x: blue.x, y: blue.y, r: 20, t: 0, dur: 0.3, color: '#38bdf8' })
         s.explosions.push({ x: purple.x, y: purple.y, r: 23, t: 0, dur: 0.35, color: '#c084fc' })
       }
@@ -1389,10 +1395,10 @@ export function update(s: GameState, dt: number) {
     if (t.type === 'spikeLayer') {
       t.supportCooldown -= dt
       if (t.supportCooldown <= 0) {
-        const maxDistance = REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1]
+        const maxDistance = MAPS[s.mapId].pathLengths[MAPS[s.mapId].pathLengths.length - 1]
         const candidates: { x: number; y: number }[] = []
         for (let attempt = 0; attempt < 80; attempt++) {
-          const point = pointOnPath(Math.random() * maxDistance)
+          const point = pointOnPath(s, Math.random() * maxDistance)
           if (Math.hypot(point.x - t.x, point.y - t.y) <= baseDef.range &&
               s.spikeTraps.every(trap => Math.hypot(trap.x - point.x, trap.y - point.y) > 72)) {
             candidates.push(point)
@@ -1462,13 +1468,13 @@ export function update(s: GameState, dt: number) {
       if (t.meteorDistance < 0) {
         t.supportCooldown = Math.max(0, t.supportCooldown - dt)
         if (t.supportCooldown <= 0) {
-          t.meteorDistance = REVERSE_PATH_LENGTHS[REVERSE_PATH_LENGTHS.length - 1]
+          t.meteorDistance = MAPS[s.mapId].pathLengths[MAPS[s.mapId].pathLengths.length - 1]
           t.meteorTimer = 0
         }
       } else {
         t.meteorTimer -= dt
         if (t.meteorTimer <= 0) {
-          const point = pointOnPath(t.meteorDistance)
+          const point = pointOnPath(s, t.meteorDistance)
           s.projectiles.push({ kind: 'arc', sx: point.x + 18, sy: point.y - 190, tx: point.x, ty: point.y, t: 0, duration: 0.62, height: 24, damage: baseDef.damage, splash: baseDef.splash, cluster: false, color: baseDef.color, size: 10, sourceType: t.type, sourceTowerId: t.id })
           t.meteorDistance -= CELL
           t.meteorTimer = 0.11
@@ -2061,12 +2067,12 @@ export function update(s: GameState, dt: number) {
     if (p.kind === 'snowball') {
       const old = { x: p.x, y: p.y }
       const nextDistance = Math.max(0, p.pathDistance - p.speed * dt)
-      const next = pointOnPath(nextDistance)
+      const next = pointOnPath(s, nextDistance)
       p.traveled += p.pathDistance - nextDistance; p.pathDistance = nextDistance
       p.x = next.x; p.y = next.y
       for (let i = 0; i < p.carriedIds.length; i++) {
         const carried = s.enemies.find(enemy => enemy.id === p.carriedIds[i] && enemy.alive)
-        if (carried) placeEnemyOnPath(carried, p.pathDistance + (i - (p.carriedIds.length - 1) / 2) * 7)
+        if (carried) placeEnemyOnPath(s, carried, p.pathDistance + (i - (p.carriedIds.length - 1) / 2) * 7)
       }
       const dx = p.x - old.x, dy = p.y - old.y, lenSq = dx * dx + dy * dy
       const hit = s.enemies.filter(enemy => enemy.alive && enemy.type !== 'flyBug' && canTowerTargetEnemy(enemy, 'snowballLauncher') && enemy.carriedBy == null && !p.carriedIds.includes(enemy.id) && !projectilePassesGhost(p, enemy))
@@ -2086,14 +2092,14 @@ export function update(s: GameState, dt: number) {
           const carried = s.enemies.find(enemy => enemy.id === p.carriedIds[i])
           if (carried) {
             carried.carriedBy = undefined
-            placeEnemyOnPath(carried, p.pathDistance + (i - (count - 1) / 2) * 18)
+            placeEnemyOnPath(s, carried, p.pathDistance + (i - (count - 1) / 2) * 18)
           }
         }
         explode(s, p.x, p.y, p.splash, p.damage, p.color, 'snowballLauncher', p.sourceTowerId, true)
         freezeInRadius(s, p.x, p.y, p.splash, 1)
         for (const enemy of s.enemies) {
           if (!enemy.alive || Math.hypot(enemy.x-p.x,enemy.y-p.y) > p.splash + ENEMIES[enemy.type].radius) continue
-          placeEnemyOnPath(enemy, enemy.dist + (enemy.id % 3 - 1) * 7)
+          placeEnemyOnPath(s, enemy, enemy.dist + (enemy.id % 3 - 1) * 7)
         }
         return false
       }
@@ -2102,7 +2108,7 @@ export function update(s: GameState, dt: number) {
     if (p.kind === 'boulder') {
       const old = { x: p.x, y: p.y }
       const nextDistance = Math.max(0, p.pathDistance - p.speed * dt)
-      const next = pointOnPath(nextDistance)
+      const next = pointOnPath(s, nextDistance)
       p.traveled += p.pathDistance - nextDistance
       p.pathDistance = nextDistance
       p.x = next.x; p.y = next.y
@@ -2779,10 +2785,11 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
 }
 
 export function render(ctx: CanvasRenderingContext2D, s: GameState) {
-  ctx.fillStyle = '#070d1f'
+  const map = MAPS[s.mapId]
+  ctx.fillStyle = map.colors.background
   ctx.fillRect(0, 0, WIDTH, HEIGHT)
 
-  ctx.strokeStyle = 'rgba(56,189,248,0.07)'
+  ctx.strokeStyle = map.colors.grid
   ctx.lineWidth = 1
   for (let c = 0; c <= COLS; c++) {
     ctx.beginPath()
@@ -2801,12 +2808,12 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   for (const cell of FARM_CELLS) {
     const [col, row] = cell.split(',').map(Number)
     const x = col * CELL, y = row * CELL
-    ctx.fillStyle = 'rgba(34,197,94,0.2)'
+    ctx.fillStyle = map.colors.farmFill
     ctx.fillRect(x + 2, y + 2, CELL - 4, CELL - 4)
-    ctx.strokeStyle = 'rgba(74,222,128,0.9)'
+    ctx.strokeStyle = map.colors.farmStroke
     ctx.lineWidth = 2
     ctx.strokeRect(x + 4, y + 4, CELL - 8, CELL - 8)
-    ctx.fillStyle = 'rgba(134,239,172,0.95)'
+    ctx.fillStyle = map.colors.farmText
     ctx.font = 'bold 9px sans-serif'
     ctx.textAlign = 'center'
     ctx.fillText('FARM', x + CELL / 2, y + CELL / 2 + 3)
@@ -2814,17 +2821,17 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
 
   ctx.lineJoin = 'round'
   ctx.lineCap = 'square'
-  ctx.strokeStyle = 'rgba(56,189,248,0.35)'
+  ctx.strokeStyle = map.colors.pathGlow
   ctx.lineWidth = CELL + 4
-  tracePath(ctx)
+  tracePath(ctx, map.path)
   ctx.stroke()
-  ctx.strokeStyle = '#0f1a33'
+  ctx.strokeStyle = map.colors.path
   ctx.lineWidth = CELL - 4
   tracePath(ctx)
   ctx.stroke()
   ctx.setLineDash([6, 10])
   ctx.lineDashOffset = -s.time * 20
-  ctx.strokeStyle = 'rgba(56,189,248,0.25)'
+  ctx.strokeStyle = map.colors.pathDash
   ctx.lineWidth = 2
   tracePath(ctx)
   ctx.stroke()
@@ -2841,7 +2848,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 
   for (const pair of s.portalPairs) {
-    const blue = pointOnPath(pair.blueDistance), purple = pointOnPath(pair.purpleDistance)
+    const blue = pointOnPath(s, pair.blueDistance), purple = pointOnPath(s, pair.purpleDistance)
     const fade = Math.max(0.25, 1 - pair.t / pair.duration)
     for (const item of [{ point: blue, color: '#38bdf8', rotation: s.time * 2 }, { point: purple, color: '#c084fc', rotation: -s.time * 2 }]) {
       ctx.save(); ctx.globalAlpha = fade; ctx.translate(item.point.x, item.point.y); ctx.rotate(item.rotation)
@@ -3316,8 +3323,8 @@ function drawElectricBeam(
   ctx.restore()
 }
 
-function tracePath(ctx: CanvasRenderingContext2D) {
+function tracePath(ctx: CanvasRenderingContext2D, path: { x: number; y: number }[]) {
   ctx.beginPath()
-  ctx.moveTo(PATH[0].x, PATH[0].y)
-  for (let i = 1; i < PATH.length; i++) ctx.lineTo(PATH[i].x, PATH[i].y)
+  ctx.moveTo(path[0].x, path[0].y)
+  for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y)
 }
