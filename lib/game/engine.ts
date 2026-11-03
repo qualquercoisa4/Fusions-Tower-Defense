@@ -2807,103 +2807,95 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   ctx.fillStyle = map.colors.background
   ctx.fillRect(0, 0, WIDTH, HEIGHT)
 
-  ctx.strokeStyle = map.colors.grid
-  ctx.lineWidth = 1
-  for (let c = 0; c <= COLS; c++) {
-    ctx.beginPath()
-    ctx.moveTo(c * CELL, 0)
-    ctx.lineTo(c * CELL, HEIGHT)
-    ctx.stroke()
-  }
-  for (let r = 0; r <= ROWS; r++) {
-    ctx.beginPath()
-    ctx.moveTo(0, r * CELL)
-    ctx.lineTo(WIDTH, r * CELL)
-    ctx.stroke()
-  }
-
-  // Obstáculos permanentes: estas células não aceitam torres.
-  for (const cell of map.blockedCells) {
-    const [col, row] = cell.split(',').map(Number)
-    const x = col * CELL, y = row * CELL
-    if (map.theme === 'water') {
-      ctx.fillStyle = '#0891b2'
-      ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2)
-      ctx.strokeStyle = 'rgba(224,249,255,0.6)'; ctx.lineWidth = 2
-      for (let wave = 0; wave < 2; wave++) {
-        ctx.beginPath(); ctx.moveTo(x + 7, y + 15 + wave * 13)
-        ctx.quadraticCurveTo(x + 17, y + 9 + wave * 13, x + 26, y + 15 + wave * 13)
-        ctx.quadraticCurveTo(x + 34, y + 20 + wave * 13, x + 41, y + 14 + wave * 13); ctx.stroke()
-      }
-    } else if (map.theme === 'lava') {
-      ctx.fillStyle = '#7c2d12'; ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2)
-      ctx.strokeStyle = '#fb4a12'; ctx.lineWidth = 3; ctx.beginPath()
-      ctx.moveTo(x + 8, y + 8); ctx.lineTo(x + 19, y + 20); ctx.lineTo(x + 13, y + 34)
-      ctx.moveTo(x + 34, y + 5); ctx.lineTo(x + 28, y + 17); ctx.lineTo(x + 39, y + 31); ctx.stroke()
-    } else if (map.theme === 'crystal') {
-      ctx.fillStyle = '#26376d'; ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2)
-      ctx.fillStyle = '#67e8f9'; ctx.strokeStyle = '#cffafe'; ctx.lineWidth = 1.5
-      ctx.beginPath(); ctx.moveTo(x + 22, y + 5); ctx.lineTo(x + 36, y + 22); ctx.lineTo(x + 23, y + 42); ctx.lineTo(x + 10, y + 22); ctx.closePath(); ctx.fill(); ctx.stroke()
-    } else if (map.theme === 'stone' || map.theme === 'desert') {
-      ctx.fillStyle = map.theme === 'stone' ? '#9ca3af' : '#8f8060'
-      ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2)
-      ctx.fillStyle = map.theme === 'stone' ? '#d1d5db' : '#c9b78b'
-      ctx.beginPath(); ctx.moveTo(x + 7, y + 34); ctx.lineTo(x + 17, y + 8); ctx.lineTo(x + 35, y + 13); ctx.lineTo(x + 41, y + 34); ctx.closePath(); ctx.fill()
-    } else {
-      ctx.fillStyle = 'rgba(2,6,23,0.72)'; ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2)
-      ctx.strokeStyle = 'rgba(148,163,184,0.22)'; ctx.lineWidth = 1; ctx.strokeRect(x + 3, y + 3, CELL - 6, CELL - 6)
-      ctx.fillStyle = 'rgba(148,163,184,0.16)'; ctx.beginPath()
-      ctx.moveTo(x + 10, y + 35); ctx.lineTo(x + 20, y + 12); ctx.lineTo(x + 34, y + 31); ctx.closePath(); ctx.fill()
+  // Os seis mapas de referência usam campos de cor chapada, sem grade por cima.
+  if (map.id === 'original' || map.id === 'infernoCircuit') {
+    ctx.strokeStyle = map.colors.grid
+    ctx.lineWidth = 1
+    for (let c = 0; c <= COLS; c++) {
+      ctx.beginPath(); ctx.moveTo(c * CELL, 0); ctx.lineTo(c * CELL, HEIGHT); ctx.stroke()
+    }
+    for (let r = 0; r <= ROWS; r++) {
+      ctx.beginPath(); ctx.moveTo(0, r * CELL); ctx.lineTo(WIDTH, r * CELL); ctx.stroke()
     }
   }
 
-  // Pads verdes exclusivos para torres de renda.
+  // Terrenos são polígonos traçados diretamente sobre as áreas das referências.
+  for (const patch of map.terrainPatches) {
+    ctx.fillStyle = patch.color
+    ctx.beginPath()
+    patch.points.forEach(([px, py], index) => {
+      const x = px * MAP_SCALE_X, y = py * MAP_SCALE_Y
+      if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
+    })
+    ctx.closePath(); ctx.fill()
+  }
+
+  // O mapa novo mantém seus obstáculos estilizados por célula.
+  if (map.id === 'original' || map.id === 'infernoCircuit') {
+    for (const cell of map.blockedCells) {
+      const [col, row] = cell.split(',').map(Number)
+      const x = col * CELL, y = row * CELL
+      ctx.fillStyle = map.theme === 'crystal' ? '#26376d' : 'rgba(2,6,23,0.72)'
+      ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2)
+      if (map.theme === 'crystal') {
+        ctx.fillStyle = '#67e8f9'; ctx.strokeStyle = '#cffafe'; ctx.lineWidth = 1.5
+        ctx.beginPath(); ctx.moveTo(x + CELL/2, y + 3); ctx.lineTo(x + CELL - 4, y + CELL/2)
+        ctx.lineTo(x + CELL/2, y + CELL - 3); ctx.lineTo(x + 4, y + CELL/2); ctx.closePath(); ctx.fill(); ctx.stroke()
+      } else {
+        ctx.strokeStyle = 'rgba(148,163,184,0.22)'; ctx.lineWidth = 1
+        ctx.strokeRect(x + 3, y + 3, CELL - 6, CELL - 6)
+      }
+    }
+  }
+
+  // Espaços exclusivos de economia. Na lagoa, uma dessas posições é o barco.
   for (const cell of map.farmCells) {
     const [col, row] = cell.split(',').map(Number)
     const x = col * CELL, y = row * CELL
-    ctx.fillStyle = map.colors.farmFill
-    ctx.fillRect(x + 2, y + 2, CELL - 4, CELL - 4)
-    ctx.strokeStyle = map.colors.farmStroke
-    ctx.lineWidth = 2
-    ctx.strokeRect(x + 4, y + 4, CELL - 8, CELL - 8)
-    ctx.fillStyle = map.colors.farmText
-    ctx.font = 'bold 9px sans-serif'
-    ctx.textAlign = 'center'
-    if (map.id === 'quarrySpiral' && cell === '15,5') {
-      // Barco ancorado: o próprio barco ocupa o espaço exclusivo de farm.
-      ctx.fillStyle = '#78350f'; ctx.beginPath()
-      ctx.moveTo(x + 5, y + 25); ctx.lineTo(x + 42, y + 25); ctx.lineTo(x + 34, y + 36); ctx.lineTo(x + 13, y + 36); ctx.closePath(); ctx.fill()
-      ctx.fillStyle = '#f8fafc'; ctx.fillRect(x + 20, y + 8, 3, 18)
-      ctx.fillStyle = '#fef3c7'; ctx.beginPath(); ctx.moveTo(x + 23, y + 9); ctx.lineTo(x + 37, y + 21); ctx.lineTo(x + 23, y + 21); ctx.closePath(); ctx.fill()
-      ctx.fillStyle = '#075985'; ctx.font = 'bold 7px sans-serif'; ctx.fillText('BARCO', x + CELL / 2, y + 44)
+    if (map.id === 'quarrySpiral' && cell === '29,15') {
+      ctx.save()
+      ctx.translate(x + CELL/2, y + CELL/2)
+      ctx.fillStyle = '#78350f'; ctx.strokeStyle = '#fef3c7'; ctx.lineWidth = 1.5
+      ctx.beginPath(); ctx.moveTo(-12, 2); ctx.lineTo(12, 2); ctx.lineTo(8, 9); ctx.lineTo(-8, 9); ctx.closePath(); ctx.fill(); ctx.stroke()
+      ctx.fillStyle = '#f8fafc'; ctx.fillRect(-1, -11, 2, 14)
+      ctx.fillStyle = '#fef3c7'; ctx.beginPath(); ctx.moveTo(1, -10); ctx.lineTo(9, -1); ctx.lineTo(1, -1); ctx.closePath(); ctx.fill()
+      ctx.restore()
     } else {
-      ctx.fillText('FARM', x + CELL / 2, y + CELL / 2 + 3)
+      ctx.fillStyle = map.colors.farmFill
+      ctx.fillRect(x + 2, y + 2, CELL - 4, CELL - 4)
+      ctx.strokeStyle = map.colors.farmStroke; ctx.lineWidth = 2
+      ctx.strokeRect(x + 4, y + 4, CELL - 8, CELL - 8)
+      ctx.fillStyle = map.colors.farmText
+      ctx.font = 'bold 8px sans-serif'; ctx.textAlign = 'center'
+      ctx.fillText('FARM', x + CELL/2, y + CELL/2 + 3)
     }
   }
 
   ctx.lineJoin = 'round'
   ctx.lineCap = 'round'
   for (const route of map.routes) {
-    ctx.strokeStyle = map.colors.pathGlow
-    ctx.lineWidth = CELL + 7
-    tracePath(ctx, route.path)
-    ctx.stroke()
-    ctx.strokeStyle = map.colors.path
-    ctx.lineWidth = CELL - 5
-    tracePath(ctx, route.path)
-    ctx.stroke()
-    ctx.setLineDash([6, 10])
-    ctx.lineDashOffset = -s.time * 20
-    ctx.strokeStyle = map.colors.pathDash
-    ctx.lineWidth = 2
-    tracePath(ctx, route.path)
-    ctx.stroke()
-    ctx.setLineDash([])
+    if (map.sandOnly) {
+      // Banco de areia largo em torno do caminho verde; a água continua bloqueada.
+      ctx.strokeStyle = '#f6ff93'
+      ctx.lineWidth = 135
+      tracePath(ctx, route.path); ctx.stroke()
+      ctx.strokeStyle = '#66ff4b'
+      ctx.lineWidth = map.pathWidth
+      tracePath(ctx, route.path); ctx.stroke()
+    } else {
+      ctx.strokeStyle = map.colors.pathGlow
+      ctx.lineWidth = map.pathWidth + 8
+      tracePath(ctx, route.path); ctx.stroke()
+      ctx.strokeStyle = map.colors.path
+      ctx.lineWidth = map.pathWidth
+      tracePath(ctx, route.path); ctx.stroke()
+    }
     const start = route.path[0], finish = route.path[route.path.length - 1]
-    ctx.fillStyle = '#0ea5e9'; ctx.strokeStyle = '#e0f2fe'; ctx.lineWidth = 3
-    ctx.beginPath(); ctx.arc(start.x, start.y, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
-    ctx.fillStyle = '#ef4444'; ctx.strokeStyle = '#fee2e2'
-    ctx.beginPath(); ctx.arc(finish.x, finish.y, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+    const markerRadius = 25
+    ctx.fillStyle = '#00cfff'; ctx.strokeStyle = '#e0f2fe'; ctx.lineWidth = 3
+    ctx.beginPath(); ctx.arc(start.x, start.y, markerRadius, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+    ctx.fillStyle = '#ef0800'; ctx.strokeStyle = '#fee2e2'
+    ctx.beginPath(); ctx.arc(finish.x, finish.y, markerRadius, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
   }
 
   for (const trap of s.electricTraps) {
