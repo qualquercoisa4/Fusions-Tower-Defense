@@ -1015,20 +1015,24 @@ export const MAPS: Record<MapId, GameMap> = {
 
   // Referência 5: três faixas independentes em zigue-zague; inimigos alternam
   // entre as rotas em sequência, sem grupos simultâneos por trilha.
-  neonGauntlet: defineMap('neonGauntlet','Zigue-zague Triplo','Expert','Três pistas paralelas em zigue-zague exigem cobertura distribuída.',1.42,1.14,ARENA_COLORS.neonGauntlet,
-    [[-8,48],[42,48],[76,29],[116,29],[150,48],[190,29],[230,48],[264,48]],
+  neonGauntlet: defineMap('neonGauntlet','Zigue-zague Triplo','Expert','Três pistas independentes atravessam um terreno vulcânico em zigue-zagues.',1.42,1.14,{
+      background:'#f28a08',grid:'rgba(255,220,130,0.16)',pathGlow:'rgba(117,42,24,0.72)',path:'#e8c19a',pathDash:'#fff0d8',
+      farmFill:'rgba(70,45,25,0.22)',farmStroke:'#f6bd54',farmText:'#fff0c2',preview:'#f28a08',accent:'#ffb02e'
+    },
+    [[-8,42],[7,17],[19,48],[33,22],[47,51],[62,24],[77,51],[92,22],[107,53],[122,18],[137,51],[153,17],[168,56],[184,18],[199,52],[215,16],[231,48],[247,22],[264,42]],
     {pixelCoordinates:true,extraRoutes:[
-      [[-8,112],[42,112],[76,93],[116,93],[150,112],[190,93],[230,112],[264,112]],
-      [[-8,176],[42,176],[76,157],[116,157],[150,176],[190,157],[230,176],[264,176]]
-    ],theme:'lava',pathWidth:31,farms:['2,2','29,2','2,25','29,25'],
+      [[-8,112],[18,109],[37,108],[55,112],[75,116],[72,90],[94,100],[112,112],[128,119],[128,88],[148,99],[167,112],[181,120],[187,89],[207,98],[226,105],[244,94],[264,94]],
+      [[-8,183],[13,172],[28,190],[45,169],[63,190],[81,167],[99,190],[117,173],[135,191],[153,170],[171,188],[185,166],[194,151],[207,154],[202,168],[190,175],[208,179],[231,177],[264,177]]
+    ],theme:'lava',pathWidth:24,farms:[],
       terrainPatches:[
-        {points:[[78,77],[99,75],[106,91],[96,105],[78,100],[71,88]],color:'#a13f26'},
-        {points:[[155,128],[177,126],[184,143],[172,158],[153,153],[147,139]],color:'#a13f26'},
-        {points:[[31,181],[53,178],[60,194],[48,208],[30,204],[24,191]],color:'#a13f26'},
-        {points:[[0,0],[24,0],[31,15],[17,25],[0,18]],color:'#78311d'},
-        {points:[[230,0],[256,0],[256,20],[239,27],[226,17]],color:'#78311d'},
-        {points:[[0,204],[35,198],[47,212],[44,224],[0,224]],color:'#78311d'},
-        {points:[[215,204],[256,197],[256,224],[222,224]],color:'#78311d'}
+        // Bordas rochosas cinzentas e irregulares na parte superior e inferior.
+        {points:[[0,0],[18,0],[34,4],[51,1],[68,0],[82,5],[99,2],[116,0],[134,4],[151,1],[168,0],[185,5],[203,2],[220,0],[239,4],[256,1],[256,0]],color:'#a7a6a2'},
+        {points:[[0,211],[18,207],[36,210],[54,205],[72,210],[91,207],[109,211],[127,205],[145,210],[163,207],[181,211],[199,205],[218,210],[237,207],[256,211],[256,224],[0,224]],color:'#a7a6a2'},
+        // Pequenos fragmentos de rocha nas áreas livres entre as pistas.
+        {points:[[37,72],[45,69],[51,74],[48,81],[40,82],[35,77]],color:'#777f7d'},
+        {points:[[202,68],[211,65],[217,71],[213,78],[204,77]],color:'#777f7d'},
+        {points:[[17,137],[26,134],[31,140],[27,147],[19,146],[14,141]],color:'#777f7d'},
+        {points:[[229,130],[238,127],[244,133],[240,141],[231,140],[226,135]],color:'#777f7d'}
       ]}),
 
   // Alternativa adicional: um circuito de curvas largas com retorno lateral.
