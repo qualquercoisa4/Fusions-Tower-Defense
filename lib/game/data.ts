@@ -805,7 +805,7 @@ const MAP_COLORS = {
 
 
 const ARENA_COLORS: Record<MapId, GameMap['colors']> = {
-  original: ARENA_COLORS.original,
+  original: MAP_COLORS.original,
   meadow: { background: '#ead36f', grid: 'rgba(138,112,54,0.12)', pathGlow: 'rgba(130,96,54,0.28)', path: '#9a7652', pathDash: '#f8e8a0', farmFill: 'rgba(26,214,235,0.28)', farmStroke: '#13cde5', farmText: '#075985', preview: '#d9c15f', accent: '#13cde5' },
   frostline: { background: '#62ed00', grid: 'rgba(42,92,18,0.14)', pathGlow: 'rgba(83,72,40,0.25)', path: '#8d8662', pathDash: '#c6bb83', farmFill: 'rgba(34,197,94,0.2)', farmStroke: '#166534', farmText: '#14532d', preview: '#55d900', accent: '#a3e635' },
   emberCrossing: { background: '#b9b18c', grid: 'rgba(86,77,53,0.13)', pathGlow: 'rgba(236,213,105,0.35)', path: '#e5d36e', pathDash: '#fff0a6', farmFill: 'rgba(20,199,202,0.2)', farmStroke: '#0faaa9', farmText: '#075985', preview: '#aaa27d', accent: '#e8d36f' },
