@@ -819,7 +819,7 @@ export const MAPS: Record<MapId, GameMap> = {
 
   // Pradaria: um S largo, com retornos alternados e áreas abertas.
   meadow: defineMap('meadow', 'Pradaria Verde', 'Iniciante', 'Um percurso amplo em formato de S, com retornos longos e bastante espaço para posicionar torres.', 1.04, 1.02, MAP_COLORS.meadow, [
-    [-1, 2], [3, 2], [3, 5], [7, 5], [7, 1], [11, 1], [11, 6], [15, 6], [15, 9], [18, 9],
+    [-1, 2], [3, 2], [3, 5], [7, 5], [7, 1], [11, 1], [11, 6], [15, 6], [15, 9], [12, 9], [12, 7], [16, 7], [16, 10], [13, 10], [13, 8], [18, 8],
   ]),
 
   // Geleira: duas grandes alças conectadas por um corredor central.
