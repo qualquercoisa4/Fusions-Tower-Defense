@@ -493,9 +493,16 @@ export function isBuildableAt(s: GameState, x: number, y: number, type: TowerTyp
     if (pathDistance > sandOuterRadius - footprint * 0.45) return false
   } else {
     const col = Math.floor(x / CELL), row = Math.floor(y / CELL)
-    if (map.blockedCells.has(`${col},${row}`)) return false
+    if (map.id === 'frostline') {
+      // No mapa aquático, construção só nas ilhas de terra ou no casco do barco.
+      const landPatches = map.terrainPatches.filter(p => p.color.toLowerCase() === '#176b49')
+      const boatPatch = map.terrainPatches.find(p => p.color.toLowerCase() === '#176747')
+      const onLand = landPatches.some(p => pointInPolygon(x, y, p.points))
+      const onBoat = !!boatPatch && pointInPolygon(x, y, boatPatch.points)
+      if (!onLand && !onBoat) return false
+    } else if (map.blockedCells.has(`${col},${row}`)) return false
     for (const patch of map.terrainPatches) {
-      const obstacleColor = ['#33e0fe','#a7a07f','#b3b3b3','#b1acac'].includes(patch.color.toLowerCase())
+      const obstacleColor = ['#33e0fe','#a7a07f','#b3b3b3','#b1acac','#547b80'].includes(patch.color.toLowerCase())
       if (obstacleColor && pointInPolygon(x, y, patch.points)) return false
     }
   }
