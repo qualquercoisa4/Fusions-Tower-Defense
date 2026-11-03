@@ -127,7 +127,7 @@ export function MapSelection({ onBack, onSelect }: { onBack: () => void; onSelec
                             <circle cx={finish.x} cy={finish.y} r="25" fill="#ef0800" stroke="#fee2e2" strokeWidth="3" />
                           </g>
                         })}
-                        {map.id === 'quarrySpiral' && <g transform={`translate(${WIDTH*0.82} ${HEIGHT*0.72})`}><path d="M-35 5 L35 5 24 20 -24 20Z" fill="#6b3f22" stroke="#f3d19b" strokeWidth="3"/><path d="M0 -25 V8 M1 -23 L20 -3 H1Z" fill="#fff4cf"/></g>}
+
                       </svg>
                       <span className="absolute left-3 top-3 rounded-md border border-white/15 bg-black/45 px-2 py-1 text-[10px] font-bold tracking-widest text-white/90">75 ONDAS</span>
                       <span className="absolute bottom-3 right-3 rounded-md px-2 py-1 text-[10px] font-bold tracking-wider text-slate-950" style={{ backgroundColor: map.colors.accent }}>{map.difficulty.toUpperCase()}</span>
