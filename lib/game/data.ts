@@ -862,12 +862,12 @@ const MAP_COLORS = {
 
 const ARENA_COLORS: Record<MapId, GameMap['colors']> = {
   original: MAP_COLORS.original,
-  meadow: { background:'#e6c96a',grid:'transparent',pathGlow:'#bc6666',path:'#bc6666',pathDash:'transparent',farmFill:'#79ff0c',farmStroke:'#79ff0c',farmText:'#174900',preview:'#e6c96a',accent:'#bc6666' },
-  frostline: { background:'#6aff00',grid:'transparent',pathGlow:'#b49e3f',path:'#b49e3f',pathDash:'transparent',farmFill:'#a7a07f',farmStroke:'#a7a07f',farmText:'#413b20',preview:'#6aff00',accent:'#b49e3f' },
-  emberCrossing: { background:'#a7a07f',grid:'transparent',pathGlow:'#e6d568',path:'#e6d568',pathDash:'transparent',farmFill:'#73c152',farmStroke:'#73c152',farmText:'#174b27',preview:'#a7a07f',accent:'#e6d568' },
-  quarrySpiral: { background:'#00ffee',grid:'transparent',pathGlow:'#f6ff93',path:'#66ff4b',pathDash:'transparent',farmFill:'#f6ff93',farmStroke:'#fff9b0',farmText:'#275c21',preview:'#00ffee',accent:'#66ff4b' },
-  neonGauntlet: { background:'#ffe900',grid:'transparent',pathGlow:'#fffacd',path:'#fffacd',pathDash:'transparent',farmFill:'#b3b3b3',farmStroke:'#dedede',farmText:'#333',preview:'#ffe900',accent:'#fffacd' },
-  voidLabyrinth: { background:'#ff9000',grid:'transparent',pathGlow:'#ff0800',path:'#ff0800',pathDash:'transparent',farmFill:'#b1acac',farmStroke:'#dedede',farmText:'#333',preview:'#ff9000',accent:'#00d0ff' },
+  meadow: { background:'#e7b653',grid:'transparent',pathGlow:'#743d2b',path:'#8e4c32',pathDash:'#c77b43',farmFill:'#e9b85d',farmStroke:'#f6d38b',farmText:'#56351f',preview:'#e7b653',accent:'#9a5536' },
+  frostline: { background:'#397a35',grid:'transparent',pathGlow:'#9c5b25',path:'#eaa84c',pathDash:'#ffe0a1',farmFill:'#2c7435',farmStroke:'#9bce69',farmText:'#f4f8d9',preview:'#397a35',accent:'#eaa84c' },
+  emberCrossing: { background:'#42494c',grid:'transparent',pathGlow:'#a75e26',path:'#f4b34f',pathDash:'#ffe0a1',farmFill:'#58635c',farmStroke:'#8b9b8d',farmText:'#edf5e8',preview:'#42494c',accent:'#f4b34f' },
+  quarrySpiral: { background:'#079db5',grid:'transparent',pathGlow:'#f6e5a6',path:'#62bd43',pathDash:'#b9e66d',farmFill:'#f6e5a6',farmStroke:'#fff1c7',farmText:'#385e31',preview:'#079db5',accent:'#62bd43' },
+  neonGauntlet: { background:'#d8b64b',grid:'transparent',pathGlow:'#f7e4ac',path:'#f5e2a5',pathDash:'#fff4d4',farmFill:'#a9a49b',farmStroke:'#ded8c9',farmText:'#333',preview:'#d8b64b',accent:'#f5e2a5' },
+  voidLabyrinth: { background:'#ed6514',grid:'transparent',pathGlow:'#ffb52e',path:'#552c25',pathDash:'#ff8b1a',farmFill:'#51403b',farmStroke:'#aa7760',farmText:'#fff0cf',preview:'#ed6514',accent:'#ffb52e' },
   infernoCircuit: MAP_COLORS.original,
 }
 export const MAPS: Record<MapId, GameMap> = {
@@ -879,7 +879,7 @@ export const MAPS: Record<MapId, GameMap> = {
   // Referência 1: caminho único com dois grandes laços conectados.
   meadow: defineMap('meadow','Laços de Areia','Iniciante','Dois laços orgânicos conectados, com água e plataformas de farm nas extremidades.',1.04,1.02,ARENA_COLORS.meadow,
     [[0,24],[18,20],[38,19],[58,21],[78,27],[94,42],[106,61],[114,82],[115,101],[104,118],[85,128],[67,126],[54,114],[49,94],[53,76],[65,61],[81,49],[96,44],[114,48],[135,62],[156,82],[175,104],[190,122],[198,145],[205,170],[213,196],[226,218],[255,224]],
-    {pixelCoordinates:true,theme:'desert',pathWidth:46,
+    {pixelCoordinates:true,theme:'desert',pathWidth:68,
       terrainPatches:[
         {points:[[178,0],[256,0],[256,88],[238,78],[230,58],[211,55],[203,37],[184,34]],color:'#33e0fe'},
         {points:[[0,148],[18,146],[38,156],[42,172],[62,178],[66,197],[57,214],[79,224],[0,224]],color:'#33e0fe'},
@@ -893,7 +893,7 @@ export const MAPS: Record<MapId, GameMap> = {
   frostline: defineMap('frostline','Trilhas Paralelas','Iniciante','Duas trilhas próximas sobem em diagonal, com um retorno oval na base e rochedos cinzentos.',1.06,1.03,ARENA_COLORS.frostline,
     [[25,200],[30,190],[42,184],[53,188],[58,198],[53,208],[43,212],[32,208],[26,200],[41,186],[63,166],[85,145],[108,124],[130,103],[153,82],[176,61],[198,40],[221,18],[245,-3]],
     {extraRoutes:[[[48,205],[58,198],[76,180],[98,159],[120,138],[143,117],[165,96],[188,75],[210,54],[232,33],[255,12]]],
-      pixelCoordinates:true,theme:'grass',pathWidth:39,
+      pixelCoordinates:true,theme:'grass',pathWidth:66,
       terrainPatches:[
         {points:[[122,42],[144,18],[165,8],[180,13],[170,28],[151,45],[132,60]],color:'#a7a07f'},
         {points:[[126,177],[143,169],[164,170],[174,183],[167,198],[145,202],[128,195]],color:'#a7a07f'}
@@ -905,7 +905,7 @@ export const MAPS: Record<MapId, GameMap> = {
   emberCrossing: defineMap('emberCrossing','Travessia do Vale','Intermediário','Dois caminhos amarelos cruzam o vale: um sobe à saída superior e outro desce à saída inferior.',1.14,1.06,ARENA_COLORS.emberCrossing,
     [[8,179],[37,147],[65,146],[76,139],[100,98],[105,93],[123,95],[134,70],[157,58],[157,15],[162,9]],
     {extraRoutes:[[[248,90],[247,98],[202,138],[128,181],[112,184],[74,217]]],
-      pixelCoordinates:true,theme:'stone',pathWidth:44,
+      pixelCoordinates:true,theme:'stone',pathWidth:68,
       terrainPatches:[
         {points:[[0,0],[57,0],[65,24],[58,54],[63,82],[51,111],[30,126],[8,125],[0,111]],color:'#73c152'},
         {points:[[178,224],[191,207],[213,192],[234,187],[256,176],[256,224]],color:'#73c152'}
@@ -916,7 +916,7 @@ export const MAPS: Record<MapId, GameMap> = {
   // Referência 4: água por todo o mapa, margem de areia ao redor da trilha verde.
   quarrySpiral: defineMap('quarrySpiral','Ilha da Trilha','Intermediário','A trilha verde passa sobre uma faixa de areia. Água não permite construção; somente a areia e o barco são espaços válidos.',1.18,1.07,ARENA_COLORS.quarrySpiral,
     [[56,8],[51,13],[52,25],[75,56],[128,39],[189,41],[205,50],[208,77],[201,94],[185,101],[127,148],[115,148],[100,136],[84,137],[57,110],[44,111],[31,136],[32,166],[69,187],[111,189],[137,198],[207,170],[227,183],[247,217]],
-    {pixelCoordinates:true,theme:'water',sandOnly:true,pathWidth:44,
+    {pixelCoordinates:true,theme:'water',sandOnly:true,pathWidth:70,
       terrainPatches:[{points:[[222,91],[239,92],[250,110],[251,137],[238,151],[222,143],[216,120]],color:'#b4b4b4'}],
       farms:['8,8','20,21','29,15']
     }),
@@ -924,7 +924,7 @@ export const MAPS: Record<MapId, GameMap> = {
   // Referência 5: espiral branca no campo amarelo e rochas cinzentas.
   neonGauntlet: defineMap('neonGauntlet','Espiral de Minério','Avançado','Uma trilha branca sobe, enrola em uma espiral central e desce até a saída inferior.',1.3,1.1,ARENA_COLORS.neonGauntlet,
     [[46,5],[48,22],[52,45],[58,68],[69,91],[87,108],[108,119],[128,124],[149,118],[166,104],[177,84],[180,65],[172,49],[156,40],[134,38],[112,42],[93,52],[80,66],[77,82],[85,98],[101,109],[121,114],[139,108],[151,94],[154,78],[147,63],[134,55],[121,59],[114,70],[117,82],[126,89],[134,87],[137,79],[133,72],[128,70],[131,95],[132,120],[132,150],[132,180],[132,218]],
-    {pixelCoordinates:true,theme:'desert',pathWidth:36,
+    {pixelCoordinates:true,theme:'desert',pathWidth:66,
       terrainPatches:[
         {points:[[0,0],[35,0],[27,38],[0,42]],color:'#b3b3b3'},
         {points:[[208,0],[256,0],[256,112],[238,111],[225,91],[220,60],[208,34]],color:'#b3b3b3'},
@@ -941,7 +941,7 @@ export const MAPS: Record<MapId, GameMap> = {
       [[11,133],[50,126],[83,130],[86,119],[123,131],[125,121],[130,120],[161,137],[173,113],[203,131],[215,109],[246,116]],
       [[11,187],[39,168],[60,183],[78,167],[100,181],[127,166],[142,187],[164,174],[181,182],[190,173],[186,164],[192,156],[201,159],[207,168],[201,176],[196,169],[234,177],[247,174]]
     ],
-      pixelCoordinates:true,theme:'lava',pathWidth:40,
+      pixelCoordinates:true,theme:'lava',pathWidth:66,
       terrainPatches:[
         {points:[[0,0],[68,0],[75,10],[55,15],[36,11],[19,16],[0,14]],color:'#b1acac'},
         {points:[[104,0],[126,0],[132,8],[112,13]],color:'#b1acac'},
