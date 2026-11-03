@@ -169,6 +169,7 @@ type Projectile = (
       dirY: number
       traveled: number
       pathDistance: number
+      routeIndex: number
       maxDistance: number
       speed: number
       damage: number
@@ -197,7 +198,7 @@ type Projectile = (
     }
   | {
       kind: 'snowball'
-      x: number; y: number; dirX: number; dirY: number; traveled: number; pathDistance: number
+      x: number; y: number; dirX: number; dirY: number; traveled: number; pathDistance: number; routeIndex: number
       speed: number; damage: number; splash: number; carriedIds: number[]; carrierId: number; color: string; size: number
     }
   | {
@@ -1409,10 +1410,11 @@ export function update(s: GameState, dt: number) {
     if (t.type === 'spikeLayer') {
       t.supportCooldown -= dt
       if (t.supportCooldown <= 0) {
-        const maxDistance = MAPS[s.mapId].pathLengths[MAPS[s.mapId].pathLengths.length - 1]
         const candidates: { x: number; y: number }[] = []
-        for (let attempt = 0; attempt < 80; attempt++) {
-          const point = pointOnPath(s, Math.random() * maxDistance)
+        for (let attempt = 0; attempt < 120; attempt++) {
+          const routeIndex = Math.floor(Math.random() * MAPS[s.mapId].routes.length)
+          const route = MAPS[s.mapId].routes[routeIndex]
+          const point = pointOnPath(s, Math.random() * route.pathLengths[route.pathLengths.length - 1], routeIndex)
           if (Math.hypot(point.x - t.x, point.y - t.y) <= baseDef.range &&
               s.spikeTraps.every(trap => Math.hypot(trap.x - point.x, trap.y - point.y) > 72)) {
             candidates.push(point)
@@ -1488,7 +1490,9 @@ export function update(s: GameState, dt: number) {
       } else {
         t.meteorTimer -= dt
         if (t.meteorTimer <= 0) {
-          const point = pointOnPath(s, t.meteorDistance)
+          const routeIndex = t.id % MAPS[s.mapId].routes.length
+          const route = MAPS[s.mapId].routes[routeIndex]
+          const point = pointOnPath(s, Math.min(t.meteorDistance, route.pathLengths[route.pathLengths.length - 1]), routeIndex)
           s.projectiles.push({ kind: 'arc', sx: point.x + 18, sy: point.y - 190, tx: point.x, ty: point.y, t: 0, duration: 0.62, height: 24, damage: baseDef.damage, splash: baseDef.splash, cluster: false, color: baseDef.color, size: 10, sourceType: t.type, sourceTowerId: t.id })
           t.meteorDistance -= CELL
           t.meteorTimer = 0.11
@@ -2089,7 +2093,7 @@ export function update(s: GameState, dt: number) {
         if (carried) placeEnemyOnPath(s, carried, p.pathDistance + (i - (p.carriedIds.length - 1) / 2) * 7)
       }
       const dx = p.x - old.x, dy = p.y - old.y, lenSq = dx * dx + dy * dy
-      const hit = s.enemies.filter(enemy => enemy.alive && enemy.type !== 'flyBug' && canTowerTargetEnemy(enemy, 'snowballLauncher') && enemy.carriedBy == null && !p.carriedIds.includes(enemy.id) && !projectilePassesGhost(p, enemy))
+      const hit = s.enemies.filter(enemy => enemy.alive && enemy.routeIndex === (p.routeIndex ?? 0) && enemy.type !== 'flyBug' && canTowerTargetEnemy(enemy, 'snowballLauncher') && enemy.carriedBy == null && !p.carriedIds.includes(enemy.id) && !projectilePassesGhost(p, enemy))
         .map(enemy => {
           const along = lenSq > 0 ? Math.max(0, Math.min(1, ((enemy.x-old.x)*dx+(enemy.y-old.y)*dy)/lenSq)) : 0
           return { enemy, along, distance: Math.hypot(enemy.x-(old.x+along*dx), enemy.y-(old.y+along*dy)) }
@@ -2112,7 +2116,7 @@ export function update(s: GameState, dt: number) {
         explode(s, p.x, p.y, p.splash, p.damage, p.color, 'snowballLauncher', p.sourceTowerId, true)
         freezeInRadius(s, p.x, p.y, p.splash, 1)
         for (const enemy of s.enemies) {
-          if (!enemy.alive || Math.hypot(enemy.x-p.x,enemy.y-p.y) > p.splash + ENEMIES[enemy.type].radius) continue
+          if (!enemy.alive || enemy.routeIndex !== (p.routeIndex ?? 0) || Math.hypot(enemy.x-p.x,enemy.y-p.y) > p.splash + ENEMIES[enemy.type].radius) continue
           placeEnemyOnPath(s, enemy, enemy.dist + (enemy.id % 3 - 1) * 7)
         }
         return false
@@ -2129,7 +2133,7 @@ export function update(s: GameState, dt: number) {
       const dx = p.x - old.x, dy = p.y - old.y, lenSq = dx * dx + dy * dy
       let hit: Enemy | null = null, hitAlong = Infinity
       for (const enemy of s.enemies) {
-        if (!enemy.alive || p.hitIds.includes(enemy.id) || !canTowerTargetEnemy(enemy, p.sourceType ?? 'boulderLauncher', !!p.sourceTowerId && s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && s.towers.some(source => source.id === p.sourceTowerId && Math.hypot(other.x - source.x, other.y - source.y) <= TOWERS.commsCenter.range))) || projectilePassesGhost(p, enemy)) continue
+        if (!enemy.alive || enemy.routeIndex !== (p.routeIndex ?? 0) || p.hitIds.includes(enemy.id) || !canTowerTargetEnemy(enemy, p.sourceType ?? 'boulderLauncher', !!p.sourceTowerId && s.towers.some(other => other.type === 'commsCenter' && other.hp > 0 && s.towers.some(source => source.id === p.sourceTowerId && Math.hypot(other.x - source.x, other.y - source.y) <= TOWERS.commsCenter.range))) || projectilePassesGhost(p, enemy)) continue
         const along = lenSq > 0 ? Math.max(0, Math.min(1, ((enemy.x - old.x) * dx + (enemy.y - old.y) * dy) / lenSq)) : 0
         const nearX = old.x + along * dx, nearY = old.y + along * dy
         if (Math.hypot(enemy.x - nearX, enemy.y - nearY) <= ENEMIES[enemy.type].radius + p.size && along < hitAlong) { hit = enemy; hitAlong = along }
