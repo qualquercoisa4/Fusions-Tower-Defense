@@ -468,6 +468,9 @@ const FUSIONS: Record<string, TowerType> = {
   'economyHouse+economyHouse': 'masterBank',
   'plasmaCannon+raygun': 'bladeOfChaos',
   'bladeOfChaos+flamethrower': 'ringOfFlames',
+  'dual+rockLauncher': 'droneFactory',
+  'cluster+rockLauncher': 'spikeLayer',
+  'droneFactory+spikeLayer': 'skybreaker',
 }
 
 export function fusionResult(a: TowerType, b: TowerType): TowerType | undefined {
@@ -680,6 +683,106 @@ export const PATH_CELLS = (() => {
   }
   return set
 })()
+
+
+export type MapId =
+  | 'original'
+  | 'meadow'
+  | 'frostline'
+  | 'emberCrossing'
+  | 'quarrySpiral'
+  | 'neonGauntlet'
+  | 'voidLabyrinth'
+  | 'infernoCircuit'
+
+export type MapDifficulty = 'Iniciante' | 'Intermediário' | 'Avançado' | 'Expert'
+
+export interface GameMap {
+  id: MapId
+  name: string
+  difficulty: MapDifficulty
+  description: string
+  hpMultiplier: number
+  speedMultiplier: number
+  colors: {
+    background: string
+    grid: string
+    pathGlow: string
+    path: string
+    pathDash: string
+    farmFill: string
+    farmStroke: string
+    farmText: string
+    preview: string
+    accent: string
+  }
+  path: { x: number; y: number }[]
+  pathLengths: number[]
+  pathCells: Set<string>
+}
+
+function defineMap(
+  id: MapId,
+  name: string,
+  difficulty: MapDifficulty,
+  description: string,
+  hpMultiplier: number,
+  speedMultiplier: number,
+  colors: GameMap['colors'],
+  waypoints: [number, number][],
+): GameMap {
+  const path = waypoints.map(([col, row]) => ({ x: col * CELL + CELL / 2, y: row * CELL + CELL / 2 }))
+  const pathLengths = [0]
+  const pathCells = new Set<string>()
+  for (let i = 1; i < path.length; i++) {
+    pathLengths[i] = pathLengths[i - 1] + Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y)
+    const [c1, r1] = waypoints[i - 1]
+    const [c2, r2] = waypoints[i]
+    const steps = Math.max(Math.abs(c2 - c1), Math.abs(r2 - r1))
+    for (let step = 0; step <= steps; step++) {
+      const col = c1 + Math.sign(c2 - c1) * step
+      const row = r1 + Math.sign(r2 - r1) * step
+      pathCells.add(`${col},${row}`)
+    }
+  }
+  return { id, name, difficulty, description, hpMultiplier, speedMultiplier, colors, path, pathLengths, pathCells }
+}
+
+const MAP_COLORS = {
+  original: { background: '#070d1f', grid: 'rgba(56,189,248,0.07)', pathGlow: 'rgba(56,189,248,0.35)', path: '#0f1a33', pathDash: 'rgba(56,189,248,0.25)', farmFill: 'rgba(34,197,94,0.2)', farmStroke: 'rgba(74,222,128,0.9)', farmText: 'rgba(134,239,172,0.95)', preview: '#10243a', accent: '#38bdf8' },
+  meadow: { background: '#102018', grid: 'rgba(134,239,172,0.09)', pathGlow: 'rgba(74,222,128,0.35)', path: '#273c2d', pathDash: 'rgba(190,242,100,0.38)', farmFill: 'rgba(163,230,53,0.18)', farmStroke: 'rgba(190,242,100,0.9)', farmText: '#d9f99d', preview: '#1c3828', accent: '#86efac' },
+  frostline: { background: '#0b1c2d', grid: 'rgba(125,211,252,0.09)', pathGlow: 'rgba(56,189,248,0.4)', path: '#20394e', pathDash: 'rgba(186,230,253,0.42)', farmFill: 'rgba(103,232,249,0.16)', farmStroke: 'rgba(165,243,252,0.9)', farmText: '#cffafe', preview: '#15334b', accent: '#7dd3fc' },
+  emberCrossing: { background: '#26130f', grid: 'rgba(251,146,60,0.09)', pathGlow: 'rgba(249,115,22,0.42)', path: '#48251c', pathDash: 'rgba(253,186,116,0.42)', farmFill: 'rgba(251,191,36,0.15)', farmStroke: 'rgba(253,186,116,0.9)', farmText: '#fed7aa', preview: '#492219', accent: '#fb923c' },
+  quarrySpiral: { background: '#201b18', grid: 'rgba(214,211,209,0.09)', pathGlow: 'rgba(168,162,158,0.38)', path: '#39332e', pathDash: 'rgba(231,229,228,0.4)', farmFill: 'rgba(163,163,163,0.15)', farmStroke: 'rgba(212,212,212,0.85)', farmText: '#e5e5e5', preview: '#40352b', accent: '#d6d3d1' },
+  neonGauntlet: { background: '#180e2b', grid: 'rgba(232,121,249,0.1)', pathGlow: 'rgba(217,70,239,0.42)', path: '#34204b', pathDash: 'rgba(196,181,253,0.45)', farmFill: 'rgba(192,132,252,0.16)', farmStroke: 'rgba(232,121,249,0.9)', farmText: '#f5d0fe', preview: '#321b4a', accent: '#e879f9' },
+  voidLabyrinth: { background: '#0d1028', grid: 'rgba(167,139,250,0.11)', pathGlow: 'rgba(129,140,248,0.45)', path: '#25284a', pathDash: 'rgba(196,181,253,0.48)', farmFill: 'rgba(129,140,248,0.15)', farmStroke: 'rgba(165,180,252,0.9)', farmText: '#e0e7ff', preview: '#20254c', accent: '#a5b4fc' },
+  infernoCircuit: { background: '#260d13', grid: 'rgba(251,113,133,0.1)', pathGlow: 'rgba(244,63,94,0.45)', path: '#4a1c28', pathDash: 'rgba(253,164,175,0.48)', farmFill: 'rgba(249,115,22,0.15)', farmStroke: 'rgba(251,146,60,0.9)', farmText: '#fed7aa', preview: '#4a1821', accent: '#fb7185' },
+} satisfies Record<MapId, GameMap['colors']>
+
+export const MAPS: Record<MapId, GameMap> = {
+  original: defineMap('original', 'Circuito Original', 'Iniciante', 'O percurso clássico do Fusion TD. Duas voltas conectadas e bastante espaço para posicionar torres.', 1, 1, MAP_COLORS.original, WAYPOINT_CELLS),
+  meadow: defineMap('meadow', 'Pradaria Verde', 'Iniciante', 'Curvas abertas e uma rota longa para aprender a combinar torres.', 1.04, 1.02, MAP_COLORS.meadow, [
+    [-1, 2], [4, 2], [4, 9], [8, 9], [8, 4], [13, 4], [13, 10], [18, 10],
+  ]),
+  frostline: defineMap('frostline', 'Passagem Glacial', 'Intermediário', 'Uma rota sinuosa com mudanças de direção e menos posições seguras.', 1.12, 1.05, MAP_COLORS.frostline, [
+    [-1, 9], [3, 9], [3, 3], [6, 3], [6, 7], [10, 7], [10, 2], [14, 2], [14, 9], [18, 9],
+  ]),
+  emberCrossing: defineMap('emberCrossing', 'Travessia das Brasas', 'Intermediário', 'Trechos longos alternados com curvas fechadas. Os inimigos chegam um pouco mais fortes.', 1.16, 1.07, MAP_COLORS.emberCrossing, [
+    [-1, 4], [4, 4], [4, 10], [8, 10], [8, 2], [12, 2], [12, 7], [15, 7], [15, 4], [18, 4],
+  ]),
+  quarrySpiral: defineMap('quarrySpiral', 'Espiral da Pedreira', 'Avançado', 'Várias curvas próximas exigem cobertura eficiente e torres de longo alcance.', 1.3, 1.1, MAP_COLORS.quarrySpiral, [
+    [-1, 8], [2, 8], [2, 3], [5, 3], [5, 6], [9, 6], [9, 2], [13, 2], [13, 9], [16, 9], [16, 5], [18, 5],
+  ]),
+  neonGauntlet: defineMap('neonGauntlet', 'Circuito Neon', 'Avançado', 'Um trajeto compacto com mudanças rápidas de direção e inimigos mais velozes.', 1.36, 1.12, MAP_COLORS.neonGauntlet, [
+    [-1, 3], [3, 3], [3, 8], [7, 8], [7, 4], [11, 4], [11, 9], [15, 9], [15, 2], [18, 2],
+  ]),
+  voidLabyrinth: defineMap('voidLabyrinth', 'Labirinto do Vazio', 'Expert', 'Um labirinto apertado, com pouco tempo de reação e inimigos extremamente resistentes.', 1.52, 1.15, MAP_COLORS.voidLabyrinth, [
+    [-1, 6], [2, 6], [2, 2], [5, 2], [5, 9], [8, 9], [8, 3], [12, 3], [12, 8], [15, 8], [15, 5], [18, 5],
+  ]),
+  infernoCircuit: defineMap('infernoCircuit', 'Circuito do Inferno', 'Expert', 'O desafio máximo: rota curta, curvas consecutivas e os maiores multiplicadores de dificuldade.', 1.62, 1.18, MAP_COLORS.infernoCircuit, [
+    [-1, 10], [2, 10], [2, 4], [6, 4], [6, 8], [10, 8], [10, 2], [14, 2], [14, 6], [17, 6], [17, 3], [18, 3],
+  ]),
+}
 
 type WaveGroup = { type: EnemyType; count: number; spacing: number; gapAfter?: number }
 
