@@ -631,9 +631,9 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   bugKing: { name: 'Bug King', hp: 240000, speed: 9, reward: 6000, radius: 40, damage: 1000, color: '#c084fc', dark: '#581c87', description: 'Chefe final da onda 75. Possui vida colossal. Ao morrer, dobra permanentemente a vida máxima de todos os tipos de insetos já encontrados e dos que surgirem depois.' },
 }
 
-export const CELL = 48
-export const COLS = 18
-export const ROWS = 12
+export const CELL = 27
+export const COLS = 32
+export const ROWS = 28
 export const WIDTH = CELL * COLS
 export const HEIGHT = CELL * ROWS
 
@@ -659,9 +659,9 @@ const WAYPOINT_CELLS: [number, number][] = [
 // Oito espaços de farms: dois em cada canto/extremidade do tabuleiro.
 export const FARM_CELLS = new Set([
   '0,0', '1,0',
-  '0,11', '1,11',
-  '16,0', '17,0',
-  '16,11', '17,11',
+  '0,27', '1,27',
+  '30,0', '31,0',
+  '30,27', '31,27',
 ])
 
 export const PATH = WAYPOINT_CELLS.map(([c, r]) => ({
@@ -719,49 +719,83 @@ export interface GameMap {
   path: { x: number; y: number }[]
   pathLengths: number[]
   pathCells: Set<string>
+  buildableCells: Set<string>
+  terrainPatches: { points: [number, number][]; color: string }[]
   routes: { path: { x: number; y: number }[]; pathLengths: number[]; pathCells: Set<string> }[]
   farmCells: Set<string>
   blockedCells: Set<string>
   theme: 'grass' | 'water' | 'stone' | 'desert' | 'lava' | 'crystal' | 'classic'
 }
 
-function buildRoute(waypoints: [number, number][]) {
-  const rawPath = waypoints.map(([col, row]) => ({ x: col * CELL + CELL / 2, y: row * CELL + CELL / 2 }))
+const MAP_SCALE_X = (CELL * COLS) / 256
+const MAP_SCALE_Y = (CELL * ROWS) / 224
+
+function buildRoute(waypoints: [number, number][], pixelCoordinates = false) {
+  const rawPath = waypoints.map(([col, row]) => pixelCoordinates
+    ? ({ x: col * MAP_SCALE_X, y: row * MAP_SCALE_Y })
+    : ({ x: (col / 18) * WIDTH, y: (row / 12) * HEIGHT }))
   const path: { x: number; y: number }[] = [rawPath[0]]
-  for (let i = 1; i < rawPath.length - 1; i++) {
-    const prev = rawPath[i - 1], corner = rawPath[i], next = rawPath[i + 1]
-    const inX = prev.x - corner.x, inY = prev.y - corner.y
-    const outX = next.x - corner.x, outY = next.y - corner.y
-    const inLength = Math.hypot(inX, inY), outLength = Math.hypot(outX, outY)
-    const dot = (inX * outX + inY * outY) / Math.max(1, inLength * outLength)
-    const radius = dot < -0.92 ? 0 : Math.min(CELL * 0.58, inLength * 0.38, outLength * 0.38)
-    if (radius < 1) { path.push(corner); continue }
-    const start = { x: corner.x + inX / inLength * radius, y: corner.y + inY / inLength * radius }
-    const finish = { x: corner.x + outX / outLength * radius, y: corner.y + outY / outLength * radius }
-    path.push(start)
-    for (let sample = 1; sample <= 8; sample++) {
-      const t = sample / 8, inv = 1 - t
-      path.push({ x: inv * inv * start.x + 2 * inv * t * corner.x + t * t * finish.x, y: inv * inv * start.y + 2 * inv * t * corner.y + t * t * finish.y })
+  if (pixelCoordinates && rawPath.length > 2) {
+    // Catmull-Rom: reproduz as curvas orgânicas dos desenhos de referência.
+    for (let i = 0; i < rawPath.length - 1; i++) {
+      const p0 = rawPath[Math.max(0, i - 1)], p1 = rawPath[i]
+      const p2 = rawPath[i + 1], p3 = rawPath[Math.min(rawPath.length - 1, i + 2)]
+      for (let step = 1; step <= 8; step++) {
+        const t = step / 8, t2 = t * t, t3 = t2 * t
+        const sample = (a: number, b: number, c: number, d: number) =>
+          0.5 * ((2 * b) + (-a + c) * t + (2*a - 5*b + 4*c - d) * t2 + (-a + 3*b - 3*c + d) * t3)
+        path.push({ x: sample(p0.x,p1.x,p2.x,p3.x), y: sample(p0.y,p1.y,p2.y,p3.y) })
+      }
     }
+  } else {
+    for (let i = 1; i < rawPath.length - 1; i++) {
+      const prev = rawPath[i - 1], corner = rawPath[i], next = rawPath[i + 1]
+      const inX = prev.x - corner.x, inY = prev.y - corner.y
+      const outX = next.x - corner.x, outY = next.y - corner.y
+      const inLength = Math.hypot(inX, inY), outLength = Math.hypot(outX, outY)
+      const dot = (inX * outX + inY * outY) / Math.max(1, inLength * outLength)
+      const radius = dot < -0.92 ? 0 : Math.min(CELL * 0.58, inLength * 0.38, outLength * 0.38)
+      if (radius < 1) { path.push(corner); continue }
+      const start = { x: corner.x + inX / inLength * radius, y: corner.y + inY / inLength * radius }
+      const finish = { x: corner.x + outX / outLength * radius, y: corner.y + outY / outLength * radius }
+      path.push(start)
+      for (let sample = 1; sample <= 8; sample++) {
+        const t = sample / 8, inv = 1 - t
+        path.push({ x: inv * inv * start.x + 2 * inv * t * corner.x + t * t * finish.x, y: inv * inv * start.y + 2 * inv * t * corner.y + t * t * finish.y })
+      }
+    }
+    path.push(rawPath[rawPath.length - 1])
   }
-  path.push(rawPath[rawPath.length - 1])
   const pathLengths = [0], pathCells = new Set<string>()
   for (let i = 1; i < path.length; i++) {
-    pathLengths[i] = pathLengths[i - 1] + Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y)
-  }
-  for (let i = 1; i < waypoints.length; i++) {
-    const [c1, r1] = waypoints[i - 1], [c2, r2] = waypoints[i]
-    const steps = Math.max(Math.abs(c2 - c1), Math.abs(r2 - r1))
-    for (let step = 0; step <= steps; step++) pathCells.add(`${c1 + Math.sign(c2 - c1) * step},${r1 + Math.sign(r2 - r1) * step}`)
-  }
-  for (let i = 1; i < path.length; i++) {
-    const a = path[i - 1], b = path[i], samples = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / (CELL / 3))
-    for (let n = 0; n <= samples; n++) {
-      const t = samples ? n / samples : 0
-      pathCells.add(`${Math.floor((a.x + (b.x - a.x) * t) / CELL)},${Math.floor((a.y + (b.y - a.y) * t) / CELL)}`)
+    const a = path[i - 1], b = path[i]
+    pathLengths[i] = pathLengths[i - 1] + Math.hypot(b.x - a.x, b.y - a.y)
+    const samples = Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)/(CELL/5))
+    for (let n=0;n<=samples;n++) {
+      const t=samples?n/samples:0, x=a.x+(b.x-a.x)*t, y=a.y+(b.y-a.y)*t
+      pathCells.add(`${Math.floor(x/CELL)},${Math.floor(y/CELL)}`)
     }
   }
   return { path, pathLengths, pathCells }
+}
+
+function pointInPolygon(x: number, y: number, polygon: [number, number][]) {
+  let inside = false
+  for (let i=0,j=polygon.length-1;i<polygon.length;j=i++) {
+    const [xi,yi]=polygon[i], [xj,yj]=polygon[j]
+    if (((yi>y)!==(yj>y)) && x < (xj-xi)*(y-yi)/(yj-yi)+xi) inside=!inside
+  }
+  return inside
+}
+
+function distanceToRoutes(x: number, y: number, routes: {path:{x:number;y:number}[]}[]) {
+  let best=Infinity
+  for (const route of routes) for(let i=1;i<route.path.length;i++) {
+    const a=route.path[i-1],b=route.path[i],dx=b.x-a.x,dy=b.y-a.y
+    const len=dx*dx+dy*dy, t=len?Math.max(0,Math.min(1,((x-a.x)*dx+(y-a.y)*dy)/len)):0
+    best=Math.min(best,Math.hypot(x-a.x-dx*t,y-a.y-dy*t))
+  }
+  return best
 }
 
 function defineMap(
@@ -772,24 +806,43 @@ function defineMap(
     farms?: string[]
     theme?: GameMap['theme']
     blocked?: [number, number, number, number][]
+    pixelCoordinates?: boolean
+    terrainPatches?: { points: [number, number][]; color: string }[]
+    sandOnly?: boolean
   } = {},
 ): GameMap {
-  const routes = [waypoints, ...(options.extraRoutes ?? [])].map(buildRoute)
+  const routes = [waypoints, ...(options.extraRoutes ?? [])].map(points => buildRoute(points, options.pixelCoordinates))
   const pathCells = new Set(routes.flatMap(route => [...route.pathCells]))
-  const farmCells = new Set(options.farms ?? [...FARM_CELLS])
+  const farmCells = new Set(options.farms ?? [])
+  const terrainPatches = options.terrainPatches ?? []
   const blockedCells = new Set<string>()
-  for (const [left, top, width, height] of options.blocked ?? []) {
-    for (let row = top; row < top + height; row++) for (let col = left; col < left + width; col++) {
-      const cell = `${col},${row}`
-      if (col >= 0 && row >= 0 && col < COLS && row < ROWS && !pathCells.has(cell) && !farmCells.has(cell)) blockedCells.add(cell)
+  for (let row=0;row<ROWS;row++) for(let col=0;col<COLS;col++) {
+    const cell=`${col},${row}`
+    const px=(col+0.5)*CELL/MAP_SCALE_X, py=(row+0.5)*CELL/MAP_SCALE_Y
+    if (terrainPatches.some(patch => pointInPolygon(px,py,patch.points))) blockedCells.add(cell)
+    if (options.sandOnly) {
+      const distance=distanceToRoutes(px,py,routes)/MAP_SCALE_X
+      // Areia: faixa clara ao redor da trilha verde. Água e trilha não aceitam torres.
+      if (distance < 8.2 || distance > 20.5) blockedCells.add(cell)
     }
   }
-  for (const cell of pathCells) blockedCells.delete(cell)
+  for (const [left, top, width, height] of options.blocked ?? []) {
+    for (let row=top;row<top+height;row++) for(let col=left;col<left+width;col++) {
+      if(col>=0&&row>=0&&col<COLS&&row<ROWS) blockedCells.add(`${col},${row}`)
+    }
+  }
+  for (const cell of pathCells) blockedCells.add(cell)
   for (const cell of farmCells) blockedCells.delete(cell)
+  const buildableCells = new Set<string>()
+  for(let row=0;row<ROWS;row++) for(let col=0;col<COLS;col++) {
+    const cell=`${col},${row}`
+    if(!blockedCells.has(cell)) buildableCells.add(cell)
+  }
   const primary = routes[0]
+  const scaledFarms = options.farms ? farmCells : new Set<string>()
   return { id, name, difficulty, description, hpMultiplier, speedMultiplier, colors,
-    path: primary.path, pathLengths: primary.pathLengths, pathCells, routes, farmCells, blockedCells,
-    theme: options.theme ?? 'classic' }
+    path: primary.path, pathLengths: primary.pathLengths, pathCells, routes,
+    farmCells: scaledFarms, blockedCells, buildableCells, terrainPatches, theme: options.theme ?? 'classic' }
 }
 
 const MAP_COLORS = {
@@ -806,72 +859,72 @@ const MAP_COLORS = {
 
 const ARENA_COLORS: Record<MapId, GameMap['colors']> = {
   original: MAP_COLORS.original,
-  meadow: { background: '#ead36f', grid: 'rgba(138,112,54,0.12)', pathGlow: 'rgba(130,96,54,0.28)', path: '#9a7652', pathDash: '#f8e8a0', farmFill: 'rgba(26,214,235,0.28)', farmStroke: '#13cde5', farmText: '#075985', preview: '#d9c15f', accent: '#13cde5' },
-  frostline: { background: '#62ed00', grid: 'rgba(42,92,18,0.14)', pathGlow: 'rgba(83,72,40,0.25)', path: '#8d8662', pathDash: '#c6bb83', farmFill: 'rgba(34,197,94,0.2)', farmStroke: '#166534', farmText: '#14532d', preview: '#55d900', accent: '#a3e635' },
-  emberCrossing: { background: '#b9b18c', grid: 'rgba(86,77,53,0.13)', pathGlow: 'rgba(236,213,105,0.35)', path: '#e5d36e', pathDash: '#fff0a6', farmFill: 'rgba(20,199,202,0.2)', farmStroke: '#0faaa9', farmText: '#075985', preview: '#aaa27d', accent: '#e8d36f' },
-  quarrySpiral: { background: '#12d7e5', grid: 'rgba(0,89,111,0.14)', pathGlow: 'rgba(230,245,95,0.38)', path: '#d7e85b', pathDash: '#f7ff9c', farmFill: 'rgba(148,163,184,0.22)', farmStroke: '#64748b', farmText: '#334155', preview: '#0fbfcf', accent: '#d7e85b' },
-  neonGauntlet: { background: '#f0d900', grid: 'rgba(111,91,12,0.14)', pathGlow: 'rgba(255,250,157,0.35)', path: '#fff07a', pathDash: '#fff9c4', farmFill: 'rgba(148,163,184,0.2)', farmStroke: '#64748b', farmText: '#334155', preview: '#d7c400', accent: '#fff07a' },
-  voidLabyrinth: { background: '#ff8700', grid: 'rgba(128,42,0,0.16)', pathGlow: 'rgba(220,20,0,0.25)', path: '#e51b00', pathDash: '#ffb199', farmFill: 'rgba(250,204,21,0.2)', farmStroke: '#fef08a', farmText: '#7c2d12', preview: '#e97600', accent: '#f3290a' },
-  infernoCircuit: { background: '#111c46', grid: 'rgba(103,232,249,0.12)', pathGlow: 'rgba(103,232,249,0.3)', path: '#38bdf8', pathDash: '#cffafe', farmFill: 'rgba(34,211,238,0.16)', farmStroke: '#67e8f9', farmText: '#cffafe', preview: '#172554', accent: '#67e8f9' },
+  meadow: { background:'#e6c96a',grid:'rgba(110,80,40,0.08)',pathGlow:'#bc6666',path:'#bc6666',pathDash:'#bc6666',farmFill:'#79ff0c',farmStroke:'#79ff0c',farmText:'#174900',preview:'#e6c96a',accent:'#bc6666' },
+  frostline: { background:'#6aff00',grid:'rgba(30,90,0,0.08)',pathGlow:'#b49e3f',path:'#b49e3f',pathDash:'#b49e3f',farmFill:'#a7a07f',farmStroke:'#a7a07f',farmText:'#413b20',preview:'#6aff00',accent:'#b49e3f' },
+  emberCrossing: { background:'#a7a07f',grid:'rgba(60,50,30,0.08)',pathGlow:'#e6d568',path:'#e6d568',pathDash:'#e6d568',farmFill:'#12cdc3',farmStroke:'#12cdc3',farmText:'#073b38',preview:'#a7a07f',accent:'#e6d568' },
+  quarrySpiral: { background:'#00ffee',grid:'rgba(0,80,80,0.06)',pathGlow:'#f6ff93',path:'#66ff4b',pathDash:'#66ff4b',farmFill:'#b4b4b4',farmStroke:'#b4b4b4',farmText:'#333',preview:'#00ffee',accent:'#66ff4b' },
+  neonGauntlet: { background:'#ffe900',grid:'rgba(100,80,0,0.08)',pathGlow:'#fffacd',path:'#fffacd',pathDash:'#fffacd',farmFill:'#b3b3b3',farmStroke:'#b3b3b3',farmText:'#333',preview:'#ffe900',accent:'#fffacd' },
+  voidLabyrinth: { background:'#ff9000',grid:'rgba(120,40,0,0.08)',pathGlow:'#ff0800',path:'#ff0800',pathDash:'#ff0800',farmFill:'#b1acac',farmStroke:'#b1acac',farmText:'#333',preview:'#ff9000',accent:'#ff08d8' },
+  infernoCircuit: MAP_COLORS.original,
 }
-
 export const MAPS: Record<MapId, GameMap> = {
-  original: defineMap('original', 'Circuito Original', 'Iniciante', 'O percurso clássico original, preservado como era.', 1, 1, ARENA_COLORS.original, WAYPOINT_CELLS, {
-    farms: [...FARM_CELLS], theme: 'classic',
+  original: defineMap('original','Circuito Original','Iniciante','O percurso clássico original, preservado.',1,1,ARENA_COLORS.original,WAYPOINT_CELLS,{
+    farms:['0,0','1,0','0,27','1,27','30,0','31,0','30,27','31,27'],theme:'classic'
   }),
-  // Referência 1: arquipélago amarelo com canais de água e duas rotas alternadas.
-  meadow: defineMap('meadow', 'Arquipélago Dourado', 'Iniciante', 'Duas trilhas sinuosas entre ilhas e canais rasos. Os insetos alternam entre as duas rotas.', 1.04, 1.02, ARENA_COLORS.meadow,
-    [[-1,3],[2,3],[2,1],[5,1],[7,3],[5,5],[2,5],[2,7],[5,7],[7,9],[10,9],[12,7],[15,7],[15,5],[18,5]], {
-      extraRoutes: [[[-1,8],[1,8],[1,10],[4,10],[6,8],[8,6],[11,6],[13,8],[16,8],[16,10],[18,10]]],
-      farms: ['0,0','1,0','16,0','17,0','0,11','1,11','16,11','17,11'],
-      blocked: [[4,0,2,1],[9,0,2,2],[12,1,2,1],[8,3,2,1],[12,4,2,1],[4,9,2,1],[10,10,2,1]],
-      theme: 'water',
+  meadow: defineMap('meadow','Laços de Areia','Iniciante','Dois grandes laços desenhados em areia dourada, com bolsões de água nas extremidades.',1.04,1.02,ARENA_COLORS.meadow,
+    [[-8,65],[18,52],[48,55],[75,70],[96,95],[108,125],[94,146],[72,140],[60,116],[66,86],[88,66],[112,63],[140,78],[165,103],[185,132],[194,160],[184,185],[162,194],[140,184],[130,163],[139,140],[162,126],[188,130],[212,147],[230,178],[246,211],[264,232]],
+    {pixelCoordinates:true,theme:'desert',
+      terrainPatches:[
+        {points:[[178,0],[256,0],[256,88],[238,78],[230,58],[211,55],[203,37],[184,34]],color:'#33e0fe'},
+        {points:[[0,148],[18,146],[38,156],[42,172],[62,178],[66,197],[57,214],[79,224],[0,224]],color:'#33e0fe'}
+      ],
+      farms:['22,2','24,2','26,5','1,22','1,25','3,25']
     }),
-  // Referência 2: duas pistas paralelas que serpenteiam em sentidos complementares.
-  frostline: defineMap('frostline', 'Trilhas Paralelas', 'Iniciante', 'Duas rotas paralelas, cada uma com suas próprias curvas e saída. O envio alterna um inseto por rota.', 1.06, 1.03, ARENA_COLORS.frostline,
-    [[-1,2],[2,2],[4,1],[7,1],[9,3],[12,3],[14,1],[18,1]], {
-      extraRoutes: [[[-1,9],[2,9],[4,10],[7,10],[9,8],[12,8],[14,10],[18,10]]],
-      farms: ['0,0','1,0','8,0','9,0','0,11','1,11','16,11','17,11'],
-      blocked: [[5,3,2,2],[10,5,2,2],[3,6,2,1],[14,5,2,1]],
-      theme: 'grass',
-    }),
-  // Referência 3: cânion de areia com duas rotas independentes que chegam ao topo.
-  emberCrossing: defineMap('emberCrossing', 'Cânion das Duas Trilhas', 'Intermediário', 'Dois caminhos rochosos atravessam o cânion em curvas sinuosas e chegam a saídas separadas no alto.', 1.14, 1.06, ARENA_COLORS.emberCrossing,
-    [[-1,8],[2,8],[4,6],[6,6],[7,3],[10,3],[11,1],[13,1],[15,-1]], {
-      extraRoutes: [[[-1,10],[1,10],[3,9],[4,7],[7,7],[8,5],[11,5],[13,3],[15,2],[17,0]]],
-      farms: ['0,0','1,0','16,0','17,0','0,11','1,11'],
-      blocked: [[3,0,2,2],[8,0,2,1],[12,7,2,2],[16,8,2,2],[5,10,2,1]],
-      theme: 'desert',
-    }),
-  // Referência 4: lagoa com uma trilha longa; o barco funciona como um espaço de farm.
-  quarrySpiral: defineMap('quarrySpiral', 'Lagoa da Caravela', 'Intermediário', 'Uma rota sinuosa atravessa a lagoa entre pequenas ilhas. O barco ancorado é um dos espaços exclusivos de farm.', 1.18, 1.07, ARENA_COLORS.frostline,
-    [[4,-1],[4,1],[6,3],[9,3],[12,2],[17,2],[17,4],[14,7],[11,7],[8,9],[5,9],[3,7],[1,7],[1,10],[5,11]], {
-      farms: ['0,0','1,0','15,5','0,11','1,11','16,11','17,11'],
-      blocked: [[0,2,2,2],[7,0,2,1],[10,5,2,1],[17,2,1,2],[8,10,2,2]],
-      theme: 'water',
-    }),
-  // Referência 5: mina amarela com espiral central e rochedos cinzentos.
-  neonGauntlet: defineMap('neonGauntlet', 'Mina Espiral', 'Avançado', 'Uma espiral apertada contorna os blocos de minério e exige coberturas bem posicionadas.', 1.3, 1.1, ARENA_COLORS.quarrySpiral,
-    [[4,-1],[4,2],[7,2],[9,4],[7,6],[5,5],[6,3],[9,3],[11,5],[10,8],[7,9],[4,8],[2,6],[2,10],[9,11]], {
-      farms: ['0,0','1,0','16,0','17,0','0,11','1,11'],
-      blocked: [[0,3,2,2],[13,0,3,3],[13,5,3,3],[0,8,1,2],[11,9,2,2]],
-      theme: 'stone',
-    }),
-  // Referência 6: forja laranja com duas pistas em zigue-zague.
-  voidLabyrinth: defineMap('voidLabyrinth', 'Forja Zigue-Zague', 'Avançado', 'Duas pistas de fogo serpenteiam em zigue-zague. Cada inseto escolhe a próxima rota da alternância.', 1.36, 1.12, ARENA_COLORS.emberCrossing,
-    [[-1,3],[2,3],[3,1],[4,4],[6,1],[8,4],[10,1],[12,4],[14,1],[16,3],[18,3]], {
-      extraRoutes: [[[-1,8],[2,8],[3,10],[4,7],[6,10],[8,7],[10,10],[12,7],[14,10],[16,8],[18,8]]],
-      farms: ['0,0','1,0','16,0','17,0','0,11','1,11'],
-      blocked: [[7,5,2,1],[15,5,2,1],[0,5,1,1]],
-      theme: 'lava',
-    }),
-  // Mapa novo: jardim de cristais com duas rotas curvas e plataformas de construção.
-  infernoCircuit: defineMap('infernoCircuit', 'Jardim Cristalino', 'Expert', 'Um jardim alienígena de cristais, com duas rotas entrelaçadas e poucas plataformas seguras para torres.', 1.52, 1.15, ARENA_COLORS.voidLabyrinth,
+  frostline: defineMap('frostline','Trilhas Paralelas','Iniciante','Duas trilhas estreitas e quase paralelas, com um retorno oval na base e rochedos.',1.06,1.03,ARENA_COLORS.frostline,
+    [[28,202],[18,190],[32,176],[58,160],[86,136],[112,110],[137,83],[164,52],[190,24],[208,4]],
+    {extraRoutes:[[42,211],[31,198],[47,184],[72,166],[100,141],[126,115],[152,88],[178,57],[204,28],[222,8]],
+      pixelCoordinates:true,theme:'grass',
+      terrainPatches:[
+        {points:[[122,42],[144,18],[165,8],[180,13],[170,28],[151,45],[132,60]],color:'#a7a07f'},
+        {points:[[126,177],[143,169],[164,170],[174,183],[167,198],[145,202],[128,195]],color:'#a7a07f'}
+      ]}),
+  emberCrossing: defineMap('emberCrossing','Travessia do Vale','Intermediário','Duas rotas sinuosas atravessam o vale entre áreas de vegetação.',1.14,1.06,ARENA_COLORS.emberCrossing,
+    [[0,194],[22,177],[40,153],[61,130],[83,111],[104,116],[123,130],[145,108],[155,82],[164,57],[160,30],[160,-8]],
+    {extraRoutes:[[0,200],[28,206],[53,215],[79,224],[104,230]],
+      pixelCoordinates:true,theme:'grass',
+      terrainPatches:[
+        {points:[[0,0],[57,0],[65,24],[58,54],[63,82],[51,111],[30,126],[8,125],[0,111]],color:'#73c152'},
+        {points:[[178,224],[191,207],[213,192],[234,187],[256,176],[256,224]],color:'#73c152'}
+      ]}),
+  quarrySpiral: defineMap('quarrySpiral','Ilha da Trilha','Intermediário','Uma trilha verde serpenteia sobre uma faixa de areia cercada inteiramente por água. Só se constrói na areia.',1.18,1.07,ARENA_COLORS.quarrySpiral,
+    [[50,-8],[47,18],[58,42],[84,57],[114,58],[143,53],[171,58],[198,62],[218,79],[221,104],[208,127],[188,143],[163,153],[143,172],[126,187],[111,177],[94,160],[72,161],[54,178],[49,197],[61,213],[87,213],[113,207],[139,208],[165,221],[190,215],[216,203],[239,205],[263,224]],
+    {pixelCoordinates:true,theme:'water',sandOnly:true,farmCells:[],
+      terrainPatches:[{points:[[0,0],[256,0],[256,224],[0,224]],color:'#00ffee'}]}),
+  neonGauntlet: defineMap('neonGauntlet','Espiral de Minério','Avançado','Um único caminho claro desenha uma espiral fechada entre formações rochosas.',1.3,1.1,ARENA_COLORS.neonGauntlet,
+    [[50,-8],[50,18],[55,49],[66,79],[79,106],[104,124],[130,131],[155,126],[174,111],[181,88],[174,65],[154,49],[129,43],[105,49],[88,63],[80,83],[86,104],[103,119],[126,127],[130,150],[130,177],[130,207],[130,232]],
+    {pixelCoordinates:true,theme:'stone',
+      terrainPatches:[
+        {points:[[0,0],[35,0],[27,38],[0,42]],color:'#b3b3b3'},
+        {points:[[208,0],[256,0],[256,112],[238,111],[225,91],[220,60],[208,34]],color:'#b3b3b3'},
+        {points:[[0,163],[42,163],[65,181],[65,224],[0,224]],color:'#b3b3b3'},
+        {points:[[143,150],[174,153],[183,169],[164,183],[139,178]],color:'#b3b3b3'}
+      ]}),
+  voidLabyrinth: defineMap('voidLabyrinth','Três Linhas de Fogo','Avançado','Três percursos independentes em zigue-zague, com entradas e saídas alternadas.',1.36,1.12,ARENA_COLORS.voidLabyrinth,
+    [[-8,51],[12,47],[25,18],[39,48],[55,22],[72,51],[90,24],[108,53],[126,22],[144,55],[162,25],[181,55],[201,23],[220,53],[241,48],[264,50]],
+    {extraRoutes:[[[-8,142],[16,140],[36,128],[58,136],[79,140],[80,119],[95,132],[119,147],[142,132],[165,138],[188,127],[211,135],[236,130],[264,132]],
+      [[-8,202],[13,189],[34,177],[53,197],[72,208],[94,191],[114,183],[134,199],[155,210],[177,192],[198,181],[219,199],[240,205],[264,205]]],
+      pixelCoordinates:true,theme:'lava',
+      terrainPatches:[
+        {points:[[0,0],[68,0],[75,10],[55,15],[36,11],[19,16],[0,14]],color:'#b1acac'},
+        {points:[[104,0],[126,0],[132,8],[112,13]],color:'#b1acac'},
+        {points:[[0,214],[27,214],[34,224],[0,224]],color:'#b1acac'}
+      ]}),
+  infernoCircuit: defineMap('infernoCircuit','Jardim Cristalino','Expert','O jardim cristalino original, preservado como oitavo desafio.',1.52,1.15,ARENA_COLORS.infernoCircuit,
     [[-1,2],[2,2],[4,4],[6,2],[8,4],[10,2],[12,4],[15,2],[18,2]], {
-      extraRoutes: [[[-1,9],[2,9],[4,7],[6,9],[8,7],[10,9],[12,7],[15,9],[18,9]]],
-      farms: ['0,0','1,0','16,0','17,0','0,11','1,11'],
-      blocked: [[4,0,2,1],[8,0,2,1],[12,0,2,1],[4,10,2,1],[8,10,2,1],[12,10,2,1],[7,5,2,1]],
-      theme: 'crystal',
+      extraRoutes:[[[-1,9],[2,9],[4,7],[6,9],[8,7],[10,9],[12,7],[15,9],[18,9]]],
+      farms:['0,0','1,0','30,0','31,0','0,27','1,27'],
+      blocked:[[4,0,2,1],[8,0,2,1],[12,0,2,1],[4,25,2,1],[8,25,2,1],[12,25,2,1],[15,12,2,1]],
+      theme:'crystal'
     }),
 }
 
