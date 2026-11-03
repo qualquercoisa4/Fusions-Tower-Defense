@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Plus } from 'lucide-react'
-import { CELL, COLS, ENEMIES, FUSION_LIST, HEIGHT, MAPS, MAP_SCALE_X, MAP_SCALE_Y, TOWERS, WIDTH, type EnemyType, type MapId, type TowerType } from '@/lib/game/data'
+import { CELL, ENEMIES, FUSION_LIST, HEIGHT, MAPS, MAP_SCALE_X, MAP_SCALE_Y, TOWERS, WIDTH, type EnemyType, type MapId, type TowerType } from '@/lib/game/data'
 import { SpriteIcon } from './sprite-icon'
 
 export function TitleScreen({ onStart }: { onStart: () => void }) {
