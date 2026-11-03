@@ -17,6 +17,7 @@ import {
   type TowerType,
   type TargetMode,
   type MapId,
+  type GameMap,
 } from './data'
 
 export interface Enemy {
@@ -477,7 +478,7 @@ export function isBuildableAt(s: GameState, x: number, y: number, type: TowerTyp
 
   if (map.sandOnly) {
     // Na ilha, só a faixa de areia entre a pista verde e o mar aceita construções.
-    const sandOuterRadius = 67
+    const sandOuterRadius = 130
     if (pathDistance > sandOuterRadius - footprint * 0.45) return false
   } else {
     const col = Math.floor(x / CELL), row = Math.floor(y / CELL)
@@ -543,8 +544,8 @@ export function placeTowerAt(s: GameState, type: TowerType, x: number, y: number
     type,
     col,
     row,
-    x: x,
-    y: y,
+    x,
+    y,
     cooldown: 0,
     angle: -Math.PI / 2,
     invested: cost,
@@ -567,8 +568,8 @@ export function placeTowerAt(s: GameState, type: TowerType, x: number, y: number
     meteorTimer: 0,
     bankedMoney: 0,
     droneTimer: 20,
-    helicopterX: col * CELL + CELL / 2,
-    helicopterY: row * CELL + CELL / 2,
+    helicopterX: x,
+    helicopterY: y,
     helicopterCooldown: 0.25,
     helicopterMissileCooldown: 1.2,
   })
@@ -2859,6 +2860,90 @@ export function drawTower(ctx: CanvasRenderingContext2D, type: TowerType, x: num
   ctx.restore()
 }
 
+function drawMapScenery(ctx: CanvasRenderingContext2D, map: GameMap, s: GameState) {
+  const rand = (n: number) => {
+    const value = Math.sin(n * 127.1 + map.id.length * 311.7) * 43758.5453
+    return value - Math.floor(value)
+  }
+  if (map.theme === 'water') {
+    ctx.save()
+    ctx.strokeStyle = 'rgba(210,250,255,0.22)'; ctx.lineWidth = 2
+    for (let i = 0; i < 95; i++) {
+      const x = rand(i + 11) * WIDTH, y = rand(i + 91) * HEIGHT
+      if (distanceToMapPath(map, x, y) < 145) continue
+      const w = 12 + rand(i + 151) * 34
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + w/2, y - 5, x + w, y); ctx.stroke()
+    }
+    // Pequenas ilhas rochosas e o barco da referência.
+    for (const [x,y,r] of [[92,118,25],[WIDTH-110,HEIGHT-95,34],[WIDTH-160,110,19]] as number[][]) {
+      ctx.fillStyle = '#d9c28a'; ctx.beginPath(); ctx.ellipse(x,y,r*1.25,r*0.8,0,0,Math.PI*2); ctx.fill()
+      ctx.fillStyle = '#657b65'; ctx.beginPath(); ctx.ellipse(x+4,y-5,r*.55,r*.4,-.3,0,Math.PI*2); ctx.fill()
+    }
+    ctx.save(); ctx.translate(WIDTH*0.82,HEIGHT*0.72); ctx.rotate(-.12)
+    ctx.fillStyle='#6b3f22';ctx.strokeStyle='#f3d19b';ctx.lineWidth=3
+    ctx.beginPath();ctx.moveTo(-58,8);ctx.lineTo(56,8);ctx.lineTo(38,36);ctx.lineTo(-34,36);ctx.closePath();ctx.fill();ctx.stroke()
+    ctx.fillStyle='#e9d6ad';ctx.fillRect(-4,-42,5,52)
+    ctx.fillStyle='#fff4cf';ctx.beginPath();ctx.moveTo(1,-40);ctx.lineTo(34,-6);ctx.lineTo(1,-6);ctx.closePath();ctx.fill()
+    ctx.fillStyle='#1687a0';ctx.fillRect(-30,12,60,8);ctx.restore()
+    ctx.restore()
+    return
+  }
+  for (let i = 0; i < 155; i++) {
+    const x = 24 + rand(i+3) * (WIDTH-48), y = 24 + rand(i+29) * (HEIGHT-48)
+    const pathGap = distanceToMapPath(map,x,y)
+    if (pathGap < map.pathWidth/2 + 25) continue
+    const size = 5 + rand(i+61) * 16
+    if (map.theme === 'grass') {
+      if (i % 5 === 0) {
+        ctx.fillStyle='#4b3825';ctx.fillRect(x-3,y+2,6,size)
+        for (const [dx,dy,r,c] of [[-8,0,size*.55,'#1d6337'],[5,-5,size*.6,'#287a3b'],[0,-12,size*.62,'#3d9145']] as [number,number,number,string][]) {
+          ctx.fillStyle=c;ctx.beginPath();ctx.arc(x+dx,y+dy,r,0,Math.PI*2);ctx.fill()
+        }
+        ctx.fillStyle='rgba(160,225,104,.35)';ctx.beginPath();ctx.arc(x-4,y-15,3,0,Math.PI*2);ctx.fill()
+      } else if (i % 3 === 0) {
+        ctx.fillStyle='#2d773b';ctx.beginPath();ctx.ellipse(x,y,size*1.2,size*.55,rand(i+80),0,Math.PI*2);ctx.fill()
+        ctx.fillStyle='#61ad4f';ctx.beginPath();ctx.ellipse(x-4,y-3,size*.6,size*.25,rand(i+80),0,Math.PI*2);ctx.fill()
+      } else {
+        ctx.fillStyle=i%2?'#fff1b5':'#f7a9a0';ctx.beginPath();ctx.arc(x,y,2.4,0,Math.PI*2);ctx.fill()
+      }
+    } else if (map.theme === 'desert') {
+      if (i % 6 === 0) {
+        ctx.strokeStyle='#34813a';ctx.lineWidth=7;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x,y+size);ctx.lineTo(x,y-size);ctx.moveTo(x,y);ctx.lineTo(x-size*.6,y-size*.35);ctx.moveTo(x,y+2);ctx.lineTo(x+size*.6,y-size*.2);ctx.stroke()
+      } else {
+        ctx.fillStyle='#b77a38';ctx.strokeStyle='#80502b';ctx.lineWidth=2
+        ctx.beginPath();ctx.moveTo(x-size,y+size*.3);ctx.lineTo(x-size*.5,y-size*.6);ctx.lineTo(x+size*.35,y-size);ctx.lineTo(x+size,y+size*.2);ctx.lineTo(x+size*.4,y+size*.7);ctx.closePath();ctx.fill();ctx.stroke()
+        ctx.strokeStyle='rgba(255,220,145,.35)';ctx.beginPath();ctx.moveTo(x-size*.3,y);ctx.lineTo(x+size*.2,y-size*.45);ctx.stroke()
+      }
+    } else if (map.theme === 'stone') {
+      if (i % 7 === 0) {
+        ctx.fillStyle='#26323a';ctx.fillRect(x-10,y-3,20,6)
+        ctx.strokeStyle='#71808a';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x-10,y-3);ctx.lineTo(x-10,y-18);ctx.lineTo(x+10,y-18);ctx.lineTo(x+10,y-3);ctx.stroke()
+        ctx.fillStyle='#facc15';ctx.shadowColor='#facc15';ctx.shadowBlur=12;ctx.fillRect(x-3,y-15,6,11);ctx.shadowBlur=0
+      } else {
+        ctx.fillStyle=i%2?'#525b62':'#69737a';ctx.strokeStyle='#30383f';ctx.lineWidth=2
+        ctx.beginPath();ctx.moveTo(x-size,y+size*.3);ctx.lineTo(x-size*.5,y-size*.8);ctx.lineTo(x+size*.35,y-size);ctx.lineTo(x+size,y+size*.25);ctx.lineTo(x+size*.45,y+size*.8);ctx.closePath();ctx.fill();ctx.stroke()
+        ctx.strokeStyle='rgba(220,230,230,.2)';ctx.beginPath();ctx.moveTo(x-size*.4,y-size*.35);ctx.lineTo(x+size*.25,y-size*.5);ctx.stroke()
+      }
+    } else if (map.theme === 'lava') {
+      if (i % 4 === 0) {
+        ctx.strokeStyle='#ffb52e';ctx.lineWidth=2;ctx.shadowColor='#ff5a00';ctx.shadowBlur=8
+        ctx.beginPath();ctx.moveTo(x-size,y-size*.2);ctx.lineTo(x-size*.25,y+size*.15);ctx.lineTo(x+size*.1,y-size*.4);ctx.lineTo(x+size,y+size*.3);ctx.stroke();ctx.shadowBlur=0
+      } else {
+        ctx.fillStyle='#512b25';ctx.strokeStyle='#241b1a';ctx.lineWidth=3
+        ctx.beginPath();ctx.moveTo(x-size,y+size*.3);ctx.lineTo(x-size*.4,y-size*.9);ctx.lineTo(x+size*.5,y-size*.65);ctx.lineTo(x+size,y+size*.2);ctx.lineTo(x+size*.2,y+size*.8);ctx.closePath();ctx.fill();ctx.stroke()
+      }
+    } else {
+      if (i % 5 === 0) {
+        ctx.fillStyle='#8d6032';ctx.beginPath();ctx.arc(x,y,size*.8,0,Math.PI*2);ctx.fill()
+        ctx.fillStyle='#e9a53a';ctx.beginPath();ctx.arc(x-size*.2,y-size*.2,size*.55,0,Math.PI*2);ctx.fill()
+      } else {
+        ctx.fillStyle='#888477';ctx.strokeStyle='#5b574d';ctx.lineWidth=2
+        ctx.beginPath();ctx.moveTo(x-size,y+size*.3);ctx.lineTo(x-size*.45,y-size*.75);ctx.lineTo(x+size*.4,y-size*.9);ctx.lineTo(x+size,y+size*.25);ctx.lineTo(x+size*.3,y+size*.7);ctx.closePath();ctx.fill();ctx.stroke()
+      }
+    }
+  }
+}
+
 export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   const map = MAPS[s.mapId]
   ctx.fillStyle = map.colors.background
@@ -2886,6 +2971,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
     })
     ctx.closePath(); ctx.fill()
   }
+  drawMapScenery(ctx, map, s)
 
   // O mapa novo mantém seus obstáculos estilizados por célula.
   if (map.id === 'original' || map.id === 'infernoCircuit') {
@@ -2905,27 +2991,13 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
     }
   }
 
-  // Espaços exclusivos de economia. Na lagoa, uma dessas posições é o barco.
-  for (const cell of map.farmCells) {
-    const [col, row] = cell.split(',').map(Number)
-    const x = col * CELL, y = row * CELL
-    if (map.id === 'quarrySpiral' && cell === '29,15') {
-      ctx.save()
-      ctx.translate(x + CELL/2, y + CELL/2)
-      ctx.fillStyle = '#78350f'; ctx.strokeStyle = '#fef3c7'; ctx.lineWidth = 1.5
-      ctx.beginPath(); ctx.moveTo(-12, 2); ctx.lineTo(12, 2); ctx.lineTo(8, 9); ctx.lineTo(-8, 9); ctx.closePath(); ctx.fill(); ctx.stroke()
-      ctx.fillStyle = '#f8fafc'; ctx.fillRect(-1, -11, 2, 14)
-      ctx.fillStyle = '#fef3c7'; ctx.beginPath(); ctx.moveTo(1, -10); ctx.lineTo(9, -1); ctx.lineTo(1, -1); ctx.closePath(); ctx.fill()
-      ctx.restore()
-    } else {
-      ctx.fillStyle = map.colors.farmFill
-      ctx.fillRect(x + 2, y + 2, CELL - 4, CELL - 4)
-      ctx.strokeStyle = map.colors.farmStroke; ctx.lineWidth = 2
-      ctx.strokeRect(x + 4, y + 4, CELL - 8, CELL - 8)
-      ctx.fillStyle = map.colors.farmText
-      ctx.font = 'bold 8px sans-serif'; ctx.textAlign = 'center'
-      ctx.fillText('FARM', x + CELL/2, y + CELL/2 + 3)
-    }
+  if (map.id === 'quarrySpiral') {
+    ctx.save(); ctx.translate(WIDTH*0.82,HEIGHT*0.72); ctx.rotate(-.12)
+    ctx.fillStyle='#6b3f22';ctx.strokeStyle='#f3d19b';ctx.lineWidth=3
+    ctx.beginPath();ctx.moveTo(-58,8);ctx.lineTo(56,8);ctx.lineTo(38,36);ctx.lineTo(-34,36);ctx.closePath();ctx.fill();ctx.stroke()
+    ctx.fillStyle='#e9d6ad';ctx.fillRect(-4,-42,5,52)
+    ctx.fillStyle='#fff4cf';ctx.beginPath();ctx.moveTo(1,-40);ctx.lineTo(34,-6);ctx.lineTo(1,-6);ctx.closePath();ctx.fill()
+    ctx.fillStyle='#1687a0';ctx.fillRect(-30,12,60,8);ctx.restore()
   }
 
   ctx.lineJoin = 'round'
