@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Plus } from 'lucide-react'
-import { ENEMIES, FUSION_LIST, TOWERS, type EnemyType, type TowerType } from '@/lib/game/data'
+import { ENEMIES, FUSION_LIST, MAPS, TOWERS, type EnemyType, type MapId, type TowerType } from '@/lib/game/data'
 import { SpriteIcon } from './sprite-icon'
 
 export function TitleScreen({ onStart }: { onStart: () => void }) {
@@ -44,6 +44,96 @@ export function MainMenu({ onPlay, onTowers }: { onPlay: () => void; onTowers: (
             </button>
           </div>
         )}
+      </div>
+    </main>
+  )
+}
+
+
+const MAP_DIFFICULTY_GROUPS: {
+  title: string
+  subtitle: string
+  color: string
+  maps: MapId[]
+}[] = [
+  { title: 'INICIANTE', subtitle: 'Aprenda o básico e prepare sua defesa.', color: '#4ade80', maps: ['original', 'meadow'] },
+  { title: 'INTERMEDIÁRIO', subtitle: 'Rotas mais exigentes e inimigos reforçados.', color: '#38bdf8', maps: ['frostline', 'emberCrossing'] },
+  { title: 'AVANÇADO', subtitle: 'Pouco espaço para erros. Planeje cada fusão.', color: '#f59e0b', maps: ['quarrySpiral', 'neonGauntlet'] },
+  { title: 'EXPERT', subtitle: 'Desafios extremos para defesas completas.', color: '#fb7185', maps: ['voidLabyrinth', 'infernoCircuit'] },
+]
+
+export function MapSelection({ onBack, onSelect }: { onBack: () => void; onSelect: (mapId: MapId) => void }) {
+  return (
+    <main className="h-dvh overflow-y-auto bg-[#050914] px-4 py-5 text-slate-100 sm:px-6">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 pb-8">
+        <header className="flex items-center gap-4">
+          <button onClick={onBack} className="flex shrink-0 items-center gap-2 rounded-md border border-sky-500/30 px-3 py-2 text-sm hover:bg-sky-500/10">
+            <ArrowLeft className="size-4" aria-hidden /> Voltar
+          </button>
+          <div>
+            <p className="font-display text-xs tracking-[0.28em] text-sky-300">FUSION TD</p>
+            <h1 className="font-display text-2xl tracking-widest text-white sm:text-3xl">SELECIONE UM MAPA</h1>
+          </div>
+        </header>
+
+        <p className="max-w-2xl text-sm leading-relaxed text-slate-400">
+          Escolha uma arena. Cada mapa possui um percurso próprio, identidade visual e dificuldade crescente.
+          Todos usam a campanha de 75 ondas.
+        </p>
+
+        {MAP_DIFFICULTY_GROUPS.map((group, groupIndex) => (
+          <section key={group.title} className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-1.5 rounded-full" style={{ backgroundColor: group.color }} />
+              <div className="min-w-0 flex-1">
+                <h2 className="font-display text-sm tracking-[0.2em]" style={{ color: group.color }}>{group.title}</h2>
+                <p className="text-xs text-slate-500">{group.subtitle}</p>
+              </div>
+              <span className="text-xs tracking-widest text-slate-600">{String(groupIndex + 1).padStart(2, '0')} / 04</span>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {group.maps.map((mapId) => {
+                const map = MAPS[mapId]
+                const hpIncrease = Math.round((map.hpMultiplier - 1) * 100)
+                const speedIncrease = Math.round((map.speedMultiplier - 1) * 100)
+                const points = map.path.map(point => `${point.x},${point.y}`).join(' ')
+                return (
+                  <button
+                    key={mapId}
+                    onClick={() => onSelect(mapId)}
+                    className="group overflow-hidden rounded-xl border border-white/10 bg-[#0b1223] text-left transition hover:-translate-y-0.5 hover:border-white/30 hover:shadow-xl focus-visible:outline-2 focus-visible:outline-offset-2"
+                    style={{ outlineColor: map.colors.accent }}
+                  >
+                    <div className="relative h-36 overflow-hidden border-b border-white/10 sm:h-40" style={{ background: map.colors.preview }}>
+                      <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 20% 20%, white 1px, transparent 1.5px), radial-gradient(circle at 70% 70%, white 1px, transparent 1.5px)', backgroundSize: '24px 24px, 31px 31px' }} />
+                      <svg viewBox="0 0 864 576" preserveAspectRatio="xMidYMid meet" className="relative size-full p-2" aria-hidden="true">
+                        <polyline points={points} fill="none" stroke={map.colors.accent} strokeOpacity="0.24" strokeWidth="78" strokeLinecap="round" strokeLinejoin="round" />
+                        <polyline points={points} fill="none" stroke={map.colors.path} strokeWidth="58" strokeLinecap="round" strokeLinejoin="round" />
+                        <polyline points={points} fill="none" stroke={map.colors.accent} strokeOpacity="0.95" strokeWidth="3" strokeDasharray="12 15" strokeLinecap="round" strokeLinejoin="round" />
+                        <circle cx={map.path[0].x} cy={map.path[0].y} r="13" fill="#4ade80" stroke="#dcfce7" strokeWidth="4" />
+                        <circle cx={map.path[map.path.length - 1].x} cy={map.path[map.path.length - 1].y} r="13" fill="#fb7185" stroke="#ffe4e6" strokeWidth="4" />
+                      </svg>
+                      <span className="absolute left-3 top-3 rounded-md border border-white/15 bg-black/45 px-2 py-1 text-[10px] font-bold tracking-widest text-white/90">75 ONDAS</span>
+                      <span className="absolute bottom-3 right-3 rounded-md px-2 py-1 text-[10px] font-bold tracking-wider text-slate-950" style={{ backgroundColor: map.colors.accent }}>{map.difficulty.toUpperCase()}</span>
+                    </div>
+                    <div className="flex flex-col gap-2 p-3 sm:p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="font-display text-base tracking-wide text-white">{map.name}</h3>
+                        <span className="text-xs font-semibold" style={{ color: map.colors.accent }}>JOGAR →</span>
+                      </div>
+                      <p className="min-h-10 text-xs leading-relaxed text-slate-400">{map.description}</p>
+                      <div className="flex flex-wrap gap-2 text-[10px] font-medium text-slate-300">
+                        <span className="rounded bg-white/5 px-2 py-1">Vida inimiga +{hpIncrease}%</span>
+                        <span className="rounded bg-white/5 px-2 py-1">Velocidade +{speedIncrease}%</span>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        ))}
       </div>
     </main>
   )
