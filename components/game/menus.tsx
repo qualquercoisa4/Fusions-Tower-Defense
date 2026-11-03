@@ -116,7 +116,7 @@ export function MapSelection({ onBack, onSelect }: { onBack: () => void; onSelec
                           const points = routePoints[routeIndex]
                           const start = route.path[0], finish = route.path[route.path.length - 1]
                           return <g key={routeIndex}>
-                            {map.sandOnly && <polyline points={points} fill="none" stroke="#f6ff93" strokeWidth="135" strokeLinecap="round" strokeLinejoin="round" />}
+                            {map.sandOnly && <polyline points={points} fill="none" stroke="#f6ff93" strokeWidth="220" strokeLinecap="round" strokeLinejoin="round" />}
                             <polyline points={points} fill="none" stroke={map.colors.pathGlow} strokeWidth={map.pathWidth + 8} strokeLinecap="round" strokeLinejoin="round" />
                             <polyline points={points} fill="none" stroke={map.colors.path} strokeWidth={map.pathWidth} strokeLinecap="round" strokeLinejoin="round" />
                             <circle cx={start.x} cy={start.y} r="25" fill="#00cfff" stroke="#e0f2fe" strokeWidth="3" />
