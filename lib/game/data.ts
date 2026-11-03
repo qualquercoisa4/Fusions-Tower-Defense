@@ -631,7 +631,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   bugKing: { name: 'Bug King', hp: 240000, speed: 9, reward: 6000, radius: 40, damage: 1000, color: '#c084fc', dark: '#581c87', description: 'Chefe final da onda 75. Possui vida colossal. Ao morrer, dobra permanentemente a vida máxima de todos os tipos de insetos já encontrados e dos que surgirem depois.' },
 }
 
-export const CELL = 27
+export const CELL = 30
 export const COLS = 32
 export const ROWS = 28
 export const WIDTH = CELL * COLS
@@ -905,7 +905,7 @@ export const MAPS: Record<MapId, GameMap> = {
   emberCrossing: defineMap('emberCrossing','Travessia do Vale','Intermediário','Dois caminhos amarelos cruzam o vale: um sobe à saída superior e outro desce à saída inferior.',1.14,1.06,ARENA_COLORS.emberCrossing,
     [[8,179],[37,147],[65,146],[76,139],[100,98],[105,93],[123,95],[134,70],[157,58],[157,15],[162,9]],
     {extraRoutes:[[[248,90],[247,98],[202,138],[128,181],[112,184],[74,217]]],
-      pixelCoordinates:true,theme:'grass',pathWidth:44,
+      pixelCoordinates:true,theme:'stone',pathWidth:44,
       terrainPatches:[
         {points:[[0,0],[57,0],[65,24],[58,54],[63,82],[51,111],[30,126],[8,125],[0,111]],color:'#73c152'},
         {points:[[178,224],[191,207],[213,192],[234,187],[256,176],[256,224]],color:'#73c152'}
@@ -924,7 +924,7 @@ export const MAPS: Record<MapId, GameMap> = {
   // Referência 5: espiral branca no campo amarelo e rochas cinzentas.
   neonGauntlet: defineMap('neonGauntlet','Espiral de Minério','Avançado','Uma trilha branca sobe, enrola em uma espiral central e desce até a saída inferior.',1.3,1.1,ARENA_COLORS.neonGauntlet,
     [[46,5],[48,22],[52,45],[58,68],[69,91],[87,108],[108,119],[128,124],[149,118],[166,104],[177,84],[180,65],[172,49],[156,40],[134,38],[112,42],[93,52],[80,66],[77,82],[85,98],[101,109],[121,114],[139,108],[151,94],[154,78],[147,63],[134,55],[121,59],[114,70],[117,82],[126,89],[134,87],[137,79],[133,72],[128,70],[131,95],[132,120],[132,150],[132,180],[132,218]],
-    {pixelCoordinates:true,theme:'stone',pathWidth:36,
+    {pixelCoordinates:true,theme:'desert',pathWidth:36,
       terrainPatches:[
         {points:[[0,0],[35,0],[27,38],[0,42]],color:'#b3b3b3'},
         {points:[[208,0],[256,0],[256,112],[238,111],[225,91],[220,60],[208,34]],color:'#b3b3b3'},
