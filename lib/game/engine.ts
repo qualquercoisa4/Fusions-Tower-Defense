@@ -468,6 +468,17 @@ export function getTowerCoverageRange(type: TowerType) {
   return TOWERS[type].range * (isIncomeTower(type) ? 1.65 : 1)
 }
 
+function pointInPolygon(x: number, y: number, points: [number, number][]) {
+  let inside = false
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const xi = points[i][0] * MAP_SCALE_X, yi = points[i][1] * MAP_SCALE_Y
+    const xj = points[j][0] * MAP_SCALE_X, yj = points[j][1] * MAP_SCALE_Y
+    const crosses = (yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / ((yj - yi) || 0.0001) + xi
+    if (crosses) inside = !inside
+  }
+  return inside
+}
+
 export function isBuildableAt(s: GameState, x: number, y: number, type: TowerType, ignoreTowerId?: number) {
   const map = MAPS[s.mapId]
   const footprint = getTowerFootprint(type)
@@ -483,6 +494,10 @@ export function isBuildableAt(s: GameState, x: number, y: number, type: TowerTyp
   } else {
     const col = Math.floor(x / CELL), row = Math.floor(y / CELL)
     if (map.blockedCells.has(`${col},${row}`)) return false
+    for (const patch of map.terrainPatches) {
+      const obstacleColor = ['#33e0fe','#a7a07f','#b3b3b3','#b1acac'].includes(patch.color.toLowerCase())
+      if (obstacleColor && pointInPolygon(x, y, patch.points)) return false
+    }
   }
 
   return !s.towers.some(t => t.id !== ignoreTowerId &&
@@ -2991,14 +3006,6 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
     }
   }
 
-  if (map.id === 'quarrySpiral') {
-    ctx.save(); ctx.translate(WIDTH*0.82,HEIGHT*0.72); ctx.rotate(-.12)
-    ctx.fillStyle='#6b3f22';ctx.strokeStyle='#f3d19b';ctx.lineWidth=3
-    ctx.beginPath();ctx.moveTo(-58,8);ctx.lineTo(56,8);ctx.lineTo(38,36);ctx.lineTo(-34,36);ctx.closePath();ctx.fill();ctx.stroke()
-    ctx.fillStyle='#e9d6ad';ctx.fillRect(-4,-42,5,52)
-    ctx.fillStyle='#fff4cf';ctx.beginPath();ctx.moveTo(1,-40);ctx.lineTo(34,-6);ctx.lineTo(1,-6);ctx.closePath();ctx.fill()
-    ctx.fillStyle='#1687a0';ctx.fillRect(-30,12,60,8);ctx.restore()
-  }
 
   ctx.lineJoin = 'round'
   ctx.lineCap = 'round'
