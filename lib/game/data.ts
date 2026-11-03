@@ -742,8 +742,8 @@ function buildRoute(waypoints: [number, number][], pixelCoordinates = false) {
     for (let i = 0; i < rawPath.length - 1; i++) {
       const p0 = rawPath[Math.max(0, i - 1)], p1 = rawPath[i]
       const p2 = rawPath[i + 1], p3 = rawPath[Math.min(rawPath.length - 1, i + 2)]
-      for (let step = 1; step <= 16; step++) {
-        const t = step / 16, t2 = t * t, t3 = t2 * t
+      for (let step = 1; step <= 24; step++) {
+        const t = step / 24, t2 = t * t, t3 = t2 * t
         const sample = (a: number, b: number, c: number, d: number) =>
           0.5 * ((2 * b) + (-a + c) * t + (2*a - 5*b + 4*c - d) * t2 + (-a + 3*b - 3*c + d) * t3)
         path.push({ x: sample(p0.x,p1.x,p2.x,p3.x), y: sample(p0.y,p1.y,p2.y,p3.y) })
@@ -875,75 +875,88 @@ export const MAPS: Record<MapId, GameMap> = {
     farms:['0,0','1,0','0,27','1,27','30,0','31,0','30,27','31,27'],theme:'classic',pathWidth:22
   }),
 
-  // Cruzamento orgânico com duas rotas independentes, baseado na referência 1.
-  meadow: defineMap('meadow','Encontro das Trilhas','Expert','Duas pistas sinuosas se cruzam em um circuito de curvas fechadas.',1.38,1.12,ARENA_COLORS.meadow,
-    [[-5,160],[15,160],[31,151],[39,136],[52,130],[66,136],[77,148],[92,149],[105,139],[115,122],[126,101],[139,82],[154,69],[173,63],[190,66],[201,78],[203,94],[194,108],[179,113],[165,107],[158,94],[164,80],[180,67],[199,57],[220,48],[242,38],[261,34]],
-    {pixelCoordinates:true,theme:'grass',pathWidth:17,farms:['2,2','29,2','2,25','29,25'],
-      extraRoutes:[[[-5,67],[17,67],[34,61],[49,53],[66,55],[80,69],[91,84],[107,91],[123,86],[137,72],[151,54],[167,41],[185,35],[199,39],[207,51],[203,67],[190,82],[176,91],[163,105],[151,124],[137,141],[119,155],[101,166],[87,181],[89,197],[103,207],[120,207],[137,198],[153,184],[172,172],[193,161],[215,145],[239,126],[261,108]]],
+  // Referência 1: uma estrada em U alongado, com duas pernas paralelas
+  // e um retorno circular largo no canto inferior esquerdo.
+  meadow: defineMap('meadow','Retorno Paralelo','Iniciante','Uma pista longa faz um retorno circular e volta por uma faixa paralela.',1.04,1.02,ARENA_COLORS.meadow,
+    [[212,-8],[212,18],[211,34],[204,45],[190,53],[173,64],[155,79],[137,95],[119,111],[101,127],[83,143],[66,159],[51,174],[40,187],[39,198],[47,207],[59,207],[68,198],[69,186],[63,174],[53,162],[66,148],[83,132],[101,116],[119,100],[137,84],[155,68],[173,53],[192,39],[211,27],[230,20],[243,12],[247,-8]],
+    {pixelCoordinates:true,theme:'grass',pathWidth:38,farms:['2,2','29,2','2,25','29,25'],
       terrainPatches:[
-        {points:[[0,0],[46,0],[41,18],[27,25],[0,22]],color:'#286b35'},
-        {points:[[0,196],[23,190],[40,203],[42,224],[0,224]],color:'#286b35'},
-        {points:[[205,190],[256,184],[256,224],[220,224]],color:'#286b35'}
+        {points:[[0,0],[42,0],[42,18],[28,25],[0,24]],color:'#245b37'},
+        {points:[[0,195],[25,188],[42,201],[42,224],[0,224]],color:'#245b37'},
+        {points:[[215,194],[256,188],[256,224],[218,224]],color:'#245b37'}
       ]}),
 
-  // Duas faixas paralelas que saem de um retorno circular e terminam em entradas separadas.
-  frostline: defineMap('frostline','Bifurcação Paralela','Intermediário','Duas pistas paralelas partem de uma rotatória e seguem para entradas distintas.',1.16,1.06,ARENA_COLORS.frostline,
-    [[43,164],[34,153],[30,139],[34,126],[45,118],[59,119],[68,128],[69,142],[62,153],[49,158],[41,151],[48,139],[65,126],[84,111],[105,95],[126,79],[147,63],[168,48],[185,38],[198,33],[209,25],[211,10], [211,-5]],
-    {pixelCoordinates:true,theme:'grass',pathWidth:18,farms:['2,2','29,2','2,25','29,25'],
-      extraRoutes:[[[43,164],[34,153],[30,139],[34,126],[45,118],[59,119],[68,128],[69,142],[62,153],[49,158],[41,151],[55,163],[75,149],[95,133],[115,117],[135,101],[155,85],[175,69],[193,59],[211,56],[229,58],[242,51],[244,34],[244,10],[244,-5]]],
+  // Referência 2: serpentina contínua, com grandes curvas em S e sem cruzamentos.
+  frostline: defineMap('frostline','Serpentina Longa','Intermediário','Uma estrada sinuosa atravessa a arena em curvas largas e contínuas.',1.16,1.06,ARENA_COLORS.frostline,
+    [[64,-8],[64,22],[65,42],[72,54],[88,60],[112,61],[139,61],[165,61],[187,61],[201,66],[207,78],[204,91],[193,101],[177,107],[159,112],[146,122],[142,137],[148,151],[163,159],[181,160],[199,157],[214,161],[222,173],[220,187],[209,198],[191,203],[168,204],[143,204],[118,204],[94,204],[70,204],[49,201],[35,193],[29,180],[31,166],[41,156],[57,151],[76,153],[96,160],[116,167],[136,168],[156,163],[176,153],[196,142],[216,132],[238,125],[261,125]],
+    {pixelCoordinates:true,theme:'grass',pathWidth:38,farms:['2,2','29,2','2,25','29,25'],
       terrainPatches:[
-        {points:[[0,0],[39,0],[39,20],[25,29],[0,25]],color:'#174d3d'},
-        {points:[[0,190],[20,183],[38,195],[42,224],[0,224]],color:'#174d3d'},
-        {points:[[221,185],[256,180],[256,224],[225,224]],color:'#174d3d'}
+        {points:[[0,0],[28,0],[28,24],[15,31],[0,22]],color:'#0b5038'},
+        {points:[[228,0],[256,0],[256,28],[241,34],[228,24]],color:'#0b5038'},
+        {points:[[0,196],[27,190],[43,205],[42,224],[0,224]],color:'#0b5038'}
       ]}),
 
-  // Serpentina longa e estreita, com curvas suaves e retornos alternados.
-  emberCrossing: defineMap('emberCrossing','Serpentina Selvagem','Intermediário','Uma única estrada ondula de uma extremidade à outra com curvas contínuas.',1.2,1.08,ARENA_COLORS.emberCrossing,
-    [[-5,151],[14,151],[29,145],[41,132],[53,116],[67,105],[82,105],[96,112],[110,111],[122,97],[133,78],[146,62],[162,56],[179,60],[195,60],[211,59],[225,62],[238,72],[242,88],[237,104],[226,115],[211,119],[195,119],[181,125],[170,140],[157,155],[142,165],[126,167],[110,160],[95,151],[79,146],[63,151],[51,165],[47,181],[51,197],[65,208],[82,210],[101,210],[119,207],[136,199],[153,190],[170,187],[186,193],[201,204],[215,217],[225,230]],
-    {pixelCoordinates:true,theme:'grass',pathWidth:17,farms:['2,2','29,2','2,25','29,25'],
+  // Referência 3: espiral ampla, afunilando até o centro e saindo pela parte inferior.
+  emberCrossing: defineMap('emberCrossing','Espiral Central','Avançado','A pista contorna a arena em uma espiral que termina em uma saída central.',1.28,1.1,ARENA_COLORS.emberCrossing,
+    [[128,-8],[128,22],[146,24],[169,36],[185,56],[193,81],[189,108],[175,132],[151,149],[123,155],[94,148],[72,131],[58,107],[55,80],[65,54],[84,35],[108,25],[134,27],[157,40],[171,60],[177,84],[171,108],[155,127],[132,138],[108,135],[89,121],[79,100],[81,79],[94,61],[112,53],[132,56],[148,69],[156,88],[151,106],[137,119],[119,121],[103,110],[98,93],[105,77],[119,70],[134,75],[142,88],[139,102],[128,111],[116,107],[111,95],[117,84],[128,82],[135,90],[134,100],[126,105],[119,99],[121,91],[128,89],[133,95],[131,101],[126,103],[126,121],[126,145],[126,174],[126,205],[126,232]],
+    {pixelCoordinates:true,theme:'stone',pathWidth:36,farms:['2,2','29,2','2,25','29,25'],
       terrainPatches:[
-        {points:[[0,0],[27,0],[27,30],[15,37],[0,29]],color:'#0d492f'},
-        {points:[[226,0],[256,0],[256,31],[240,37],[225,25]],color:'#0d492f'},
-        {points:[[0,192],[25,186],[42,201],[40,224],[0,224]],color:'#0d492f'}
+        {points:[[0,0],[26,0],[26,25],[13,31],[0,22]],color:'#555b5d'},
+        {points:[[228,0],[256,0],[256,25],[242,32],[228,22]],color:'#555b5d'},
+        {points:[[0,190],[28,184],[43,200],[42,224],[0,224]],color:'#555b5d'},
+        {points:[[215,190],[256,184],[256,224],[219,224]],color:'#555b5d'}
       ]}),
 
-  // Percurso em oito: duas grandes alças conectadas por travessias centrais.
-  quarrySpiral: defineMap('quarrySpiral','Oito Entrelaçado','Avançado','Duas grandes alças se cruzam no centro formando um oito.',1.28,1.1,ARENA_COLORS.quarrySpiral,
-    [[-5,112],[16,112],[32,105],[42,88],[54,72],[71,61],[91,58],[110,65],[124,78],[130,94],[125,109],[112,121],[96,126],[78,123],[64,113],[57,98],[59,82],[69,68],[84,57],[101,49],[120,47],[139,52],[157,63],[172,79],[184,97],[193,116],[202,137],[213,155],[229,167],[246,178],[261,184]],
-    {pixelCoordinates:true,theme:'grass',pathWidth:17,farms:['2,2','29,2','2,25','29,25'],
+  // Referência 4: percurso em oito, com duas alças largas e um cruzamento central.
+  quarrySpiral: defineMap('quarrySpiral','Oito Entrelaçado','Avançado','Duas grandes alças se cruzam no centro e formam um percurso em oito.',1.3,1.1,ARENA_COLORS.quarrySpiral,
+    [[-8,112],[18,112],[35,104],[44,85],[58,64],[79,49],[104,45],[126,52],[141,68],[145,88],[137,106],[119,119],[97,124],[77,119],[62,105],[56,86],[61,66],[77,48],[98,34],[122,27],[147,29],[170,40],[188,58],[201,80],[210,103],[216,126],[224,148],[239,166],[264,181]],
+    {pixelCoordinates:true,theme:'water',pathWidth:37,farms:['2,2','29,2','2,25','29,25'],
       terrainPatches:[
-        {points:[[0,0],[28,0],[28,22],[13,31],[0,20]],color:'#0b4b31'},
-        {points:[[226,0],[256,0],[256,29],[241,38],[225,28]],color:'#0b4b31'},
-        {points:[[0,190],[31,185],[44,202],[42,224],[0,224]],color:'#0b4b31'},
-        {points:[[215,193],[256,188],[256,224],[226,224]],color:'#0b4b31'}
+        {points:[[0,0],[27,0],[27,22],[13,31],[0,21]],color:'#075b68'},
+        {points:[[226,0],[256,0],[256,30],[241,37],[226,24]],color:'#075b68'},
+        {points:[[0,190],[31,184],[45,201],[42,224],[0,224]],color:'#075b68'},
+        {points:[[214,194],[256,187],[256,224],[220,224]],color:'#075b68'}
       ]}),
 
-  // Espiral circular concêntrica com entrada superior e saída inferior.
-  neonGauntlet: defineMap('neonGauntlet','Espiral do Núcleo','Expert','Uma espiral concêntrica força a defesa a cobrir voltas cada vez mais internas.',1.42,1.14,ARENA_COLORS.neonGauntlet,
-    [[72,-5],[72,18],[72,39],[78,56],[91,68],[111,75],[133,76],[155,71],[176,60],[192,45],[204,29],[216,21],[230,25],[238,38],[237,55],[226,70],[209,82],[188,91],[165,98],[143,104],[124,113],[111,126],[106,143],[111,159],[124,171],[143,178],[163,177],[181,169],[193,155],[198,138],[194,121],[183,107],[168,98],[151,94],[134,95],[120,103],[111,117],[108,133],[113,148],[125,159],[141,165],[157,165],[171,157],[179,145],[181,131],[176,118],[166,109],[154,103],[141,101],[129,104],[120,112],[115,124],[116,137],[124,148],[136,155],[149,157],[160,151],[166,142],[166,131],[160,121],[151,115],[141,114],[132,118],[127,127],[128,137],[135,145],[145,148],[154,144],[158,136],[156,127],[150,121],[142,120],[136,125],[135,134],[141,141],[149,141],[153,135],[150,129],[144,126],[139,130],[140,136],[146,139],[151,135],[150,130],[145,128],[141,132],[143,137],[148,138],[151,134],[148,131],[144,132],[144,135],[148,136],[151,133],[149,131],[146,132],[146,134],[149,134],[151,132],[149,130],[147,131],[148,133],[151,133],[153,130],[153,124],[153,117],[153,110],[153,102],[153,94],[153,85],[153,76],[153,66],[153,56],[153,46],[153,36],[153,25],[153,12],[153,-5]],
-    {pixelCoordinates:true,theme:'grass',pathWidth:16,farms:['2,2','29,2','2,25','29,25'],
+  // Referência 5: três faixas independentes em zigue-zague; inimigos alternam
+  // entre as rotas em sequência, sem grupos simultâneos por trilha.
+  neonGauntlet: defineMap('neonGauntlet','Zigue-zague Triplo','Expert','Três pistas paralelas em zigue-zague exigem cobertura distribuída.',1.42,1.14,ARENA_COLORS.neonGauntlet,
+    [[-8,48],[12,48],[22,34],[34,63],[47,34],[60,63],[73,34],[86,63],[99,34],[112,63],[125,34],[138,63],[151,34],[164,63],[177,34],[190,63],[203,34],[216,63],[230,48],[264,48]],
+    {pixelCoordinates:true,extraRoutes:[
+      [[-8,112],[12,112],[22,98],[34,127],[47,98],[60,127],[73,98],[86,127],[99,98],[112,127],[125,98],[138,127],[151,98],[164,127],[177,98],[190,127],[203,98],[216,127],[230,112],[264,112]],
+      [[-8,176],[12,176],[22,162],[34,191],[47,162],[60,191],[73,162],[86,191],[99,162],[112,191],[125,162],[138,191],[151,162],[164,191],[177,162],[190,191],[203,162],[216,191],[230,176],[264,176]]
+    ],theme:'lava',pathWidth:31,farms:['2,2','29,2','2,25','29,25'],
       terrainPatches:[
-        {points:[[0,0],[30,0],[30,24],[15,33],[0,22]],color:'#174d3d'},
-        {points:[[226,0],[256,0],[256,30],[240,37],[225,25]],color:'#174d3d'},
-        {points:[[0,190],[32,184],[44,202],[42,224],[0,224]],color:'#174d3d'},
-        {points:[[215,192],[256,188],[256,224],[225,224]],color:'#174d3d'}
+        {points:[[0,0],[24,0],[31,15],[17,25],[0,18]],color:'#78311d'},
+        {points:[[230,0],[256,0],[256,20],[239,27],[226,17]],color:'#78311d'},
+        {points:[[0,204],[35,198],[47,212],[44,224],[0,224]],color:'#78311d'},
+        {points:[[215,204],[256,197],[256,224],[222,224]],color:'#78311d'}
       ]}),
 
-  // Mantidos como arenas alternativas do catálogo.
-  voidLabyrinth: defineMap('voidLabyrinth','Zigue-zague Vulcânico','Avançado','Três pistas paralelas serpenteiam entre rochas e fissuras de lava.',1.34,1.12,ARENA_COLORS.voidLabyrinth,
-    [[-4,48],[12,48],[20,32],[30,63],[43,32],[56,63],[69,32],[82,63],[95,32],[108,63],[121,32],[134,63],[147,32],[160,63],[173,32],[186,63],[199,32],[212,63],[225,32],[240,48],[260,48]],
-    {extraRoutes:[[[-4,111],[15,111],[26,95],[38,127],[52,95],[66,127],[80,95],[94,127],[108,95],[122,127],[136,95],[150,127],[164,95],[178,127],[192,95],[206,127],[220,95],[240,111],[260,111]],[[-4,176],[13,176],[25,159],[38,190],[52,159],[66,190],[80,159],[94,190],[108,159],[122,190],[136,159],[150,190],[164,159],[178,190],[190,176],[195,160],[207,154],[218,165],[213,180],[201,184],[194,176],[220,176],[260,176]]],
-      pixelCoordinates:true,theme:'lava',pathWidth:14,farms:['2,2','29,2','2,25','29,25'],
-      terrainPatches:[{points:[[0,0],[32,0],[40,12],[25,21],[0,17]],color:'#572a22'},{points:[[215,0],[256,0],[256,18],[234,23],[220,14]],color:'#572a22'},{points:[[0,207],[40,207],[48,224],[0,224]],color:'#572a22'},{points:[[210,203],[256,203],[256,224],[225,224]],color:'#572a22'}]}),
+  // Alternativa adicional: um circuito de curvas largas com retorno lateral.
+  voidLabyrinth: defineMap('voidLabyrinth','Trilha do Deserto','Expert','Uma pista de curvas fechadas contorna formações rochosas no deserto.',1.48,1.15,ARENA_COLORS.voidLabyrinth,
+    [[-8,55],[18,55],[39,48],[57,35],[78,31],[99,38],[112,54],[116,75],[108,95],[91,108],[70,112],[51,105],[39,90],[39,72],[50,57],[68,49],[89,52],[108,65],[128,83],[148,101],[168,116],[189,123],[211,119],[230,107],[244,90],[250,70],[244,51],[230,39],[210,35],[190,40],[174,53],[164,72],[164,93],[175,111],[193,127],[214,145],[236,164],[264,178]],
+    {pixelCoordinates:true,theme:'desert',pathWidth:35,farms:['2,2','29,2','2,25','29,25'],
+      terrainPatches:[
+        {points:[[0,0],[36,0],[35,21],[18,28],[0,21]],color:'#9a6a36'},
+        {points:[[220,0],[256,0],[256,26],[239,31],[222,19]],color:'#9a6a36'},
+        {points:[[0,194],[28,188],[43,204],[42,224],[0,224]],color:'#9a6a36'}
+      ]}),
 
-  infernoCircuit: defineMap('infernoCircuit','Jardim Cristalino','Expert','Uma arena original de cristais com duas rotas entrelaçadas e plataformas seguras.',1.52,1.15,ARENA_COLORS.infernoCircuit,
-    [[-1,2],[2,2],[4,4],[6,2],[8,4],[10,2],[12,4],[15,2],[18,2]], {
-      extraRoutes:[[[-1,9],[2,9],[4,7],[6,9],[8,7],[10,9],[12,7],[15,9],[18,9]]],
-      farms:['0,0','1,0','30,0','31,0','0,27','1,27'],
-      blocked:[[4,0,2,1],[8,0,2,1],[12,0,2,1],[4,25,2,1],[8,25,2,1],[12,25,2,1],[15,12,2,1]],
-      theme:'crystal',pathWidth:14
-    }),
+  // Alternativa adicional: duas rotas sinuosas independentes com alternância 1:1.
+  infernoCircuit: defineMap('infernoCircuit','Duas Correntes','Expert','Duas rotas onduladas e independentes dividem a pressão da defesa.',1.52,1.16,ARENA_COLORS.infernoCircuit,
+    [[-8,68],[12,68],[27,55],[42,80],[57,55],[72,80],[87,55],[102,80],[117,55],[132,80],[147,55],[162,80],[177,55],[192,80],[207,55],[222,80],[240,68],[264,68]],
+    {pixelCoordinates:true,extraRoutes:[
+      [[-8,156],[12,156],[27,143],[42,168],[57,143],[72,168],[87,143],[102,168],[117,143],[132,168],[147,143],[162,168],[177,143],[192,168],[207,143],[222,168],[240,156],[264,156]]
+    ],theme:'crystal',pathWidth:32,farms:['2,2','29,2','2,25','29,25'],
+      terrainPatches:[
+        {points:[[0,0],[31,0],[31,23],[15,31],[0,20]],color:'#0b5866'},
+        {points:[[224,0],[256,0],[256,26],[241,32],[225,20]],color:'#0b5866'},
+        {points:[[0,196],[30,190],[43,205],[42,224],[0,224]],color:'#0b5866'},
+        {points:[[218,195],[256,190],[256,224],[224,224]],color:'#0b5866'}
+      ]}),
 }
+
 type WaveGroup = { type: EnemyType; count: number; spacing: number; gapAfter?: number }
 
 // Cada grupo é um envio independente. spacing controla o intervalo entre
