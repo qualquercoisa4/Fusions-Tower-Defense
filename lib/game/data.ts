@@ -636,7 +636,7 @@ export const HEIGHT = CELL * ROWS
 
 export type MapDifficulty = 'beginner' | 'intermediate' | 'advanced' | 'expert'
 export type MapId =
-  | 'training-field' | 'green-circuit'
+  | 'training-field' | 'green-circuit' | 'classic-route'
   | 'split-valley' | 'zigzag-lab'
   | 'breakline' | 'unstable-frontier'
   | 'reactor-core' | 'total-blackout'
@@ -684,6 +684,13 @@ export const GAME_MAPS: readonly GameMapDefinition[] = [
     rating: 1, farmCells: STANDARD_FARMS,
     palette: { background: '#8a754b', grid: '#f5e6b8', glow: '#f6d365', roadBorder: '#5a4938', roadA: '#d2b48c', roadB: '#c5a77e', roadLine: '#f7ead5' },
     waypoints: [[-1,6],[2,6],[2,3],[4,1],[6,1],[8,3],[8,6],[6,8],[4,8],[3,6],[4,4],[6,3],[10,3],[12,5],[12,8],[10,10],[8,10],[7,8],[8,6],[10,5],[13,5],[15,6],[18,6]],
+  },
+  {
+    id: 'classic-route', name: 'Rota Clássica', difficulty: 'intermediate',
+    description: 'O percurso original do jogo: dois retornos retangulares conectados por uma longa passagem inferior.',
+    rating: 2, farmCells: STANDARD_FARMS,
+    palette: { background: '#526b3b', grid: '#d9edb5', glow: '#b5e48c', roadBorder: '#594b3d', roadA: '#c7b59a', roadB: '#b8a486', roadLine: '#eee4d3' },
+    waypoints: [[-1,6],[3,6],[3,2],[7,2],[7,6],[3,6],[3,10],[14,10],[14,6],[11,6],[11,3],[14,2],[14,6],[18,6]],
   },
   {
     id: 'split-valley', name: 'Vale Dividido', difficulty: 'intermediate',
