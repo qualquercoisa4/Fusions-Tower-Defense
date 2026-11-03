@@ -2827,13 +2827,13 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   ctx.stroke()
   ctx.strokeStyle = map.colors.path
   ctx.lineWidth = CELL - 4
-  tracePath(ctx)
+  tracePath(ctx, map.path)
   ctx.stroke()
   ctx.setLineDash([6, 10])
   ctx.lineDashOffset = -s.time * 20
   ctx.strokeStyle = map.colors.pathDash
   ctx.lineWidth = 2
-  tracePath(ctx)
+  tracePath(ctx, map.path)
   ctx.stroke()
   ctx.setLineDash([])
 
