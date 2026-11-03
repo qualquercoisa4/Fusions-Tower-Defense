@@ -719,6 +719,7 @@ export interface GameMap {
   path: { x: number; y: number }[]
   pathLengths: number[]
   pathCells: Set<string>
+  blockedCells: Set<string>
 }
 
 function defineMap(
@@ -731,7 +732,30 @@ function defineMap(
   colors: GameMap['colors'],
   waypoints: [number, number][],
 ): GameMap {
-  const path = waypoints.map(([col, row]) => ({ x: col * CELL + CELL / 2, y: row * CELL + CELL / 2 }))
+  const rawPath = waypoints.map(([col, row]) => ({ x: col * CELL + CELL / 2, y: row * CELL + CELL / 2 }))
+  // Arredonda cada canto com uma curva quadrática curta. Os pontos amostrados
+  // também são usados pelo movimento, então a rotação acompanha a curva.
+  const path: { x: number; y: number }[] = [rawPath[0]]
+  for (let i = 1; i < rawPath.length - 1; i++) {
+    const prev = rawPath[i - 1], corner = rawPath[i], next = rawPath[i + 1]
+    const inX = prev.x - corner.x, inY = prev.y - corner.y
+    const outX = next.x - corner.x, outY = next.y - corner.y
+    const inLength = Math.hypot(inX, inY), outLength = Math.hypot(outX, outY)
+    const dot = (inX * outX + inY * outY) / Math.max(1, inLength * outLength)
+    const radius = dot < -0.92 ? 0 : Math.min(CELL * 0.58, inLength * 0.38, outLength * 0.38)
+    if (radius < 1) { path.push(corner); continue }
+    const start = { x: corner.x + inX / inLength * radius, y: corner.y + inY / inLength * radius }
+    const end = { x: corner.x + outX / outLength * radius, y: corner.y + outY / outLength * radius }
+    path.push(start)
+    for (let sample = 1; sample <= 8; sample++) {
+      const t = sample / 8, inv = 1 - t
+      path.push({
+        x: inv * inv * start.x + 2 * inv * t * corner.x + t * t * end.x,
+        y: inv * inv * start.y + 2 * inv * t * corner.y + t * t * end.y,
+      })
+    }
+  }
+  path.push(rawPath[rawPath.length - 1])
   const pathLengths = [0]
   const pathCells = new Set<string>()
   for (let i = 1; i < path.length; i++) {
@@ -745,7 +769,35 @@ function defineMap(
       pathCells.add(`${col},${row}`)
     }
   }
-  return { id, name, difficulty, description, hpMultiplier, speedMultiplier, colors, path, pathLengths, pathCells }
+  // As áreas bloqueadas mudam de forma e densidade conforme o mapa.
+  const terrain: Record<MapId, [number, number, number, number][]> = {
+    original: [],
+    meadow: [[5,0,2,2],[9,3,2,2],[4,8,2,2],[12,10,2,1]],
+    frostline: [[0,0,2,2],[5,0,2,2],[8,4,2,2],[11,9,2,2],[16,9,2,2],[0,10,2,1]],
+    emberCrossing: [[0,0,2,2],[5,0,2,2],[9,0,2,2],[15,0,2,2],[0,7,2,2],[4,7,2,2],[8,7,2,2],[14,9,2,2]],
+    quarrySpiral: [[0,0,2,2],[4,0,3,1],[9,0,2,1],[16,0,2,2],[0,4,1,3],[4,4,2,1],[8,4,2,1],[15,4,2,2],[0,8,2,2],[7,10,2,1],[12,10,2,1]],
+    neonGauntlet: [[0,0,2,2],[4,0,2,1],[8,0,2,2],[12,0,2,1],[16,0,2,2],[0,7,2,2],[4,7,2,2],[8,7,2,2],[12,7,2,2],[16,9,2,2]],
+    voidLabyrinth: [[0,0,2,2],[5,0,2,2],[9,0,2,2],[15,0,2,2],[0,4,2,2],[4,4,2,2],[8,4,2,1],[13,4,2,2],[0,8,2,2],[4,9,2,2],[8,9,2,2],[13,9,2,2]],
+    infernoCircuit: [[0,0,2,2],[4,0,2,2],[9,0,2,2],[13,0,2,2],[0,4,2,2],[4,4,2,2],[9,4,2,2],[13,4,2,2],[0,9,2,2],[4,9,2,2],[9,9,2,2],[14,9,2,2],[7,6,2,2]],
+  }
+  const blockedCells = new Set<string>()
+  for (const [left, top, width, height] of terrain[id]) {
+    for (let row = top; row < top + height; row++) for (let col = left; col < left + width; col++) {
+      const cell = `${col},${row}`
+      if (col >= 0 && row >= 0 && col < COLS && row < ROWS && !pathCells.has(cell) && !FARM_CELLS.has(cell)) blockedCells.add(cell)
+    }
+  }
+  // Inclui as células efetivamente atravessadas pelas curvas arredondadas.
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1], b = path[i]
+    const samples = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / (CELL / 3))
+    for (let n = 0; n <= samples; n++) {
+      const t = samples ? n / samples : 0
+      pathCells.add(`${Math.floor((a.x + (b.x - a.x) * t) / CELL)},${Math.floor((a.y + (b.y - a.y) * t) / CELL)}`)
+    }
+  }
+  for (const cell of pathCells) blockedCells.delete(cell)
+  return { id, name, difficulty, description, hpMultiplier, speedMultiplier, colors, path, pathLengths, pathCells, blockedCells }
 }
 
 const MAP_COLORS = {
