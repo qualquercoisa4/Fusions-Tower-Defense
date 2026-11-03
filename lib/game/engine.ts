@@ -432,6 +432,7 @@ export const isBuildable = (s: GameState, col: number, row: number, type?: Tower
   const farmPad = FARM_CELLS.has(cell)
   return col >= 0 && row >= 0 && col < COLS && row < ROWS &&
     !MAPS[s.mapId].pathCells.has(cell) &&
+    !MAPS[s.mapId].blockedCells.has(cell) &&
     !s.towers.some((t) => t.col === col && t.row === row) &&
     (type ? (INCOME_TOWERS.includes(type) ? farmPad : !farmPad) : true)
 }
@@ -2804,6 +2805,24 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
     ctx.moveTo(0, r * CELL)
     ctx.lineTo(WIDTH, r * CELL)
     ctx.stroke()
+  }
+
+  // Obstáculos permanentes: estas células não aceitam torres.
+  for (const cell of map.blockedCells) {
+    const [col, row] = cell.split(',').map(Number)
+    const x = col * CELL, y = row * CELL
+    ctx.fillStyle = 'rgba(2,6,23,0.72)'
+    ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2)
+    ctx.strokeStyle = 'rgba(148,163,184,0.22)'
+    ctx.lineWidth = 1
+    ctx.strokeRect(x + 3, y + 3, CELL - 6, CELL - 6)
+    ctx.fillStyle = 'rgba(148,163,184,0.16)'
+    ctx.beginPath()
+    ctx.moveTo(x + 10, y + 35); ctx.lineTo(x + 20, y + 12); ctx.lineTo(x + 34, y + 31); ctx.closePath()
+    ctx.fill()
+    ctx.beginPath()
+    ctx.arc(x + 34, y + 11, 3, 0, Math.PI * 2)
+    ctx.fill()
   }
 
   // Pads verdes exclusivos para torres de renda.
