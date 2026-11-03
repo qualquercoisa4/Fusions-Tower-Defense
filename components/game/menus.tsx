@@ -98,18 +98,18 @@ function MapPreview({ map, large = false }: { map: typeof GAME_MAPS[number]; lar
       <svg viewBox="-1.2 0 19.4 12" role="img" aria-label={`Prévia do mapa ${map.name}`} preserveAspectRatio="xMidYMid meet">
         <defs>
           <pattern id={`ftd-map-grid-${map.id}-${large ? 'large' : 'small'}`} width="1" height="1" patternUnits="userSpaceOnUse">
-            <path d="M 1 0 L 0 0 0 1" fill="none" stroke="rgba(125,211,252,.12)" strokeWidth=".035" />
+            <path d="M 1 0 L 0 0 0 1" fill="none" stroke={map.palette.grid} opacity=".22" strokeWidth=".035" />
           </pattern>
         </defs>
-        <rect x="-1.2" y="0" width="19.4" height="12" fill="#061326" />
+        <rect x="-1.2" y="0" width="19.4" height="12" fill={map.palette.background} />
         <rect x="-1.2" y="0" width="19.4" height="12" fill={`url(#ftd-map-grid-${map.id}-${large ? 'large' : 'small'})`} />
         {routes.map((route, index) => {
           const path = smoothRouteSvgPath(route.waypoints)
           const start = route.waypoints[0], end = route.waypoints[route.waypoints.length - 1]
           return <g key={route.id}>
-            <path d={path} fill="none" stroke="rgba(14,165,233,.22)" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
-            <path d={path} fill="none" stroke="#38536d" strokeWidth="1.72" strokeLinecap="round" strokeLinejoin="round" />
-            <path d={path} fill="none" stroke={index % 2 ? '#c4b5fd' : '#80dff2'} strokeWidth=".055" strokeDasharray=".18 .2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d={path} fill="none" stroke={map.palette.glow} opacity=".24" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+            <path d={path} fill="none" stroke={map.palette.roadBorder} strokeWidth="1.72" strokeLinecap="round" strokeLinejoin="round" />
+            <path d={path} fill="none" stroke={map.palette.roadLine} strokeWidth=".055" strokeDasharray=".18 .2" strokeLinecap="round" strokeLinejoin="round" />
             <circle cx={start[0]} cy={start[1]} r=".17" fill="#4ade80" stroke="#dcfce7" strokeWidth=".05" />
             <circle cx={end[0]} cy={end[1]} r=".17" fill="#fb7185" stroke="#ffe4e6" strokeWidth=".05" />
           </g>
