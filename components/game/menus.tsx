@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Plus } from 'lucide-react'
-import { ENEMIES, FUSION_LIST, MAPS, TOWERS, type EnemyType, type MapId, type TowerType } from '@/lib/game/data'
+import { CELL, COLS, ENEMIES, FUSION_LIST, HEIGHT, MAPS, MAP_SCALE_X, MAP_SCALE_Y, TOWERS, WIDTH, type EnemyType, type MapId, type TowerType } from '@/lib/game/data'
 import { SpriteIcon } from './sprite-icon'
 
 export function TitleScreen({ onStart }: { onStart: () => void }) {
@@ -105,27 +105,31 @@ export function MapSelection({ onBack, onSelect }: { onBack: () => void; onSelec
                     className="group overflow-hidden rounded-xl border border-white/10 bg-[#0b1223] text-left transition hover:-translate-y-0.5 hover:border-white/30 hover:shadow-xl focus-visible:outline-2 focus-visible:outline-offset-2"
                     style={{ outlineColor: map.colors.accent }}
                   >
-                    <div className="relative h-36 overflow-hidden border-b border-white/10 sm:h-40" style={{ background: map.colors.preview }}>
+                    <div className="relative aspect-[8/7] w-full overflow-hidden border-b border-white/10" style={{ background: map.colors.preview }}>
                       <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 20% 20%, white 1px, transparent 1.5px), radial-gradient(circle at 70% 70%, white 1px, transparent 1.5px)', backgroundSize: '24px 24px, 31px 31px' }} />
-                      <svg viewBox="0 0 864 576" preserveAspectRatio="xMidYMid meet" className="relative size-full p-2" aria-hidden="true">
-                        {Array.from(map.blockedCells).map((cell) => {
+                      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="xMidYMid meet" className="relative size-full" aria-hidden="true">
+                        {map.terrainPatches.map((patch, index) => <polygon key={index} points={patch.points.map(([x,y]) => `${x * MAP_SCALE_X},${y * MAP_SCALE_Y}`).join(' ')} fill={patch.color} />)}
+                        {(map.id === 'original' || map.id === 'infernoCircuit') && Array.from(map.blockedCells).map((cell) => {
                           const [col, row] = cell.split(',').map(Number)
-                          return <g key={cell}><rect x={col * 48 + 2} y={row * 48 + 2} width="44" height="44" rx="5" fill="#020617" fillOpacity="0.78" stroke={map.colors.accent} strokeOpacity="0.28" /><path d={`M ${col * 48 + 10} ${row * 48 + 34} l 10 -22 14 19 z`} fill={map.colors.accent} fillOpacity="0.16" /></g>
+                          return <rect key={cell} x={col * CELL + 1} y={row * CELL + 1} width={CELL - 2} height={CELL - 2} rx="3" fill="#020617" fillOpacity="0.7" stroke={map.colors.accent} strokeOpacity="0.3" />
                         })}
                         {map.routes.map((route, routeIndex) => {
                           const points = routePoints[routeIndex]
                           const start = route.path[0], finish = route.path[route.path.length - 1]
                           return <g key={routeIndex}>
-                            <polyline points={points} fill="none" stroke={map.colors.accent} strokeOpacity="0.24" strokeWidth="78" strokeLinecap="round" strokeLinejoin="round" />
-                            <polyline points={points} fill="none" stroke={map.colors.path} strokeWidth="58" strokeLinecap="round" strokeLinejoin="round" />
-                            <polyline points={points} fill="none" stroke={map.colors.accent} strokeOpacity="0.95" strokeWidth="3" strokeDasharray="12 15" strokeLinecap="round" strokeLinejoin="round" />
-                            <circle cx={start.x} cy={start.y} r="13" fill="#0ea5e9" stroke="#e0f2fe" strokeWidth="4" />
-                            <circle cx={finish.x} cy={finish.y} r="13" fill="#ef4444" stroke="#fee2e2" strokeWidth="4" />
+                            {map.sandOnly && <polyline points={points} fill="none" stroke="#f6ff93" strokeWidth="135" strokeLinecap="round" strokeLinejoin="round" />}
+                            <polyline points={points} fill="none" stroke={map.colors.pathGlow} strokeWidth={map.pathWidth + 8} strokeLinecap="round" strokeLinejoin="round" />
+                            <polyline points={points} fill="none" stroke={map.colors.path} strokeWidth={map.pathWidth} strokeLinecap="round" strokeLinejoin="round" />
+                            <circle cx={start.x} cy={start.y} r="25" fill="#00cfff" stroke="#e0f2fe" strokeWidth="3" />
+                            <circle cx={finish.x} cy={finish.y} r="25" fill="#ef0800" stroke="#fee2e2" strokeWidth="3" />
                           </g>
                         })}
                         {Array.from(map.farmCells).map((cell) => {
                           const [col, row] = cell.split(',').map(Number)
-                          return <g key={cell}><rect x={col * 48 + 5} y={row * 48 + 5} width="38" height="38" rx="7" fill={map.colors.farmFill} stroke={map.colors.farmStroke} strokeWidth="2" /><text x={col * 48 + 24} y={row * 48 + 28} fontSize="8" fontWeight="bold" textAnchor="middle" fill={map.colors.farmText}>{map.id === 'quarrySpiral' && cell === '15,5' ? 'BOAT' : 'FARM'}</text></g>
+                          const x = col * CELL, y = row * CELL
+                          return map.id === 'quarrySpiral' && cell === '29,15'
+                            ? <g key={cell} transform={`translate(${x + CELL/2} ${y + CELL/2})`}><path d="M-12 2 L12 2 8 9 -8 9Z" fill="#78350f" stroke="#fef3c7" strokeWidth="1.5"/><path d="M0 -11 V2 M1 -10 L9 -1 H1Z" fill="#fef3c7"/></g>
+                            : <g key={cell}><rect x={x + 2} y={y + 2} width={CELL - 4} height={CELL - 4} rx="4" fill={map.colors.farmFill} stroke={map.colors.farmStroke} strokeWidth="2" /><text x={x + CELL/2} y={y + CELL/2 + 3} fontSize="8" fontWeight="bold" textAnchor="middle" fill={map.colors.farmText}>FARM</text></g>
                         })}
                       </svg>
                       <span className="absolute left-3 top-3 rounded-md border border-white/15 bg-black/45 px-2 py-1 text-[10px] font-bold tracking-widest text-white/90">75 ONDAS</span>
