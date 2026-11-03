@@ -742,8 +742,8 @@ function buildRoute(waypoints: [number, number][], pixelCoordinates = false) {
     for (let i = 0; i < rawPath.length - 1; i++) {
       const p0 = rawPath[Math.max(0, i - 1)], p1 = rawPath[i]
       const p2 = rawPath[i + 1], p3 = rawPath[Math.min(rawPath.length - 1, i + 2)]
-      for (let step = 1; step <= 8; step++) {
-        const t = step / 8, t2 = t * t, t3 = t2 * t
+      for (let step = 1; step <= 16; step++) {
+        const t = step / 16, t2 = t * t, t3 = t2 * t
         const sample = (a: number, b: number, c: number, d: number) =>
           0.5 * ((2 * b) + (-a + c) * t + (2*a - 5*b + 4*c - d) * t2 + (-a + 3*b - 3*c + d) * t3)
         path.push({ x: sample(p0.x,p1.x,p2.x,p3.x), y: sample(p0.y,p1.y,p2.y,p3.y) })
