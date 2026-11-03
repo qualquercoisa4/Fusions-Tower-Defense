@@ -109,7 +109,8 @@ function MapPreview({ map, large = false }: { map: typeof GAME_MAPS[number]; lar
           return <g key={route.id}>
             <path d={path} fill="none" stroke={map.palette.glow} opacity=".24" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
             <path d={path} fill="none" stroke={map.palette.roadBorder} strokeWidth="1.72" strokeLinecap="round" strokeLinejoin="round" />
-            <path d={path} fill="none" stroke={map.palette.roadLine} strokeWidth=".055" strokeDasharray=".18 .2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d={path} fill="none" stroke={map.palette.roadA} strokeWidth="1.48" strokeLinecap="round" strokeLinejoin="round" />
+            <path d={path} fill="none" stroke={map.palette.roadLine} opacity=".8" strokeWidth=".045" strokeDasharray=".2 .24" strokeLinecap="round" strokeLinejoin="round" />
             <circle cx={start[0]} cy={start[1]} r=".17" fill="#4ade80" stroke="#dcfce7" strokeWidth=".05" />
             <circle cx={end[0]} cy={end[1]} r=".17" fill="#fb7185" stroke="#ffe4e6" strokeWidth=".05" />
           </g>
