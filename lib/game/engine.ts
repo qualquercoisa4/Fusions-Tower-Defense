@@ -2826,18 +2826,35 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   for (const cell of map.blockedCells) {
     const [col, row] = cell.split(',').map(Number)
     const x = col * CELL, y = row * CELL
-    ctx.fillStyle = 'rgba(2,6,23,0.72)'
-    ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2)
-    ctx.strokeStyle = 'rgba(148,163,184,0.22)'
-    ctx.lineWidth = 1
-    ctx.strokeRect(x + 3, y + 3, CELL - 6, CELL - 6)
-    ctx.fillStyle = 'rgba(148,163,184,0.16)'
-    ctx.beginPath()
-    ctx.moveTo(x + 10, y + 35); ctx.lineTo(x + 20, y + 12); ctx.lineTo(x + 34, y + 31); ctx.closePath()
-    ctx.fill()
-    ctx.beginPath()
-    ctx.arc(x + 34, y + 11, 3, 0, Math.PI * 2)
-    ctx.fill()
+    if (map.theme === 'water') {
+      ctx.fillStyle = 'rgba(14,165,233,0.82)'
+      ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2)
+      ctx.strokeStyle = 'rgba(224,249,255,0.6)'; ctx.lineWidth = 2
+      for (let wave = 0; wave < 2; wave++) {
+        ctx.beginPath(); ctx.moveTo(x + 7, y + 15 + wave * 13)
+        ctx.quadraticCurveTo(x + 17, y + 9 + wave * 13, x + 26, y + 15 + wave * 13)
+        ctx.quadraticCurveTo(x + 34, y + 20 + wave * 13, x + 41, y + 14 + wave * 13); ctx.stroke()
+      }
+    } else if (map.theme === 'lava') {
+      ctx.fillStyle = '#7c2d12'; ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2)
+      ctx.strokeStyle = '#fb4a12'; ctx.lineWidth = 3; ctx.beginPath()
+      ctx.moveTo(x + 8, y + 8); ctx.lineTo(x + 19, y + 20); ctx.lineTo(x + 13, y + 34)
+      ctx.moveTo(x + 34, y + 5); ctx.lineTo(x + 28, y + 17); ctx.lineTo(x + 39, y + 31); ctx.stroke()
+    } else if (map.theme === 'crystal') {
+      ctx.fillStyle = '#26376d'; ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2)
+      ctx.fillStyle = '#67e8f9'; ctx.strokeStyle = '#cffafe'; ctx.lineWidth = 1.5
+      ctx.beginPath(); ctx.moveTo(x + 22, y + 5); ctx.lineTo(x + 36, y + 22); ctx.lineTo(x + 23, y + 42); ctx.lineTo(x + 10, y + 22); ctx.closePath(); ctx.fill(); ctx.stroke()
+    } else if (map.theme === 'stone' || map.theme === 'desert') {
+      ctx.fillStyle = map.theme === 'stone' ? '#9ca3af' : '#8f8060'
+      ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2)
+      ctx.fillStyle = map.theme === 'stone' ? '#d1d5db' : '#c9b78b'
+      ctx.beginPath(); ctx.moveTo(x + 7, y + 34); ctx.lineTo(x + 17, y + 8); ctx.lineTo(x + 35, y + 13); ctx.lineTo(x + 41, y + 34); ctx.closePath(); ctx.fill()
+    } else {
+      ctx.fillStyle = 'rgba(2,6,23,0.72)'; ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2)
+      ctx.strokeStyle = 'rgba(148,163,184,0.22)'; ctx.lineWidth = 1; ctx.strokeRect(x + 3, y + 3, CELL - 6, CELL - 6)
+      ctx.fillStyle = 'rgba(148,163,184,0.16)'; ctx.beginPath()
+      ctx.moveTo(x + 10, y + 35); ctx.lineTo(x + 20, y + 12); ctx.lineTo(x + 34, y + 31); ctx.closePath(); ctx.fill()
+    }
   }
 
   // Pads verdes exclusivos para torres de renda.
@@ -2852,7 +2869,16 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
     ctx.fillStyle = map.colors.farmText
     ctx.font = 'bold 9px sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText('FARM', x + CELL / 2, y + CELL / 2 + 3)
+    if (map.id === 'quarrySpiral' && cell === '15,5') {
+      // Barco ancorado: o próprio barco ocupa o espaço exclusivo de farm.
+      ctx.fillStyle = '#78350f'; ctx.beginPath()
+      ctx.moveTo(x + 5, y + 25); ctx.lineTo(x + 42, y + 25); ctx.lineTo(x + 34, y + 36); ctx.lineTo(x + 13, y + 36); ctx.closePath(); ctx.fill()
+      ctx.fillStyle = '#f8fafc'; ctx.fillRect(x + 20, y + 8, 3, 18)
+      ctx.fillStyle = '#fef3c7'; ctx.beginPath(); ctx.moveTo(x + 23, y + 9); ctx.lineTo(x + 37, y + 21); ctx.lineTo(x + 23, y + 21); ctx.closePath(); ctx.fill()
+      ctx.fillStyle = '#075985'; ctx.font = 'bold 7px sans-serif'; ctx.fillText('BARCO', x + CELL / 2, y + 44)
+    } else {
+      ctx.fillText('FARM', x + CELL / 2, y + CELL / 2 + 3)
+    }
   }
 
   ctx.lineJoin = 'round'
