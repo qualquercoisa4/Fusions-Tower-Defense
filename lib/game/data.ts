@@ -784,8 +784,8 @@ export const MAPS: Record<MapId, GameMap> = {
   ]),
 
   // Neon: rota angular diagonal, com picos e vales em sequência.
-  neonGauntlet: defineMap('neonGauntlet', 'Circuito Neon', 'Avançado', 'Um traçado agressivo em zigue-zague diagonal, com mudanças bruscas de direção e corredores expostos.', 1.36, 1.12, MAP_COLORS.neonGauntlet, [
-    [-1, 9], [2, 9], [4, 6], [7, 9], [10, 5], [13, 8], [16, 4], [18, 6],
+  neonGauntlet: defineMap('neonGauntlet', 'Circuito Neon', 'Avançado', 'Um percurso em forma de raio, com alternância brusca entre corredores curtos e longos.', 1.36, 1.12, MAP_COLORS.neonGauntlet, [
+    [-1, 5], [2, 5], [2, 2], [5, 2], [5, 10], [8, 10], [8, 4], [11, 4], [11, 9], [14, 9], [14, 1], [17, 1], [17, 6], [18, 6],
   ]),
 
   // Vazio: labirinto concêntrico com uma entrada longa e saída pelo lado oposto.
