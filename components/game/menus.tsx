@@ -108,6 +108,10 @@ export function MapSelection({ onBack, onSelect }: { onBack: () => void; onSelec
                     <div className="relative h-36 overflow-hidden border-b border-white/10 sm:h-40" style={{ background: map.colors.preview }}>
                       <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 20% 20%, white 1px, transparent 1.5px), radial-gradient(circle at 70% 70%, white 1px, transparent 1.5px)', backgroundSize: '24px 24px, 31px 31px' }} />
                       <svg viewBox="0 0 864 576" preserveAspectRatio="xMidYMid meet" className="relative size-full p-2" aria-hidden="true">
+                        {Array.from(map.blockedCells).map((cell) => {
+                          const [col, row] = cell.split(',').map(Number)
+                          return <g key={cell}><rect x={col * 48 + 2} y={row * 48 + 2} width="44" height="44" rx="5" fill="#020617" fillOpacity="0.78" stroke={map.colors.accent} strokeOpacity="0.28" /><path d={`M ${col * 48 + 10} ${row * 48 + 34} l 10 -22 14 19 z`} fill={map.colors.accent} fillOpacity="0.16" /></g>
+                        })}
                         <polyline points={points} fill="none" stroke={map.colors.accent} strokeOpacity="0.24" strokeWidth="78" strokeLinecap="round" strokeLinejoin="round" />
                         <polyline points={points} fill="none" stroke={map.colors.path} strokeWidth="58" strokeLinecap="round" strokeLinejoin="round" />
                         <polyline points={points} fill="none" stroke={map.colors.accent} strokeOpacity="0.95" strokeWidth="3" strokeDasharray="12 15" strokeLinecap="round" strokeLinejoin="round" />
