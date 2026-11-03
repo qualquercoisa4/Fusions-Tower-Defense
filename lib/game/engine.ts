@@ -2994,6 +2994,9 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
       if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
     })
     ctx.closePath(); ctx.fill()
+    ctx.strokeStyle = map.theme === 'desert' ? 'rgba(120,75,35,0.38)' : map.theme === 'lava' ? 'rgba(75,24,16,0.55)' : 'rgba(8,54,34,0.52)'
+    ctx.lineWidth = 3
+    ctx.stroke()
   }
   drawMapScenery(ctx, map)
 
@@ -3147,14 +3150,15 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
     }
     drawTower(ctx, t.type, t.x, t.y, t.angle, t.recoil)
     if (t.hp < t.maxHp) {
-      const barWidth = 36
+      const barWidth = isIncomeTower(t.type) ? 58 : 36
+      const barY = t.y + (isIncomeTower(t.type) ? 43 : 23)
       ctx.fillStyle = 'rgba(15,23,42,0.92)'
-      ctx.fillRect(t.x - barWidth / 2, t.y + 23, barWidth, 5)
+      ctx.fillRect(t.x - barWidth / 2, barY, barWidth, 5)
       ctx.fillStyle = t.hp / t.maxHp > 0.5 ? '#4ade80' : t.hp / t.maxHp > 0.25 ? '#facc15' : '#fb7185'
-      ctx.fillRect(t.x - barWidth / 2, t.y + 23, barWidth * (t.hp / t.maxHp), 5)
+      ctx.fillRect(t.x - barWidth / 2, barY, barWidth * (t.hp / t.maxHp), 5)
       ctx.strokeStyle = 'rgba(255,255,255,0.35)'
       ctx.lineWidth = 0.7
-      ctx.strokeRect(t.x - barWidth / 2, t.y + 23, barWidth, 5)
+      ctx.strokeRect(t.x - barWidth / 2, barY, barWidth, 5)
     }
     if (t.type === 'soulstorm') {
       const barWidth = 34
@@ -3173,7 +3177,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
       ctx.strokeStyle = ok ? `rgba(74,222,128,${pulse + 0.2})` : 'rgba(100,116,139,0.4)'
       ctx.lineWidth = 2
       ctx.setLineDash(ok ? [] : [4, 4])
-      ctx.strokeRect(t.x - 22, t.y - 22, 44, 44)
+      ctx.strokeRect(t.x - getTowerFootprint(t.type), t.y - getTowerFootprint(t.type), getTowerFootprint(t.type) * 2, getTowerFootprint(t.type) * 2)
       ctx.setLineDash([])
     }
   }
