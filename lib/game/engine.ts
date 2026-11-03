@@ -44,6 +44,7 @@ export interface Enemy {
   attackCooldown: number
   wp: number
   dist: number
+  routeIndex: number
   angle: number
   anim: number
   alive: boolean
@@ -338,6 +339,7 @@ export interface GameState {
   swarmCounter: number
   bugQueenDefeated: boolean
   enemyHpMultiplier: number
+  nextRouteIndex: number
 }
 
 export function createGame(mapId: MapId = 'original'): GameState {
@@ -376,14 +378,17 @@ export function createGame(mapId: MapId = 'original'): GameState {
     swarmCounter: 0,
     bugQueenDefeated: false,
     enemyHpMultiplier: 1,
+    nextRouteIndex: 0,
   }
 }
 
 
 
 
-function createEnemy(s: GameState, type: EnemyType, x?: number, y?: number): Enemy {
-  const path = MAPS[s.mapId].path
+function createEnemy(s: GameState, type: EnemyType, x?: number, y?: number, forcedRouteIndex?: number): Enemy {
+  const map = MAPS[s.mapId]
+  const routeIndex = forcedRouteIndex ?? (s.nextRouteIndex++ % map.routes.length)
+  const path = map.routes[routeIndex]?.path ?? map.path
   x ??= path[0].x
   y ??= path[0].y
   const def = ENEMIES[type]
@@ -400,7 +405,7 @@ function createEnemy(s: GameState, type: EnemyType, x?: number, y?: number): Ene
     spawnCooldown: type === 'spitter' ? 1.5 : 3.5, helmet, queenArmor, splitGeneration: 0,
     bulbOn: false, bulbTimer: 3,
     attackCooldown: type === 'spitter' ? 1.5 : type === 'buguns' ? 2.2 : type === 'starbug' ? 2.8 : 3,
-    wp: 1, dist: 0, angle: 0, anim: Math.random() * 10, alive: true,
+    wp: 1, dist: 0, routeIndex, angle: 0, anim: Math.random() * 10, alive: true,
     cocooning: false, cocoonTimer: 0,
     segmentHp: type === 'dirtBug' ? Array.from({ length: 4 }, () => hp / 4) : undefined,
     segmentMaxHp: type === 'dirtBug' ? hp / 4 : undefined,
@@ -429,7 +434,7 @@ const COMMS_BUILDING_OVERCLOCK_INTERVAL = 12
 
 export const isBuildable = (s: GameState, col: number, row: number, type?: TowerType) => {
   const cell = `${col},${row}`
-  const farmPad = FARM_CELLS.has(cell)
+  const farmPad = MAPS[s.mapId].farmCells.has(cell)
   return col >= 0 && row >= 0 && col < COLS && row < ROWS &&
     !MAPS[s.mapId].pathCells.has(cell) &&
     !MAPS[s.mapId].blockedCells.has(cell) &&
@@ -571,7 +576,7 @@ export function startWave(s: GameState) {
   s.wave++
   s.waveActive = true
   for (const tower of s.towers) {
-    if (tower.type === 'incomeFarm' && FARM_CELLS.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 5; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
+    if (tower.type === 'incomeFarm' && MAPS[s.mapId].farmCells.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 5; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
     else if (tower.type === 'incomeTax' && FARM_CELLS.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 7; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
     else if (tower.type === 'economyHouse' && FARM_CELLS.has(`${tower.col},${tower.row}`)) { tower.incomeSignalsLeft = 8; tower.incomeWave = s.wave; tower.cooldown = 0.25 }
   }
@@ -665,8 +670,8 @@ function damageEnemy(s: GameState, e: Enemy, dmg: number, sourceType?: TowerType
     e.hp -= dmg
   }
   if (e.type === 'swarmer' && e.hp < previousHp) {
-    const child = createEnemy(s, 'swarmBug', e.x + (Math.random() - 0.5) * 10, e.y + (Math.random() - 0.5) * 10)
-    const pathPosition = projectToPath(s, e.x, e.y)
+    const child = createEnemy(s, 'swarmBug', e.x + (Math.random() - 0.5) * 10, e.y + (Math.random() - 0.5) * 10, e.routeIndex)
+    const pathPosition = projectToPath(s, e.x, e.y, e.routeIndex)
     placeEnemyOnPath(s, child, pathPosition.distance)
     s.enemies.push(child)
     s.explosions.push({ x: e.x, y: e.y, r: 13, t: 0, dur: 0.16, color: '#fb7185' })
@@ -814,8 +819,9 @@ function findChainTargets(s: GameState, first: Enemy, linkRange = 76, towerType?
   return targets
 }
 
-function pointOnPath(s: GameState, distance: number) {
-  const map = MAPS[s.mapId], lengths = map.pathLengths, path = map.path
+function pointOnPath(s: GameState, distance: number, routeIndex = 0) {
+  const route = MAPS[s.mapId].routes[routeIndex] ?? MAPS[s.mapId].routes[0]
+  const lengths = route.pathLengths, path = route.path
   const d = Math.max(0, Math.min(lengths[lengths.length - 1], distance))
   let i = 1
   while (i < lengths.length - 1 && lengths[i] < d) i++
@@ -823,27 +829,31 @@ function pointOnPath(s: GameState, distance: number) {
   const k = span > 0 ? (d - lengths[i - 1]) / span : 0
   return { x: path[i - 1].x + (path[i].x - path[i - 1].x) * k, y: path[i - 1].y + (path[i].y - path[i - 1].y) * k }
 }
-function pathWaypointIndex(s: GameState, distance: number) {
-  const lengths = MAPS[s.mapId].pathLengths
+function pathWaypointIndex(s: GameState, distance: number, routeIndex = 0) {
+  const lengths = (MAPS[s.mapId].routes[routeIndex] ?? MAPS[s.mapId].routes[0]).pathLengths
   let i = 1
   while (i < lengths.length - 1 && lengths[i] < distance) i++
   return i
 }
 function placeEnemyOnPath(s: GameState, enemy: Enemy, distance: number) {
-  const lengths = MAPS[s.mapId].pathLengths
+  const route = MAPS[s.mapId].routes[enemy.routeIndex] ?? MAPS[s.mapId].routes[0]
+  const lengths = route.pathLengths
   const clamped = Math.max(0, Math.min(lengths[lengths.length - 1], distance))
-  const point = pointOnPath(s, clamped)
-  enemy.dist = clamped; enemy.x = point.x; enemy.y = point.y; enemy.wp = pathWaypointIndex(s, clamped)
+  const point = pointOnPath(s, clamped, enemy.routeIndex)
+  enemy.dist = clamped; enemy.x = point.x; enemy.y = point.y; enemy.wp = pathWaypointIndex(s, clamped, enemy.routeIndex)
 }
 function projectToPath(s: GameState, x: number, y: number) {
-  const path = MAPS[s.mapId].path, lengths = MAPS[s.mapId].pathLengths
-  let best = { distance: 0, x: path[0].x, y: path[0].y, error: Infinity }
-  for (let i = 1; i < path.length; i++) {
+  const routes = MAPS[s.mapId].routes
+  let best = { distance: 0, x: routes[0].path[0].x, y: routes[0].path[0].y, error: Infinity, routeIndex: 0 }
+  for (let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
+    const { path, pathLengths: lengths } = routes[routeIndex]
+    for (let i = 1; i < path.length; i++) {
     const a = path[i - 1], b = path[i], dx = b.x - a.x, dy = b.y - a.y
     const lenSq = dx * dx + dy * dy
     const k = lenSq ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / lenSq)) : 0
     const px = a.x + dx * k, py = a.y + dy * k, error = Math.hypot(x - px, y - py)
-    if (error < best.error) best = { distance: lengths[i - 1] + Math.sqrt(lenSq) * k, x: px, y: py, error }
+    if (error < best.error) best = { distance: lengths[i - 1] + Math.sqrt(lenSq) * k, x: px, y: py, error, routeIndex }
+    }
   }
   return best
 }
@@ -959,7 +969,7 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
     return
   }
   if (t.type === 'portalGun') {
-    const total = MAPS[s.mapId].pathLengths[MAPS[s.mapId].pathLengths.length - 1]
+    const total = (MAPS[s.mapId].routes[e.routeIndex] ?? MAPS[s.mapId].routes[0]).pathLengths.slice(-1)[0]
     const blueDistance = Math.max(160, Math.min(total - 80, target.dist + 20))
     const purpleDistance = blueDistance - 160
     s.portalPairs.push({ blueDistance, purpleDistance, t: 0, duration: 2, usedEnemyIds: [], remainingHp: 2000 })
@@ -1098,7 +1108,6 @@ function fire(s: GameState, t: Tower, target: Enemy, def = TOWERS[t.type]) {
 
 export function update(s: GameState, dt: number) {
   if (s.status !== 'playing') return
-  const path = MAPS[s.mapId].path
   s.time += dt
 
   for (const trap of s.electricTraps) {
@@ -1162,6 +1171,7 @@ export function update(s: GameState, dt: number) {
 
   for (const e of s.enemies) {
     if (!e.alive) continue
+    const path = (MAPS[s.mapId].routes[e.routeIndex] ?? MAPS[s.mapId].routes[0]).path
     const def = ENEMIES[e.type]
     e.anim += dt
     e.frozenTimer = Math.max(0, e.frozenTimer - dt)
@@ -1320,7 +1330,7 @@ export function update(s: GameState, dt: number) {
           portal.usedEnemyIds.push(e.id)
           portal.remainingHp -= e.hp
           placeEnemyOnPath(s, e, portal.purpleDistance)
-          const blue = pointOnPath(s, portal.blueDistance), purple = pointOnPath(s, portal.purpleDistance)
+          const blue = pointOnPath(s, portal.blueDistance, e.routeIndex), purple = pointOnPath(s, portal.purpleDistance, e.routeIndex)
           s.explosions.push({ x: blue.x, y: blue.y, r: 20, t: 0, dur: 0.3, color: '#38bdf8' })
           s.explosions.push({ x: purple.x, y: purple.y, r: 23, t: 0, dur: 0.35, color: '#c084fc' })
         }
@@ -1366,7 +1376,7 @@ export function update(s: GameState, dt: number) {
         portal.usedEnemyIds.push(e.id)
         portal.remainingHp -= e.hp
         placeEnemyOnPath(s, e, portal.purpleDistance)
-        const blue = pointOnPath(s, portal.blueDistance), purple = pointOnPath(s, portal.purpleDistance)
+        const blue = pointOnPath(s, portal.blueDistance, e.routeIndex), purple = pointOnPath(s, portal.purpleDistance, e.routeIndex)
         s.explosions.push({ x: blue.x, y: blue.y, r: 20, t: 0, dur: 0.3, color: '#38bdf8' })
         s.explosions.push({ x: purple.x, y: purple.y, r: 23, t: 0, dur: 0.35, color: '#c084fc' })
       }
@@ -2826,7 +2836,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 
   // Pads verdes exclusivos para torres de renda.
-  for (const cell of FARM_CELLS) {
+  for (const cell of map.farmCells) {
     const [col, row] = cell.split(',').map(Number)
     const x = col * CELL, y = row * CELL
     ctx.fillStyle = map.colors.farmFill
