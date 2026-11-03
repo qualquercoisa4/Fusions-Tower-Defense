@@ -837,7 +837,9 @@ function defineMap(
     const cell=`${col},${row}`
     const px=(col+0.5)*CELL/MAP_SCALE_X, py=(row+0.5)*CELL/MAP_SCALE_Y
     const boatBuildable=!!options.waterBuildable && pointInPolygon(px,py,options.waterBuildable.boat)
-    if (terrainPatches.some((patch,index) => pointInPolygon(px,py,patch.points) && (index >= (options.waterBuildable ? (options.terrainPatches?.length ?? 0)+1 : 0) ? !boatBuildable : true))) blockedCells.add(cell)
+    const rockStart=options.waterBuildable ? 1 : 0
+    const rockEnd=options.waterBuildable ? (options.terrainPatches?.length ?? 0) : terrainPatches.length
+    if (terrainPatches.some((patch,index) => index >= rockStart && index <= rockEnd && pointInPolygon(px,py,patch.points))) blockedCells.add(cell)
     if (options.waterBuildable) {
       const distance=distanceToRoutes(px,py,routes)
       if (!boatBuildable && (distance < options.waterBuildable.minDistance || distance > options.waterBuildable.maxDistance)) blockedCells.add(cell)
@@ -936,7 +938,6 @@ export const MAPS: Record<MapId, GameMap> = {
         {points:[[231,153],[238,153],[240,158],[236,162],[230,159]],color:'#476d70'},
         {points:[[142,201],[150,201],[152,206],[147,210],[141,207]],color:'#476d70'},
         {points:[[85,207],[92,207],[94,212],[90,216],[84,213]],color:'#476d70'},
-        {points:[[0,0],[256,0],[256,224],[0,224]],color:'#062b35'}
       ]}),
 
   // Referência 3: espiral ampla, afunilando até o centro e saindo pela parte inferior.
