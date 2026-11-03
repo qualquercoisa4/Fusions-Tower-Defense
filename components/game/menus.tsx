@@ -58,8 +58,8 @@ const MAP_DIFFICULTY_GROUPS: {
 }[] = [
   { title: 'INICIANTE', subtitle: 'Aprenda as rotas e construa sua economia.', color: '#4ade80', maps: ['original', 'meadow'] },
   { title: 'INTERMEDIÁRIO', subtitle: 'Duas rotas exigem uma defesa mais distribuída.', color: '#38bdf8', maps: ['frostline', 'emberCrossing'] },
-  { title: 'AVANÇADO', subtitle: 'Percursos exigentes, terreno limitado e rotas separadas.', color: '#f59e0b', maps: ['quarrySpiral', 'neonGauntlet'] },
-  { title: 'EXPERT', subtitle: 'Desafios extremos com caminhos alternados.', color: '#fb7185', maps: ['voidLabyrinth', 'infernoCircuit'] },
+  { title: 'AVANÇADO', subtitle: 'Percursos exigentes, terreno limitado e curvas fechadas.', color: '#f59e0b', maps: ['quarrySpiral', 'voidLabyrinth'] },
+  { title: 'EXPERT', subtitle: 'Múltiplas pistas e rotas alternadas.', color: '#fb7185', maps: ['neonGauntlet', 'infernoCircuit'] },
 ]
 
 export function MapSelection({ onBack, onSelect }: { onBack: () => void; onSelect: (mapId: MapId) => void }) {
@@ -123,8 +123,16 @@ export function MapSelection({ onBack, onSelect }: { onBack: () => void; onSelec
                             <polyline points={points} fill="none" stroke={map.colors.path} strokeWidth={map.pathWidth} strokeLinecap="round" strokeLinejoin="round" />
                             {!map.sandOnly && <polyline points={points} fill="none" stroke="rgba(255,245,220,0.2)" strokeWidth={map.pathWidth * 0.72} strokeLinecap="round" strokeLinejoin="round" />}
                             <polyline points={points} fill="none" stroke={map.colors.pathDash} strokeWidth="2.2" strokeDasharray="11 13" strokeLinecap="round" strokeLinejoin="round" />
-                            <circle cx={start.x} cy={start.y} r="25" fill="#00cfff" stroke="#e0f2fe" strokeWidth="3" />
-                            <circle cx={finish.x} cy={finish.y} r="25" fill="#ef0800" stroke="#fee2e2" strokeWidth="3" />
+                            {[
+                              { point: start, next: route.path[1], color: '#00bff3', stroke: '#b9f2ff' },
+                              { point: finish, next: route.path[route.path.length - 2], color: '#ed3347', stroke: '#ffd5d9' }
+                            ].map((marker, markerIndex) => {
+                              const angle = Math.atan2(marker.point.y - marker.next.y, marker.point.x - marker.next.x) * 180 / Math.PI
+                              return <g key={markerIndex} transform={`translate(${marker.point.x} ${marker.point.y}) rotate(${angle})`}>
+                                <rect x="-22" y="-15" width="44" height="30" rx="8" fill={marker.color} stroke={marker.stroke} strokeWidth="3" />
+                                <path d="M -8 -7 L 0 0 L -8 7 M 3 -7 L 11 0 L 3 7" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+                              </g>
+                            })}
                           </g>
                         })}
 
