@@ -862,12 +862,12 @@ const MAP_COLORS = {
 
 const ARENA_COLORS: Record<MapId, GameMap['colors']> = {
   original: MAP_COLORS.original,
-  meadow: { background:'#397b3c',grid:'rgba(218,255,190,0.075)',pathGlow:'#65432e',path:'#d8b68b',pathDash:'rgba(255,246,220,0.9)',farmFill:'#6b9b42',farmStroke:'#c5e88c',farmText:'#f2ffd9',preview:'#397b3c',accent:'#a5d66b' },
-  frostline: { background:'#246b4d',grid:'rgba(180,255,213,0.075)',pathGlow:'#543c31',path:'#d9bd98',pathDash:'rgba(255,248,226,0.92)',farmFill:'#287f5b',farmStroke:'#7de0a6',farmText:'#eafff1',preview:'#246b4d',accent:'#66d99a' },
-  emberCrossing: { background:'#145b38',grid:'rgba(196,255,203,0.075)',pathGlow:'#61422e',path:'#e0c39b',pathDash:'rgba(255,249,226,0.92)',farmFill:'#236b43',farmStroke:'#85d79b',farmText:'#edfff0',preview:'#145b38',accent:'#62c987' },
-  quarrySpiral: { background:'#0d633c',grid:'rgba(175,255,207,0.075)',pathGlow:'#59402e',path:'#d9b68e',pathDash:'rgba(255,247,223,0.92)',farmFill:'#26734b',farmStroke:'#7de0a6',farmText:'#eafff1',preview:'#0d633c',accent:'#55cf86' },
-  neonGauntlet: { background:'#d99b42',grid:'rgba(105,62,30,0.12)',pathGlow:'#512e25',path:'#75412c',pathDash:'rgba(235,171,102,0.95)',farmFill:'#c78b3e',farmStroke:'#ffe0a0',farmText:'#5c351f',preview:'#d99b42',accent:'#8f4f2d' },
-  voidLabyrinth: { background:'#ed6714',grid:'rgba(255,218,151,0.12)',pathGlow:'#3e1c18',path:'#59251d',pathDash:'rgba(255,128,34,0.95)',farmFill:'#a8461e',farmStroke:'#ffb24e',farmText:'#fff0c5',preview:'#ed6714',accent:'#ff9a25' },
+  meadow: { background:'#e7b653',grid:'transparent',pathGlow:'#743d2b',path:'#8e4c32',pathDash:'#c77b43',farmFill:'#e9b85d',farmStroke:'#f6d38b',farmText:'#56351f',preview:'#e7b653',accent:'#9a5536' },
+  frostline: { background:'#397a35',grid:'transparent',pathGlow:'#9c5b25',path:'#eaa84c',pathDash:'#ffe0a1',farmFill:'#2c7435',farmStroke:'#9bce69',farmText:'#f4f8d9',preview:'#397a35',accent:'#eaa84c' },
+  emberCrossing: { background:'#42494c',grid:'transparent',pathGlow:'#a75e26',path:'#f4b34f',pathDash:'#ffe0a1',farmFill:'#58635c',farmStroke:'#8b9b8d',farmText:'#edf5e8',preview:'#42494c',accent:'#f4b34f' },
+  quarrySpiral: { background:'#079db5',grid:'transparent',pathGlow:'#f6e5a6',path:'#62bd43',pathDash:'#b9e66d',farmFill:'#f6e5a6',farmStroke:'#fff1c7',farmText:'#385e31',preview:'#079db5',accent:'#62bd43' },
+  neonGauntlet: { background:'#d8b64b',grid:'transparent',pathGlow:'#f7e4ac',path:'#f5e2a5',pathDash:'#fff4d4',farmFill:'#a9a49b',farmStroke:'#ded8c9',farmText:'#333',preview:'#d8b64b',accent:'#f5e2a5' },
+  voidLabyrinth: { background:'#ed6514',grid:'transparent',pathGlow:'#ffb52e',path:'#552c25',pathDash:'#ff8b1a',farmFill:'#51403b',farmStroke:'#aa7760',farmText:'#fff0cf',preview:'#ed6514',accent:'#ffb52e' },
   infernoCircuit: MAP_COLORS.original,
 }
 export const MAPS: Record<MapId, GameMap> = {
