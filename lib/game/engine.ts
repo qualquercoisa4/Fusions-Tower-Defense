@@ -2827,7 +2827,7 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
     const [col, row] = cell.split(',').map(Number)
     const x = col * CELL, y = row * CELL
     if (map.theme === 'water') {
-      ctx.fillStyle = 'rgba(14,165,233,0.82)'
+      ctx.fillStyle = '#0891b2'
       ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2)
       ctx.strokeStyle = 'rgba(224,249,255,0.6)'; ctx.lineWidth = 2
       for (let wave = 0; wave < 2; wave++) {
