@@ -7,6 +7,10 @@ import {
   createGame,
   fuseTowers,
   placeTower,
+  placeTowerAt,
+  isBuildableAt,
+  getTowerCoverageRange,
+  towerAtPoint,
   render,
   spawnDebugEnemy,
   sellTower,
@@ -115,6 +119,8 @@ export function GameScreen({ onExit, mapId }: { onExit: () => void; mapId: MapId
       const s = game.current
       if (e.key === 'Escape') {
         s.buildType = null
+        s.pendingPlacement = null
+        s.placementDragging = false
         s.selectedId = null
         s.fuseMode = false
       } else if (e.key === '1') selectBuild('shooter')
@@ -141,33 +147,36 @@ export function GameScreen({ onExit, mapId }: { onExit: () => void; mapId: MapId
     window.setTimeout(() => setMessage((m) => (m === msg ? null : m)), 1800)
   }
 
-  const cellFromEvent = (e: React.PointerEvent<HTMLCanvasElement>) => {
+  const pointFromEvent = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
-    // Convert pointer coordinates using the canvas's actual rendered bounds.
-    // The canvas keeps the game's 3:2 aspect ratio; clamp prevents edge clicks
-    // from producing an out-of-range grid cell due to sub-pixel rounding.
-    const x = Math.max(0, Math.min(WIDTH - 0.001, ((e.clientX - rect.left) / rect.width) * WIDTH))
-    const y = Math.max(0, Math.min(HEIGHT - 0.001, ((e.clientY - rect.top) / rect.height) * HEIGHT))
-    return { col: Math.floor(x / CELL), row: Math.floor(y / CELL) }
+    const x = Math.max(0, Math.min(WIDTH, ((e.clientX - rect.left) / rect.width) * WIDTH))
+    const y = Math.max(0, Math.min(HEIGHT, ((e.clientY - rect.top) / rect.height) * HEIGHT))
+    return { x, y, col: Math.floor(x / CELL), row: Math.floor(y / CELL) }
   }
 
-  const handleClick = (e: React.PointerEvent<HTMLCanvasElement>) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const s = game.current
     if (s.status !== 'playing') return
-    const { col, row } = cellFromEvent(e)
-    const clicked = towerAt(s, col, row)
-
-    if (debugOpen && debugTowerType) {
-      if (placeTower(s, debugTowerType, col, row, true)) {
-        flash(`${TOWERS[debugTowerType].name} criada gratuitamente`)
-        setDebugTowerType('')
-      } else {
-        flash('Local inválido ou já ocupado')
+    const point = pointFromEvent(e)
+    const isDebugPlacement = !!(debugOpen && debugTowerType)
+    if (s.buildType || isDebugPlacement) {
+      const existing = !isDebugPlacement ? towerAtPoint(s, point.x, point.y) : null
+      if (existing) {
+        s.selectedId = existing.id
+        s.buildType = null
+        s.pendingPlacement = null
+        refresh()
+        return
       }
+      s.pendingPlacement = null
+      s.placementDragging = true
+      s.hover = point
+      e.currentTarget.setPointerCapture(e.pointerId)
       refresh()
       return
     }
 
+    const clicked = towerAtPoint(s, point.x, point.y)
     if (s.fuseMode && s.selectedId) {
       if (clicked && clicked.id !== s.selectedId) {
         const source = s.towers.find((t) => t.id === s.selectedId)!
@@ -178,38 +187,67 @@ export function GameScreen({ onExit, mapId }: { onExit: () => void; mapId: MapId
         } else if (result && fuseTowers(s, source.id, clicked.id)) {
           flash(`Fusão: ${TOWERS[result].name} (-${fusionCost})!`)
         } else {
-          flash(
-            TOWERS[source.type].tier !== TOWERS[clicked.type].tier
-              ? 'Só é possível fundir torres do mesmo tier'
-              : 'Não existe fusão para essas torres',
-          )
+          flash(TOWERS[source.type].tier !== TOWERS[clicked.type].tier
+            ? 'Só é possível fundir torres do mesmo tier'
+            : 'Não existe fusão para essas torres')
         }
       }
       s.fuseMode = false
       refresh()
       return
     }
+    s.selectedId = clicked?.id ?? null
+    refresh()
+  }
 
-    if (clicked) {
-      s.selectedId = clicked.id
-      s.buildType = null
-    } else if (s.buildType) {
-      if (!placeTower(s, s.buildType, col, row)) {
-        flash(s.money < TOWERS[s.buildType].cost ? 'Créditos insuficientes' : 'Não é possível construir aqui')
-      }
-    } else {
-      s.selectedId = null
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const s = game.current
+    if (!s.placementDragging) return
+    const point = pointFromEvent(e)
+    const type = debugOpen && debugTowerType ? debugTowerType : s.buildType
+    if (type) {
+      s.pendingPlacement = { type, x: point.x, y: point.y, free: !!(debugOpen && debugTowerType) }
     }
+    s.hover = point
+    s.placementDragging = false
     refresh()
   }
 
   const handleMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    game.current.hover = cellFromEvent(e)
+    game.current.hover = pointFromEvent(e)
+  }
+
+  const confirmPlacement = () => {
+    const s = game.current
+    const pending = s.pendingPlacement
+    if (!pending) return
+    if (placeTowerAt(s, pending.type, pending.x, pending.y, pending.free)) {
+      flash(`${TOWERS[pending.type].name} posicionada`)
+      if (pending.free) setDebugTowerType('')
+      s.buildType = null
+    } else {
+      flash(s.money < TOWERS[pending.type].cost && !pending.free ? 'Créditos insuficientes' : 'Posição inválida ou muito próxima de outra torre')
+    }
+    s.pendingPlacement = null
+    s.hover = null
+    refresh()
+  }
+
+  const cancelPlacement = () => {
+    const s = game.current
+    s.pendingPlacement = null
+    s.placementDragging = false
+    s.buildType = null
+    s.hover = null
+    if (debugOpen) setDebugTowerType('')
+    refresh()
   }
 
   function selectBuild(type: TowerType) {
     const s = game.current
     s.buildType = s.buildType === type ? null : type
+    s.pendingPlacement = null
+    s.placementDragging = false
     s.selectedId = null
     s.fuseMode = false
     refresh()
@@ -259,13 +297,26 @@ export function GameScreen({ onExit, mapId }: { onExit: () => void; mapId: MapId
           <div className="relative flex h-full min-h-0 w-full items-center justify-center">
             <canvas
               ref={canvasRef}
-              onPointerDown={handleClick}
+              onPointerDown={handlePointerDown}
               onPointerMove={handleMove}
-              onPointerLeave={() => (game.current.hover = null)}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={cancelPlacement}
+              onPointerLeave={() => { if (!game.current.placementDragging) game.current.hover = null }}
               className="block h-auto w-full max-w-full rounded-lg border border-sky-500/30 shadow-[0_0_40px_rgba(56,189,248,0.15)] touch-none cursor-crosshair"
               style={{ aspectRatio: `${WIDTH} / ${HEIGHT}`, width: `min(100%, calc((100dvh - 150px) * ${WIDTH / HEIGHT}))` }}
               aria-label="Campo de batalha"
             />
+            {s.pendingPlacement && (
+              <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-xl border border-white/15 bg-slate-950/95 p-2 shadow-2xl">
+                <span className="px-2 text-xs text-slate-200">{TOWERS[s.pendingPlacement.type].name}</span>
+                <button onClick={confirmPlacement} disabled={!isBuildableAt(s,s.pendingPlacement.x,s.pendingPlacement.y,s.pendingPlacement.type) || (!s.pendingPlacement.free && s.money < TOWERS[s.pendingPlacement.type].cost)} className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40">
+                  <span aria-hidden>✓</span> Confirmar
+                </button>
+                <button onClick={cancelPlacement} aria-label="Cancelar posicionamento" className="flex size-9 items-center justify-center rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500/35">
+                  <span className="text-xl leading-none" aria-hidden>×</span>
+                </button>
+              </div>
+            )}
             {message && (
               <div
                 role="status"
@@ -294,7 +345,7 @@ export function GameScreen({ onExit, mapId }: { onExit: () => void; mapId: MapId
           {debugOpen && (
             <section className="rounded-lg border border-amber-400/40 bg-[#171526] p-2 lg:col-start-1 lg:row-start-2">
               <h2 className="mb-1 flex items-center gap-2 font-display text-xs tracking-widest text-amber-300"><Bug className="size-4" aria-hidden /> MODO DEBUG</h2>
-              <p className="mb-3 text-[11px] leading-relaxed text-slate-400">Crie qualquer torre sem gastar créditos ou invoque insetos instantaneamente. Para colocar uma torre, escolha-a e toque em uma casa livre do mapa.</p>
+              <p className="mb-3 text-[11px] leading-relaxed text-slate-400">Crie qualquer torre sem gastar créditos ou invoque insetos instantaneamente. Selecione uma torre, arraste-a até o local desejado e confirme no botão verde.</p>
               <label className="mb-1 block text-xs text-slate-300" htmlFor="debug-enemy">Spawnar inseto</label>
               <div className="flex gap-1.5">
                 <select id="debug-enemy" value={debugEnemyType} onChange={(event) => setDebugEnemyType(event.target.value as EnemyType)} className="min-w-0 flex-1 rounded-md border border-slate-600 bg-[#071020] px-2 py-2 text-sm">
