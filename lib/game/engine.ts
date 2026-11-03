@@ -2996,17 +2996,21 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState) {
       ctx.restore()
     }
     const start = route.path[0], finish = route.path[route.path.length - 1]
-    const markerRadius = 17
-    for (const marker of [{point:start,color:'#00cfff',stroke:'#d9f7ff'},{point:finish,color:'#ef4444',stroke:'#ffe1e1'}]) {
+    const markers = [
+      { point: start, angle: Math.atan2(route.path[1].y - start.y, route.path[1].x - start.x), color: '#00bff3', stroke: '#b9f2ff' },
+      { point: finish, angle: Math.atan2(finish.y - route.path[route.path.length - 2].y, finish.x - route.path[route.path.length - 2].x), color: '#ed3347', stroke: '#ffd5d9' },
+    ]
+    for (const marker of markers) {
       ctx.save()
+      ctx.translate(marker.point.x, marker.point.y)
+      ctx.rotate(marker.angle)
       ctx.shadowColor = marker.color; ctx.shadowBlur = 14
       ctx.fillStyle = marker.color; ctx.strokeStyle = marker.stroke; ctx.lineWidth = 2.5
-      ctx.beginPath(); ctx.arc(marker.point.x, marker.point.y, markerRadius, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
-      ctx.shadowBlur = 0; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3
+      ctx.beginPath(); ctx.roundRect(-22, -15, 44, 30, 8); ctx.fill(); ctx.stroke()
+      ctx.shadowBlur = 0; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
       ctx.beginPath()
-      ctx.moveTo(marker.point.x - 6, marker.point.y - 3)
-      ctx.lineTo(marker.point.x, marker.point.y + 3)
-      ctx.lineTo(marker.point.x + 6, marker.point.y - 3)
+      ctx.moveTo(-8, -7); ctx.lineTo(0, 0); ctx.lineTo(-8, 7)
+      ctx.moveTo(3, -7); ctx.lineTo(11, 0); ctx.lineTo(3, 7)
       ctx.stroke()
       ctx.restore()
     }
