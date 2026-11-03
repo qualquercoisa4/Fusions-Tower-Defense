@@ -812,17 +812,36 @@ function defineMap(
     terrainPatches?: { points: [number, number][]; color: string }[]
     sandOnly?: boolean
     pathWidth?: number
+    waterBuildable?: { minDistance: number; maxDistance: number; boat: [number, number][]; bankRadius: number }
   } = {},
 ): GameMap {
   const routes = [waypoints, ...(options.extraRoutes ?? [])].map(points => buildRoute(points, options.pixelCoordinates))
   const pathCells = new Set(routes.flatMap(route => [...route.pathCells]))
   const farmCells = new Set(options.farms ?? [])
-  const terrainPatches = options.terrainPatches ?? []
+  const terrainPatches = [...(options.terrainPatches ?? [])]
+  if (options.waterBuildable) {
+    const route = routes[0].path
+    const left: [number, number][] = [], right: [number, number][] = []
+    for (let i=0;i<route.length;i++) {
+      const prev=route[Math.max(0,i-1)], next=route[Math.min(route.length-1,i+1)]
+      const dx=next.x-prev.x, dy=next.y-prev.y, length=Math.hypot(dx,dy)||1
+      const nx=-dy/length*options.waterBuildable.bankRadius, ny=dx/length*options.waterBuildable.bankRadius
+      left.push([route[i].x+nx,route[i].y+ny])
+      right.push([route[i].x-nx,route[i].y-ny])
+    }
+    terrainPatches.unshift({points:[...left,...right.reverse()],color:'#0b6040'})
+    terrainPatches.push({points:options.waterBuildable.boat,color:'#176747'})
+  }
   const blockedCells = new Set<string>()
   for (let row=0;row<ROWS;row++) for(let col=0;col<COLS;col++) {
     const cell=`${col},${row}`
     const px=(col+0.5)*CELL/MAP_SCALE_X, py=(row+0.5)*CELL/MAP_SCALE_Y
-    if (terrainPatches.some(patch => pointInPolygon(px,py,patch.points))) blockedCells.add(cell)
+    const boatBuildable=!!options.waterBuildable && pointInPolygon(px,py,options.waterBuildable.boat)
+    if (terrainPatches.some((patch,index) => pointInPolygon(px,py,patch.points) && (index >= (options.waterBuildable ? (options.terrainPatches?.length ?? 0)+1 : 0) ? !boatBuildable : true))) blockedCells.add(cell)
+    if (options.waterBuildable) {
+      const distance=distanceToRoutes(px,py,routes)
+      if (!boatBuildable && (distance < options.waterBuildable.minDistance || distance > options.waterBuildable.maxDistance)) blockedCells.add(cell)
+    }
     if (options.sandOnly) {
       const distance=distanceToRoutes(px,py,routes)/MAP_SCALE_X
       // Areia: faixa clara ao redor da trilha verde. Água e trilha não aceitam torres.
@@ -898,13 +917,26 @@ export const MAPS: Record<MapId, GameMap> = {
       ]}),
 
   // Referência 2: serpentina contínua, com grandes curvas em S e sem cruzamentos.
-  frostline: defineMap('frostline','Serpentina Longa','Intermediário','Uma estrada sinuosa atravessa a arena em curvas largas e contínuas.',1.16,1.06,ARENA_COLORS.frostline,
-    [[64,-8],[64,22],[65,42],[72,54],[88,60],[112,61],[139,61],[165,61],[187,61],[201,66],[207,78],[204,92],[192,105],[173,113],[150,119],[127,127],[105,139],[88,153],[79,169],[83,184],[98,194],[120,198],[145,198],[171,198],[197,198],[222,198],[261,198]],
-    {pixelCoordinates:true,theme:'grass',pathWidth:38,farms:['2,2','29,2','2,25','29,25'],
+  frostline: defineMap('frostline','Serpentina Longa','Intermediário','Uma estrada longa serpenteia por ilhas de terra cercadas por água.',1.16,1.06,{
+      background:'#062b35',grid:'rgba(95,205,209,0.12)',pathGlow:'rgba(66,220,170,0.48)',path:'#dfc5a4',pathDash:'#fff4df',
+      farmFill:'rgba(22,101,76,0.3)',farmStroke:'#4adea0',farmText:'#dcfce7',preview:'#062b35',accent:'#4adea0'
+    },
+    [[52,-8],[52,25],[55,39],[66,48],[84,51],[110,51],[140,51],[174,51],[197,51],[207,58],[208,73],[202,86],[190,93],[174,95],[159,101],[151,113],[139,121],[121,125],[101,122],[80,122],[59,122],[43,126],[35,137],[34,151],[39,163],[53,171],[76,173],[102,173],[126,176],[149,173],[174,166],[194,168],[208,179],[216,194],[224,211],[229,232]],
+    {pixelCoordinates:true,theme:'water',pathWidth:38,farms:[],
+      waterBuildable:{minDistance:5.8,maxDistance:16.5,bankRadius:18,boat:[[214,111],[229,105],[244,111],[249,120],[243,128],[224,130],[213,124]]},
       terrainPatches:[
-        {points:[[0,0],[28,0],[28,24],[15,31],[0,22]],color:'#0b5038'},
-        {points:[[228,0],[256,0],[256,28],[241,34],[228,24]],color:'#0b5038'},
-        {points:[[0,196],[27,190],[43,205],[42,224],[0,224]],color:'#0b5038'}
+        {points:[[0,0],[22,0],[22,18],[15,24],[0,24]],color:'#476d70'},
+        {points:[[238,0],[256,0],[256,24],[244,22],[238,14]],color:'#476d70'},
+        {points:[[0,191],[16,191],[22,201],[34,205],[37,224],[0,224]],color:'#476d70'},
+        {points:[[235,199],[256,193],[256,224],[239,224],[232,214]],color:'#476d70'},
+        {points:[[10,65],[25,63],[29,71],[24,79],[12,80],[8,74]],color:'#476d70'},
+        {points:[[105,82],[117,81],[121,87],[116,93],[104,93],[100,88]],color:'#476d70'},
+        {points:[[139,6],[146,6],[148,11],[144,15],[138,12]],color:'#476d70'},
+        {points:[[242,15],[249,15],[251,20],[247,24],[241,21]],color:'#476d70'},
+        {points:[[231,153],[238,153],[240,158],[236,162],[230,159]],color:'#476d70'},
+        {points:[[142,201],[150,201],[152,206],[147,210],[141,207]],color:'#476d70'},
+        {points:[[85,207],[92,207],[94,212],[90,216],[84,213]],color:'#476d70'},
+        {points:[[0,0],[256,0],[256,224],[0,224]],color:'#062b35'}
       ]}),
 
   // Referência 3: espiral ampla, afunilando até o centro e saindo pela parte inferior.
