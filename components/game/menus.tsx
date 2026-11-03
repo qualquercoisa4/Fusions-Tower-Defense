@@ -77,8 +77,7 @@ export function MapSelection({ onBack, onSelect }: { onBack: () => void; onSelec
         </header>
 
         <p className="max-w-2xl text-sm leading-relaxed text-slate-400">
-          Escolha uma arena. Cada mapa possui um percurso próprio, identidade visual e dificuldade crescente.
-          Todos usam a campanha de 75 ondas.
+          Escolha uma arena. Posicione torres livremente no terreno: selecione, arraste até o ponto desejado e confirme. Todas as arenas usam a campanha de 75 ondas.
         </p>
 
         {MAP_DIFFICULTY_GROUPS.map((group, groupIndex) => (
@@ -124,13 +123,7 @@ export function MapSelection({ onBack, onSelect }: { onBack: () => void; onSelec
                             <circle cx={finish.x} cy={finish.y} r="25" fill="#ef0800" stroke="#fee2e2" strokeWidth="3" />
                           </g>
                         })}
-                        {Array.from(map.farmCells).map((cell) => {
-                          const [col, row] = cell.split(',').map(Number)
-                          const x = col * CELL, y = row * CELL
-                          return map.id === 'quarrySpiral' && cell === '29,15'
-                            ? <g key={cell} transform={`translate(${x + CELL/2} ${y + CELL/2})`}><path d="M-12 2 L12 2 8 9 -8 9Z" fill="#78350f" stroke="#fef3c7" strokeWidth="1.5"/><path d="M0 -11 V2 M1 -10 L9 -1 H1Z" fill="#fef3c7"/></g>
-                            : <g key={cell}><rect x={x + 2} y={y + 2} width={CELL - 4} height={CELL - 4} rx="4" fill={map.colors.farmFill} stroke={map.colors.farmStroke} strokeWidth="2" /><text x={x + CELL/2} y={y + CELL/2 + 3} fontSize="8" fontWeight="bold" textAnchor="middle" fill={map.colors.farmText}>FARM</text></g>
-                        })}
+                        {map.id === 'quarrySpiral' && <g transform={`translate(${WIDTH*0.82} ${HEIGHT*0.72})`}><path d="M-35 5 L35 5 24 20 -24 20Z" fill="#6b3f22" stroke="#f3d19b" strokeWidth="3"/><path d="M0 -25 V8 M1 -23 L20 -3 H1Z" fill="#fff4cf"/></g>}
                       </svg>
                       <span className="absolute left-3 top-3 rounded-md border border-white/15 bg-black/45 px-2 py-1 text-[10px] font-bold tracking-widest text-white/90">75 ONDAS</span>
                       <span className="absolute bottom-3 right-3 rounded-md px-2 py-1 text-[10px] font-bold tracking-wider text-slate-950" style={{ backgroundColor: map.colors.accent }}>{map.difficulty.toUpperCase()}</span>
@@ -145,7 +138,7 @@ export function MapSelection({ onBack, onSelect }: { onBack: () => void; onSelec
                         <span className="rounded bg-white/5 px-2 py-1">Vida inimiga +{hpIncrease}%</span>
                         <span className="rounded bg-white/5 px-2 py-1">Velocidade +{speedIncrease}%</span>
                         {map.routes.length > 1 && <span className="rounded bg-sky-400/10 px-2 py-1 text-sky-200">{map.routes.length} rotas · alternância 1:1</span>}
-                        <span className="rounded bg-emerald-400/10 px-2 py-1 text-emerald-200">{map.farmCells.size} farms</span>
+                        <span className="rounded bg-emerald-400/10 px-2 py-1 text-emerald-200">Posicionamento livre</span>
                       </div>
                     </div>
                   </button>
