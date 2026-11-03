@@ -1275,7 +1275,7 @@ export function update(s: GameState, dt: number) {
           e.burrowCooldown = 3.6 + Math.random() * 2.2
           s.explosions.push({ x: e.x, y: e.y, r: 17, t: 0, dur: 0.28, color: '#a8a29e' })
         }
-        if (e.dist >= MAPS[s.mapId].pathLengths[MAPS[s.mapId].pathLengths.length - 1]) {
+        if (e.dist >= (MAPS[s.mapId].routes[e.routeIndex] ?? MAPS[s.mapId].routes[0]).pathLengths.slice(-1)[0]) {
           e.alive = false
           s.lives -= def.damage
         }
@@ -1484,7 +1484,8 @@ export function update(s: GameState, dt: number) {
       if (t.meteorDistance < 0) {
         t.supportCooldown = Math.max(0, t.supportCooldown - dt)
         if (t.supportCooldown <= 0) {
-          t.meteorDistance = MAPS[s.mapId].pathLengths[MAPS[s.mapId].pathLengths.length - 1]
+          const routeIndex = t.id % MAPS[s.mapId].routes.length
+          t.meteorDistance = MAPS[s.mapId].routes[routeIndex].pathLengths.slice(-1)[0]
           t.meteorTimer = 0
         }
       } else {
@@ -1536,7 +1537,7 @@ export function update(s: GameState, dt: number) {
       continue
     }
     if (t.type === 'incomeFarm' || t.type === 'incomeTax' || t.type === 'economyHouse') {
-      if (s.waveActive && FARM_CELLS.has(`${t.col},${t.row}`) && t.incomeWave === s.wave && t.incomeSignalsLeft > 0 && t.cooldown <= 0) {
+      if (s.waveActive && MAPS[s.mapId].farmCells.has(`${t.col},${t.row}`) && t.incomeWave === s.wave && t.incomeSignalsLeft > 0 && t.cooldown <= 0) {
         const baseIncome = t.type === 'incomeFarm' ? 30 : t.type === 'incomeTax' ? 70 : 80
         const stationNearby = s.towers.some(other => other.type === 'electricalStation' && Math.hypot(other.x-t.x,other.y-t.y) <= TOWERS.electricalStation.range)
         s.money += Math.round(baseIncome * (stationNearby ? 1.5 : 1))
